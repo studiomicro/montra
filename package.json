@@ -71,7 +71,7 @@
 		"drizzle-orm": "^0.45.3",
 		"fflate": "0.8.3",
 		"pdfjs-dist": "6.4.299",
-		"postal-mime": "3.0.1",
+		"postal-mime": "4.0.5",
 		"tesseract.js": "7.0.0",
 		"tesseract.js-core": "7.0.0",
 		"unpdf": "1.8.1",
