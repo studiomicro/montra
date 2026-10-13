@@ -1,0 +1,9 @@
+From: Dompet Contoh <struk@struk.dompet-digital.example>
+To: TO_ADDRESS
+Subject: Bukti pembayaran
+Message-ID: <ew-wrong-missing@struk.dompet-digital.example>
+Content-Type: text/plain; charset=utf-8
+
+Pembayaran ke Kedai Kopi Senja
+8 Oktober 2026, 14:32
+ID Transaksi: GP-ABC124

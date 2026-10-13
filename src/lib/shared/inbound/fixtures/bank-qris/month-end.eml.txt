@@ -1,0 +1,11 @@
+From: Bank Contoh <noreply@notifikasi.bank-qris.example>
+To: TO_ADDRESS
+Subject: Transaksi QRIS Berhasil
+Message-ID: <qris-20261031-2330@notifikasi.bank-qris.example>
+Content-Type: text/plain; charset=utf-8
+
+Tanggal : 31 Okt 2026 23:30:00 WIB
+Merchant : WARUNG MALAM
+Nominal : Rp 15.000,00
+No. Referensi : 20261031233000000001
+Sumber dana : 1234567890

@@ -1,0 +1,20 @@
+{
+	"source": "Chromium 153.0.8010.12 CDP virtual authenticator (ctap2, internal, resident key, UV), recorded 2026-10-12",
+	"rpId": "localhost",
+	"origin": "http://localhost:47811",
+	"registration": {
+		"challenge": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+		"id": "ifCOERVMr4pN6_qwzJGfUyKbqlLvGAGQd6PLGRTK2D4",
+		"attestationObject": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVikSZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NFAAAAAQECAwQFBgcIAQIDBAUGBwgAIInwjhEVTK-KTev6sMyRn1Mim6pS7xgBkHejyxkUytg-pQECAyYgASFYINp_no9qRCuz_lHF_nxp0OdgFPbOnSW9r5kwzu9YgLjHIlggcqfAtR930ZmLM7lz1LOrxIHuw_1KGTWiaJFxFjmf-mo",
+		"clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiQUFFQ0F3UUZCZ2NJQ1FvTERBME9EeEFSRWhNVUZSWVhHQmthR3h3ZEhoOCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NDc4MTEiLCJjcm9zc09yaWdpbiI6ZmFsc2V9",
+		"transports": ["internal"]
+	},
+	"assertion": {
+		"challenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+		"id": "ifCOERVMr4pN6_qwzJGfUyKbqlLvGAGQd6PLGRTK2D4",
+		"authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAg",
+		"clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiSUNFaUl5UWxKaWNvS1NvckxDMHVMekF4TWpNME5UWTNPRGs2T3p3OVBqOCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NDc4MTEiLCJjcm9zc09yaWdpbiI6ZmFsc2V9",
+		"signature": "MEYCIQC3TkjRpfWBhaL5Gqbjng0rzr3C2Qkm2hwcb7m8mnwtwAIhAKKQaeqtNEMjfd_hQkBFU9IEySHGZUaL3QIJN6ba5eXA",
+		"userHandle": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc"
+	}
+}

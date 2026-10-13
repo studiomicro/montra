@@ -1,0 +1,205 @@
+@import 'tailwindcss';
+@import '../docs/design/tokens.css';
+
+/*
+ * Owner decision 2026-10-10: Geist (SIL OFL 1.1, npm `geist@1.7.2`) is the UI font, self-hosted from `static/fonts`
+ * (CSP `font-src 'self'`, no third-party request). One variable file covers weights 100-900 and the Latin +
+ * Latin-Ext glyphs as shipped, so there is no `unicode-range`. The versioned path is cached as immutable
+ * (`_headers`), the file is preloaded in `app.html` and precached by the service worker. Geist Mono is used by
+ * code samples only and downloads when one is on screen. When upgrading, change the folder name here, in
+ * `app.html`, `sw-policy.ts` and `static/offline.css` (test/font.test.ts checks they agree).
+ */
+@font-face {
+	font-family: 'Geist';
+	src: url('/fonts/geist/1.7.2/Geist-Variable.woff2') format('woff2');
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Geist Mono';
+	src: url('/fonts/geist-mono/1.7.2/GeistMono-Variable.woff2') format('woff2');
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+/*
+ * FN-13b: the one place the device's safe areas are read. Every component uses these variables, never
+ * `env(safe-area-inset-*)` itself (test/platform-css.test.ts), so a test can emulate a notch by overriding them
+ * (Chromium cannot fake `env()`). They are 0 on the web and with the `default` iOS status bar in portrait.
+ */
+:root {
+	--sai-top: env(safe-area-inset-top, 0px);
+	--sai-right: env(safe-area-inset-right, 0px);
+	--sai-bottom: env(safe-area-inset-bottom, 0px);
+	--sai-left: env(safe-area-inset-left, 0px);
+}
+
+html {
+	background: var(--bg);
+	color: var(--ink);
+	font-family: var(--font);
+	font-size: 17px;
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	/* Page content starts below a top inset (a notch in a fullscreen web app); the sticky bars hold below it too. */
+	padding-top: var(--sai-top);
+	min-height: 100dvh;
+	background: var(--bg);
+}
+
+/*
+ * FN-13b: iOS zooms the page when a field under 16 px gets focus, and zoom must stay available to the user (no
+ * `maximum-scale`). The floor is unlayered so it beats Tailwind's layers; a component that sets its own smaller
+ * size is raised in its own style (e2e/pwa.spec.ts scans the computed sizes). File inputs open a picker and do
+ * not focus-zoom, so they are left to their own components.
+ */
+input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']),
+select,
+textarea {
+	font-size: max(16px, 1em);
+}
+
+/*
+ * Fields sit on --panel, and so do the cards and groups they live in (Impor, Tanya, a sign-in form on a panel
+ * card), where a fill alone vanishes (1.1:1). One rule for every field and kit secondary button: the --panel fill
+ * plus a 1px inset ink hairline (a shadow, so the box never grows). `:where()` keeps it at zero specificity, so a
+ * component still wins when it needs its own edge (the invalid red ring, a field inside a bordered wrapper).
+ */
+:where(
+	input:not(
+		[type='checkbox'],
+		[type='radio'],
+		[type='range'],
+		[type='file'],
+		[type='color'],
+		[type='hidden'],
+		[type='submit'],
+		[type='button']
+	),
+	select,
+	textarea
+) {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+
+/*
+ * ios-responsive: a select sizes itself to its longest option, so a wallet with a long name pushed a form wider
+ * than a 375 px phone. It may shrink to its column and cuts a long option with an ellipsis.
+ */
+select {
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* A form field or stack that is a grid gets a column that may shrink, so a wide select, input or picker never widens the page. */
+.field,
+.stack,
+.picker {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+/* A short text "Batal" link is a 44 px target in both directions on touch (the pages style the rest). */
+@media (pointer: coarse) {
+	a.cancel {
+		min-width: 44px;
+		justify-content: center;
+	}
+}
+
+:focus-visible {
+	outline: 2px solid var(--brand);
+	outline-offset: 2px;
+}
+
+.num {
+	font-variant-numeric: tabular-nums;
+}
+
+/* § 3a: a panel pill (secondary or destructive button) inside a panel GroupedList sits on the page colour. */
+.group .btn.secondary,
+.group .btn.destructive {
+	background: var(--bg);
+}
+
+/*
+ * Glass material (FN-40 Part 4, DESIGN_SYSTEM.md § Glass): floating chrome only. `glass` is the tab bar, sheet,
+ * banner and toast material; add `glass-soft` for the lighter page-coloured frost of sticky bars. A component
+ * may tint its own glass by setting --glass-fill and --glass-fallback; it never sets background,
+ * box-shadow or backdrop-filter itself, so the fallbacks below always win.
+ */
+.glass {
+	--glass-fill: var(--glass-bg);
+	--glass-fallback: var(--glass-solid);
+	--glass-filter: var(--glass-blur);
+	background: var(--glass-fill);
+	box-shadow:
+		inset 0 0 0 1px var(--glass-border),
+		var(--glass-shadow);
+	-webkit-backdrop-filter: var(--glass-filter);
+	backdrop-filter: var(--glass-filter);
+}
+.glass-soft {
+	--glass-fill: var(--glass-bg-soft);
+	--glass-fallback: var(--bg);
+	--glass-filter: var(--glass-blur-soft);
+	box-shadow: none;
+}
+
+/*
+ * Solid fallback: the opaque colour text contrast is tested against, with the float shadow in place of the
+ * glass edge. Used when the user asks for less transparency, when the browser has no backdrop-filter, and —
+ * the blur budget, at most 3 blurred layers on screen — for every glass surface under an open sheet's scrim
+ * (the page chrome holds at most 2: tab bar or sidebar, plus the sticky title; test/glass-budget.test.ts).
+ */
+@media (prefers-reduced-transparency: reduce) {
+	.glass {
+		background: var(--glass-fallback);
+		box-shadow: var(--shadow-float);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+	.glass.glass-soft {
+		box-shadow: none;
+	}
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.glass {
+		background: var(--glass-fallback);
+		box-shadow: var(--shadow-float);
+	}
+	.glass.glass-soft {
+		box-shadow: none;
+	}
+}
+:root:has(dialog[open]) .glass:not(dialog[open], dialog[open] *) {
+	background: var(--glass-fallback);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+/*
+ * Reduced motion: animations end at once; transitions do not run at all. A 0.01 ms transition would still start on
+ * every property change of every element (`transition-property` defaults to `all`), leaving the old value in place
+ * until the next frame — e.g. the page chrome kept its blur for a frame after a sheet opened (FN-40 QA). Nothing in
+ * the app waits for transitionend.
+ */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0s !important;
+		transition-delay: 0s !important;
+		scroll-behavior: auto !important;
+	}
+}

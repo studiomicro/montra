@@ -1,0 +1,64 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "montra-app",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_als"],
+	// html_handling none: static/offline.html is served at its own path (no 307 to /offline), so the service
+	// worker can cache it and answer an offline page load with it (FN-13).
+	"assets": { "binding": "ASSETS", "directory": ".svelte-kit/cloudflare", "html_handling": "none" },
+	// Invocation logs record every request's full URL, invite tokens in `/ruang/undangan/<token>` and `next=`
+	// included (FN-03 red team L3): off. hooks.server.ts logs one line per request without them instead.
+	"observability": { "enabled": true, "logs": { "invocation_logs": false } },
+	"vars": { "APP_VERSION": "0.11.0" },
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "montra",
+			"database_id": "00000000-0000-4000-8000-000000000000",
+			"migrations_dir": "migrations"
+		}
+	],
+	"r2_buckets": [{ "binding": "FILES", "bucket_name": "montra-files" }],
+	"kv_namespaces": [{ "binding": "CACHE", "id": "00000000000000000000000000000000" }],
+	"queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "montra-jobs" }] },
+	"analytics_engine_datasets": [{ "binding": "STATS", "dataset": "montra_stats" }],
+	"env": {
+		"staging": {
+			// account_id, D1 and KV ids are placeholders: `npm run deploy:staging` fills them from the environment
+			// (CLOUDFLARE_ACCOUNT_ID, STAGING_D1_DATABASE_ID, STAGING_KV_CACHE_ID) or the gitignored .staging.env into a
+			// temporary config (docs/RUNBOOK.md › Staging). Never commit real ids.
+			"name": "montra-app-staging",
+			"account_id": "00000000000000000000000000000000",
+			// Owner decision 2026-10-09: the staging app answers on its own custom domain until a production Worker
+			// exists; workers.dev stays on as a fallback address. staging.example.invalid is a placeholder that
+			// `npm run deploy:staging` replaces with STAGING_APP_HOST (here and in GOOGLE_OAUTH_REDIRECT_ORIGIN).
+			"routes": [{ "pattern": "staging.example.invalid", "custom_domain": true }],
+			"workers_dev": true,
+			"observability": { "enabled": true, "logs": { "invocation_logs": false } },
+			// SUPPORT_EMAIL (FN-01, /hapus-akun mailto) is omitted until the owner supplies the address: the page
+			// then shows "Alamat dukungan belum dikonfigurasi." instead of a request link.
+			// FN-19 Gmail: the one redirect origin of staging (plain var). The OAuth client id and secret are Worker
+			// secrets set by the owner (docs/RUNBOOK.md › Gmail); until then the Gmail page is "Belum dikonfigurasi".
+			"vars": {
+				"APP_VERSION": "0.11.0",
+				"APP_ENV": "staging",
+				"GOOGLE_OAUTH_REDIRECT_ORIGIN": "https://staging.example.invalid",
+				// FN-50: empty = Turnstile off; `deploy:staging` fills it from STAGING_TURNSTILE_SITE_KEY when set.
+				"TURNSTILE_SITE_KEY": ""
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "montra-staging",
+					"database_id": "00000000-0000-4000-8000-000000000000",
+					"migrations_dir": "migrations"
+				}
+			],
+			"r2_buckets": [{ "binding": "FILES", "bucket_name": "montra-files-staging" }],
+			"kv_namespaces": [{ "binding": "CACHE", "id": "00000000000000000000000000000000" }],
+			"queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "montra-jobs-staging" }] },
+			"analytics_engine_datasets": [{ "binding": "STATS", "dataset": "montra_stats_staging" }]
+		}
+	}
+}

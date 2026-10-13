@@ -1,0 +1,620 @@
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { maskAccountNumbers } from '#lib/shared/text';
+import type { Db } from '../db';
+import { transactions, transferLinks } from '../db/schema';
+import { isLiveMember, type SpaceScope } from '../spaces/access';
+import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
+import { TOMBSTONE_CONTENT } from '../transactions/repo';
+import { newId } from '../util';
+
+/**
+ * FN-48 Part C "Cocokkan transfer": an imported statement records a transfer between two of the user's own wallets
+ * as two unrelated rows (an expense in the source wallet, an income in the destination), so it is counted as both
+ * money out and money in. This module finds such pairs deterministically — live, non-demo rows already in the
+ * `transfer` tile category of their kind ("Transfer keluar" / "Transfer masuk"), same `amount_minor` and
+ * `currency`, two different wallets of the same space, `occurred_on` (WIB date) within ±1 day — and, after the
+ * user confirms one pair, merges them into one FN-05 transfer row: the debit row becomes the transfer, the credit
+ * row is tombstoned (its dedupe key stays, so a re-import never recreates it) and both rows' previous content is
+ * kept in `transfer_links` for the one-step undo, which restores the very same rows (same ids, same `created_at`).
+ * Never auto-applied, never a match on amount alone, nothing learned from a confirmed or skipped pair.
+ */
+
+/** Most pairs one review lists (newest `occurred_on` first); the card's count still shows them all. */
+export const MATCH_PREVIEW_MAX = 200;
+/** Most confirmed merges the review page offers to undo (newest first). */
+export const LINKS_LIST_MAX = 50;
+
+/**
+ * One side of a candidate pair (table alias `d` for the debit, `c` for the credit): a live, real expense or income
+ * row of the space whose category is the `transfer` tile of its own kind, in a live wallet. A debit row that is a
+ * Patungan split's bill cannot become a transfer (its link requires an expense); a credit row with a kept receipt
+ * photo is not tombstoned (the photo could not be restored exactly), so neither is offered.
+ */
+function eligible(alias: 'd' | 'c', spaceId: string): SQL {
+	const t = sql.raw(alias);
+	const kind = alias === 'd' ? 'expense' : 'income';
+	const own = alias === 'd' ? sql`${t}.patungan_split_id is null` : sql`${t}.photo_key is null`;
+	return sql`${t}.space_id = ${spaceId} and ${t}.deleted_at is null and ${t}.is_demo = 0
+		and ${t}.type = ${kind} and ${own}
+		and exists (select 1 from categories k where k.id = ${t}.category_id and k.space_id = ${spaceId}
+			and k.tile_key = 'transfer' and k.kind = ${t}.type)
+		and exists (select 1 from wallets w where w.id = ${t}.wallet_id and w.space_id = ${spaceId}
+			and w.deleted_at is null)`;
+}
+
+/** Debit `d` and credit `c` form a pair: exact amount and currency, two wallets, WIB dates within a day. */
+const PAIRED = sql`c.amount_minor = d.amount_minor and c.currency = d.currency and c.wallet_id <> d.wallet_id
+	and c.occurred_on between date(d.occurred_on, '-1 day') and date(d.occurred_on, '+1 day')`;
+
+/** `from … where …` over every candidate pair of the space (append `and …` for one pair). */
+const pairsOf = (spaceId: string) => sql`from transactions d join transactions c on ${PAIRED}
+	where ${eligible('d', spaceId)} and ${eligible('c', spaceId)}`;
+
+/** How many pairs the space has (counted in SQL, never by loading them); the /impor card's count. */
+export async function countTransferMatches(db: Db, spaceId: string): Promise<number> {
+	const row = await db.get<{ n: number }>(sql`select count(*) as n ${pairsOf(spaceId)}`);
+	return row?.n ?? 0;
+}
+
+interface PairRow {
+	debitId: string;
+	debitTitle: string | null;
+	debitOn: string;
+	debitWalletId: string;
+	debitUpdatedAt: number;
+	creditId: string;
+	creditTitle: string | null;
+	creditOn: string;
+	creditWalletId: string;
+	creditUpdatedAt: number;
+	amountMinor: number;
+	currency: string;
+}
+
+/** One row of a proposed pair, as the review shows it (title masked, display only). */
+export interface TransferSide {
+	id: string;
+	title: string;
+	occurredOn: string;
+	walletId: string;
+	/** The row's version the form sends back, so a row edited meanwhile is never merged (409). */
+	updatedAt: number;
+}
+
+export interface TransferPair {
+	debit: TransferSide;
+	credit: TransferSide;
+	amountMinor: number;
+	currency: string;
+}
+
+/**
+ * Pairs that share a row (one debit with two same-amount credits in the window, or the reverse) are one group:
+ * the review lists every candidate of it and the user picks one or skips the whole group; nothing is picked for
+ * them. A group of one pair is unambiguous.
+ */
+export interface TransferMatchGroup {
+	/** The group's first pair's ids (a stable key for the list). */
+	key: string;
+	amountMinor: number;
+	currency: string;
+	ambiguous: boolean;
+	pairs: TransferPair[];
+}
+
+/** Connected components of the pair graph (rows as nodes), in the order the pairs were listed. */
+export function groupTransferPairs(pairs: readonly TransferPair[]): TransferMatchGroup[] {
+	const parent = new Map<string, string>();
+	const root = (id: string): string => {
+		let r = id;
+		while (parent.get(r) !== undefined && parent.get(r) !== r) r = parent.get(r)!;
+		return r;
+	};
+	const unite = (a: string, b: string) => {
+		const ra = root(a);
+		const rb = root(b);
+		if (!parent.has(ra)) parent.set(ra, ra);
+		if (!parent.has(rb)) parent.set(rb, rb);
+		if (ra !== rb) parent.set(rb, ra);
+	};
+	for (const p of pairs) unite(p.debit.id, p.credit.id);
+	const groups = new Map<string, TransferMatchGroup>();
+	for (const p of pairs) {
+		const r = root(p.debit.id);
+		const g = groups.get(r);
+		if (g) {
+			g.pairs.push(p);
+			g.ambiguous = true;
+		} else
+			groups.set(r, {
+				key: `${p.debit.id}:${p.credit.id}`,
+				amountMinor: p.amountMinor,
+				currency: p.currency,
+				ambiguous: false,
+				pairs: [p]
+			});
+	}
+	return [...groups.values()];
+}
+
+export interface TransferMatchPreview {
+	/** Every candidate pair of the space (the first MATCH_PREVIEW_MAX are reviewed). */
+	total: number;
+	/** How many pairs this review read (at most MATCH_PREVIEW_MAX). */
+	shown: number;
+	groups: TransferMatchGroup[];
+}
+
+/**
+ * The review list: the newest MATCH_PREVIEW_MAX candidate pairs of the space (by the later of the two WIB dates,
+ * then ids), grouped so an ambiguous set is shown whole. Amounts are compared as `amount_minor` integers with the
+ * currency, dates as `occurred_on` only.
+ */
+export async function proposeTransferMatches(
+	db: Db,
+	spaceId: string
+): Promise<TransferMatchPreview> {
+	const [rows, total] = await Promise.all([
+		db.all<PairRow>(
+			sql`select d.id as debitId, d.title as debitTitle, d.occurred_on as debitOn,
+				d.wallet_id as debitWalletId, d.updated_at as debitUpdatedAt,
+				c.id as creditId, c.title as creditTitle, c.occurred_on as creditOn,
+				c.wallet_id as creditWalletId, c.updated_at as creditUpdatedAt,
+				d.amount_minor as amountMinor, d.currency
+			${pairsOf(spaceId)}
+			order by max(d.occurred_on, c.occurred_on) desc, d.occurred_on desc, d.id, c.id
+			limit ${MATCH_PREVIEW_MAX}`
+		),
+		countTransferMatches(db, spaceId)
+	]);
+	const pairs = rows.map((r): TransferPair => ({
+		debit: {
+			id: r.debitId,
+			title: maskAccountNumbers(r.debitTitle ?? ''),
+			occurredOn: r.debitOn,
+			walletId: r.debitWalletId,
+			updatedAt: r.debitUpdatedAt
+		},
+		credit: {
+			id: r.creditId,
+			title: maskAccountNumbers(r.creditTitle ?? ''),
+			occurredOn: r.creditOn,
+			walletId: r.creditWalletId,
+			updatedAt: r.creditUpdatedAt
+		},
+		amountMinor: r.amountMinor,
+		currency: r.currency
+	}));
+	return { total, shown: pairs.length, groups: groupTransferPairs(pairs) };
+}
+
+/** The pair the form confirms: both ids and both versions as reviewed. */
+export interface TransferPairChoice {
+	debitId: string;
+	creditId: string;
+	debitUpdatedAt: number;
+	creditUpdatedAt: number;
+}
+
+/**
+ * `ok`: merged now. `already`: this very pair is in a live link (a resent form changes nothing). `stale`: the
+ * pair is still a candidate but one row changed since the review (409, never an overwrite). `missing`: no such
+ * candidate pair in this space (another space's ids get the same answer).
+ */
+export type ApplyMatchResult =
+	{ status: 'ok'; linkId: string } | { status: 'already' | 'stale' | 'missing' };
+
+const linkWrittenNow = (spaceId: string, linkId: string) =>
+	sql`exists (select 1 from transfer_links l where l.id = ${linkId} and l.space_id = ${spaceId}
+		and l.undone_at is null and l.seq = ${currentSpaceSeq(spaceId)})`;
+
+/**
+ * "Cocokkan" (one pair, explicit confirm): one `db.batch` that writes the link — only while the two rows are still
+ * a candidate pair exactly as reviewed (same `updated_at`), in no live link, and the user is a live member — with
+ * both rows' previous content as JSON, then, only when that link was written in this very batch (its `seq`):
+ * the debit row becomes the transfer (`type`, `transfer_to_wallet_id` = the credit row's wallet, no category) and
+ * the credit row is tombstoned like a single delete (TOMBSTONE_CONTENT; dedupe key, import batch and `created_at`
+ * kept). No amount changes anywhere.
+ */
+export async function applyTransferMatch(
+	db: Db,
+	scope: SpaceScope,
+	pair: TransferPairChoice,
+	now: number
+): Promise<ApplyMatchResult> {
+	const { spaceId, userId } = scope;
+	const linkId = newId();
+	const written = linkWrittenNow(spaceId, linkId);
+	const [, , , , found] = await db.batch([
+		bumpSpaceSeq(db, spaceId),
+		db.insert(transferLinks).select(
+			sql`select ${linkId}, ${spaceId}, d.id, c.id,
+				json_object('type', d.type, 'categoryId', d.category_id, 'categorySource', d.category_source,
+					'transferToWalletId', d.transfer_to_wallet_id, 'updatedAt', d.updated_at),
+				json_object('amountMinor', c.amount_minor, 'currency', c.currency, 'walletId', c.wallet_id,
+					'transferToWalletId', c.transfer_to_wallet_id, 'categoryId', c.category_id,
+					'categorySource', c.category_source, 'occurredOn', c.occurred_on, 'occurredAt', c.occurred_at,
+					'title', c.title, 'note', c.note, 'paymentMethod', c.payment_method, 'recurrence', c.recurrence,
+					'tag', c.tag, 'reference', c.reference, 'adjustmentDirection', c.adjustment_direction,
+					'photoKey', c.photo_key, 'photoType', c.photo_type, 'patunganSplitId', c.patungan_split_id,
+					'patunganEffectiveAmountMinor', c.patungan_effective_amount_minor, 'updatedAt', c.updated_at),
+				${now}, ${now}, null, ${currentSpaceSeq(spaceId)}
+			${pairsOf(spaceId)}
+				and d.id = ${pair.debitId} and c.id = ${pair.creditId}
+				and d.updated_at = ${pair.debitUpdatedAt} and c.updated_at = ${pair.creditUpdatedAt}
+				and ${isLiveMember(spaceId, userId)}
+				and not exists (select 1 from transfer_links l where l.undone_at is null
+					and (l.debit_transaction_id in (d.id, c.id) or l.credit_transaction_id in (d.id, c.id)))`
+		),
+		db
+			.update(transactions)
+			.set({
+				type: 'transfer',
+				transferToWalletId: sql`(select json_extract(l.credit_snapshot, '$.walletId')
+					from transfer_links l where l.id = ${linkId})`,
+				categoryId: null,
+				categorySource: null,
+				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				seq: currentSpaceSeq(spaceId)
+			})
+			.where(
+				and(
+					eq(transactions.id, pair.debitId),
+					eq(transactions.spaceId, spaceId),
+					isNull(transactions.deletedAt),
+					written
+				)
+			),
+		db
+			.update(transactions)
+			.set({
+				deletedAt: now,
+				...TOMBSTONE_CONTENT,
+				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				seq: currentSpaceSeq(spaceId)
+			})
+			.where(
+				and(
+					eq(transactions.id, pair.creditId),
+					eq(transactions.spaceId, spaceId),
+					isNull(transactions.deletedAt),
+					written
+				)
+			),
+		db
+			.select({ id: transferLinks.id })
+			.from(transferLinks)
+			.where(and(eq(transferLinks.id, linkId), eq(transferLinks.spaceId, spaceId), written))
+	]);
+	if (found.length === 1) return { status: 'ok', linkId };
+	const live = await db
+		.select({ id: transferLinks.id })
+		.from(transferLinks)
+		.where(
+			and(
+				eq(transferLinks.spaceId, spaceId),
+				eq(transferLinks.debitTransactionId, pair.debitId),
+				eq(transferLinks.creditTransactionId, pair.creditId),
+				isNull(transferLinks.undoneAt)
+			)
+		)
+		.get();
+	if (live) return { status: 'already' };
+	const candidate = await db.get<{ n: number }>(
+		sql`select 1 as n ${pairsOf(spaceId)} and d.id = ${pair.debitId} and c.id = ${pair.creditId}`
+	);
+	return { status: candidate ? 'stale' : 'missing' };
+}
+
+/**
+ * `ok`: undone now. `already`: undone before (a resend changes nothing). `stale`: one of the two rows no longer
+ * holds exactly what the merge wrote (edited or deleted since), or belongs to an import the user has undone
+ * meanwhile, so nothing is restored. `missing`: no such link in this space.
+ */
+export type UndoMatchResult = 'ok' | 'already' | 'stale' | 'missing';
+
+/*
+ * Guards shared by the one-pair undo and the import undo (`settleTransferLinksOfBatch`); each expects the link as
+ * `l` and the row as `d` (debit) or `c` (credit) in the enclosing `from`.
+ */
+/** The debit row `d` still holds exactly what the merge of link `l` wrote: a live transfer to the credit's wallet. */
+const debitHolds = (spaceId: string) => sql`d.space_id = ${spaceId} and d.deleted_at is null
+	and d.type = 'transfer' and d.transfer_to_wallet_id = json_extract(l.credit_snapshot, '$.walletId')
+	and d.updated_at = max(l.created_at, json_extract(l.debit_snapshot, '$.updatedAt') + 1)`;
+/** The credit row `c` is still the tombstone the merge of link `l` wrote. */
+const creditHolds = (spaceId: string) => sql`c.space_id = ${spaceId} and c.deleted_at = l.created_at
+	and c.updated_at = max(l.created_at, json_extract(l.credit_snapshot, '$.updatedAt') + 1)`;
+/** The wallet the credit row of link `l` would come back to is live. */
+const creditWalletLive = (spaceId: string) => sql`exists (select 1 from wallets w
+	where w.id = json_extract(l.credit_snapshot, '$.walletId') and w.space_id = ${spaceId} and w.deleted_at is null)`;
+/**
+ * Row `alias` was not written by an import the user has undone: an undone import's rows stay tombstones, whatever
+ * a transfer link remembers of them (an undo that revived one would contradict the user's "Urungkan impor").
+ */
+const rowImportLive = (alias: 'd' | 'c') => sql`not exists (select 1 from import_batches b
+	where b.id = ${sql.raw(alias)}.import_batch_id and b.undone_at is not null)`;
+
+/** `set` columns that put the debit row's previous `type`, category, marker and transfer target back from `snapshot`. */
+function debitRestore(snapshot: SQL, spaceId: string, now: number) {
+	const f = (field: string) => sql`json_extract(${snapshot}, ${'$.' + field})`;
+	return {
+		type: f('type'),
+		categoryId: f('categoryId'),
+		categorySource: f('categorySource'),
+		transferToWalletId: f('transferToWalletId'),
+		updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+		seq: currentSpaceSeq(spaceId)
+	};
+}
+
+/** `set` columns that put every content column of the credit row back from `snapshot` (a JSON expression). */
+function creditRestore(snapshot: SQL, spaceId: string, now: number) {
+	const f = (field: string) => sql`json_extract(${snapshot}, ${'$.' + field})`;
+	return {
+		deletedAt: null,
+		amountMinor: f('amountMinor'),
+		currency: f('currency'),
+		walletId: f('walletId'),
+		transferToWalletId: f('transferToWalletId'),
+		categoryId: f('categoryId'),
+		categorySource: f('categorySource'),
+		occurredOn: f('occurredOn'),
+		occurredAt: f('occurredAt'),
+		title: f('title'),
+		note: f('note'),
+		paymentMethod: f('paymentMethod'),
+		recurrence: f('recurrence'),
+		tag: f('tag'),
+		reference: f('reference'),
+		adjustmentDirection: f('adjustmentDirection'),
+		photoKey: f('photoKey'),
+		photoType: f('photoType'),
+		patunganSplitId: f('patunganSplitId'),
+		patunganEffectiveAmountMinor: f('patunganEffectiveAmountMinor'),
+		updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+		seq: currentSpaceSeq(spaceId)
+	};
+}
+
+/**
+ * "Urungkan" (one pair): one `db.batch` that marks the link undone — only while it is live, the user is a live
+ * member, both rows still hold exactly what the merge wrote (the debit a transfer to the credit's wallet, the
+ * credit a tombstone, each at the `updated_at` the merge gave it) in a live wallet, and neither row comes from an
+ * import undone since — then, only when the link was undone in this very batch, restores the debit row's previous
+ * `type`, category, marker and transfer target and the credit row's every content column from the snapshots: a
+ * guarded UPDATE, the same rows (same id and `created_at`), never a new row.
+ */
+export async function undoTransferMatch(
+	db: Db,
+	scope: SpaceScope,
+	linkId: string,
+	now: number
+): Promise<UndoMatchResult> {
+	const { spaceId, userId } = scope;
+	const l = transferLinks;
+	const undoneNow = sql`exists (select 1 from transfer_links l where l.id = ${linkId} and l.space_id = ${spaceId}
+		and l.undone_at is not null and l.seq = ${currentSpaceSeq(spaceId)})`;
+	/** The link's snapshot (`which`), for the restoring statements. */
+	const snapshotOf = (which: 'debit_snapshot' | 'credit_snapshot') =>
+		sql`(select l.${sql.raw(which)} from transfer_links l where l.id = ${linkId})`;
+	const rowOf = (which: 'debit_transaction_id' | 'credit_transaction_id') =>
+		sql`(select l.${sql.raw(which)} from transfer_links l where l.id = ${linkId})`;
+	const [, undone] = await db.batch([
+		bumpSpaceSeq(db, spaceId),
+		db
+			.update(l)
+			.set({
+				undoneAt: now,
+				updatedAt: sql`max(${now}, ${l.updatedAt} + 1)`,
+				seq: currentSpaceSeq(spaceId)
+			})
+			.where(
+				and(
+					eq(l.id, linkId),
+					eq(l.spaceId, spaceId),
+					isNull(l.undoneAt),
+					isLiveMember(spaceId, userId),
+					sql`exists (select 1 from transfer_links l join transactions d on d.id = l.debit_transaction_id
+						where l.id = ${linkId} and ${debitHolds(spaceId)} and ${rowImportLive('d')})`,
+					sql`exists (select 1 from transfer_links l join transactions c on c.id = l.credit_transaction_id
+						where l.id = ${linkId} and ${creditHolds(spaceId)} and ${creditWalletLive(spaceId)}
+						and ${rowImportLive('c')})`
+				)
+			)
+			.returning({ id: l.id }),
+		db
+			.update(transactions)
+			.set(debitRestore(snapshotOf('debit_snapshot'), spaceId, now))
+			.where(
+				and(
+					eq(transactions.id, rowOf('debit_transaction_id')),
+					eq(transactions.spaceId, spaceId),
+					undoneNow
+				)
+			),
+		db
+			.update(transactions)
+			.set(creditRestore(snapshotOf('credit_snapshot'), spaceId, now))
+			.where(
+				and(
+					eq(transactions.id, rowOf('credit_transaction_id')),
+					eq(transactions.spaceId, spaceId),
+					undoneNow
+				)
+			)
+	]);
+	if (undone.length === 1) return 'ok';
+	const row = await db
+		.select({ undoneAt: l.undoneAt })
+		.from(l)
+		.where(and(eq(l.id, linkId), eq(l.spaceId, spaceId)))
+		.get();
+	if (!row) return 'missing';
+	return row.undoneAt !== null ? 'already' : 'stale';
+}
+
+/** A live transfer link has a row (debit or credit, live or tombstone) that import `batchId` wrote. */
+export const batchHasLiveTransferLink = (spaceId: string, batchId: string | SQL) =>
+	sql`exists (select 1 from transfer_links l join transactions t
+		on t.id in (l.debit_transaction_id, l.credit_transaction_id)
+		where l.space_id = ${spaceId} and l.undone_at is null and t.space_id = ${spaceId}
+		and t.import_batch_id = ${batchId})`;
+
+/**
+ * "Urungkan impor" meets a confirmed merge: statements for `undoImportBatch`'s `db.batch`, placed after the batch
+ * row changed and guarded by `batchUndoneNow` (true only then). Each live link with a row of the batch gets its
+ * *other* row — the one the batch did not write — restored from its snapshot while that row still holds what the
+ * merge wrote and its own import is live: the credit row comes back when the debit's import is undone while the
+ * merged transfer is still live (nothing of the other statement is lost; into its wallet even when that wallet was
+ * archived since, as an archived wallet keeps its rows; a merged transfer the user deleted keeps the credit deleted,
+ * red team L3), the debit row becomes its expense again when the credit's import is undone. Then a probe
+ * reports whether a debit edited since the merge stays a transfer into the undone credit's wallet (the user is
+ * told; the row stays as the user left it), and every such link is marked undone (settled: it leaves the review's
+ * "Urungkan" list). The batch's own rows are then tombstoned by the import undo as usual. Every statement starts
+ * from the batch's rows (`transactions_import_batch_idx`) and the live-link indexes, never the whole space.
+ * Returns `[creditRestore, debitRestore, editedTransferKept, settle]`; the third yields one row when such an
+ * edited transfer stayed.
+ */
+export function settleTransferLinksOfBatch(
+	db: Db,
+	spaceId: string,
+	batchId: string,
+	now: number,
+	batchUndoneNow: SQL
+) {
+	const l = transferLinks;
+	const t = transactions;
+	/*
+	 * Plan steering (SQLite): a unary `+` keeps the space pin but stops it from picking the space-wide index, and
+	 * `cross join` keeps the link outermost, so each statement walks the batch's rows and the live-link indexes.
+	 */
+	const inSpace = (column: SQLiteColumn) => sql`+${column} = ${spaceId}`;
+	const batchRows = sql`(select bt.id from transactions bt where bt.space_id = ${spaceId}
+		and bt.import_batch_id = ${batchId})`;
+	const creditSnap = sql`(select l.credit_snapshot from transfer_links l
+		where l.credit_transaction_id = ${t.id} and l.space_id = ${spaceId} and l.undone_at is null)`;
+	const debitSnap = sql`(select l.debit_snapshot from transfer_links l
+		where l.debit_transaction_id = ${t.id} and l.space_id = ${spaceId} and l.undone_at is null)`;
+	return [
+		db
+			.update(t)
+			.set(creditRestore(creditSnap, spaceId, now))
+			.where(
+				and(
+					inSpace(t.spaceId),
+					sql`${t.id} in (select l.credit_transaction_id from transfer_links l
+						cross join transactions c on c.id = l.credit_transaction_id
+						where +l.space_id = ${spaceId} and l.undone_at is null and l.debit_transaction_id in ${batchRows}
+						and ${creditHolds(spaceId)} and ${rowImportLive('c')}
+						and exists (select 1 from transactions d where d.id = l.debit_transaction_id
+							and d.space_id = ${spaceId} and d.deleted_at is null))`,
+					batchUndoneNow
+				)
+			),
+		db
+			.update(t)
+			.set(debitRestore(debitSnap, spaceId, now))
+			.where(
+				and(
+					inSpace(t.spaceId),
+					sql`${t.id} in (select l.debit_transaction_id from transfer_links l
+						cross join transactions d on d.id = l.debit_transaction_id
+						where +l.space_id = ${spaceId} and l.undone_at is null and l.credit_transaction_id in ${batchRows}
+						and ${debitHolds(spaceId)} and ${rowImportLive('d')})`,
+					batchUndoneNow
+				)
+			),
+		db
+			.select({ id: l.id })
+			.from(l)
+			.where(
+				and(
+					inSpace(l.spaceId),
+					isNull(l.undoneAt),
+					sql`${l.creditTransactionId} in ${batchRows}`,
+					sql`exists (select 1 from transactions d where d.id = ${l.debitTransactionId}
+						and d.space_id = ${spaceId} and d.deleted_at is null and d.type = 'transfer'
+						and d.transfer_to_wallet_id = json_extract(${l.creditSnapshot}, '$.walletId')
+						and d.import_batch_id is not ${batchId})`,
+					batchUndoneNow
+				)
+			)
+			.limit(1),
+		db
+			.update(l)
+			.set({
+				undoneAt: now,
+				updatedAt: sql`max(${now}, ${l.updatedAt} + 1)`,
+				seq: currentSpaceSeq(spaceId)
+			})
+			.where(
+				and(
+					inSpace(l.spaceId),
+					isNull(l.undoneAt),
+					sql`${l.id} in (select x.id from transfer_links x where x.undone_at is null
+						and x.debit_transaction_id in ${batchRows}
+						union all select x.id from transfer_links x where x.undone_at is null
+						and x.credit_transaction_id in ${batchRows})`,
+					batchUndoneNow
+				)
+			)
+	] as const;
+}
+
+/** One confirmed merge the review page offers to undo. */
+export interface TransferLinkSummary {
+	id: string;
+	createdAt: number;
+	/** The transfer row's title as it is now (masked), or null when that row was deleted since. */
+	title: string | null;
+	amountMinor: number;
+	currency: string;
+	occurredOn: string;
+	fromWalletId: string | null;
+	toWalletId: string;
+}
+
+/** Where a page of the links list starts: below this link (its `createdAt` and `id`), older ones only. */
+export interface TransferLinkCursor {
+	createdAt: number;
+	id: string;
+}
+
+/**
+ * The space's live links, newest first, with the merged transfer row's current title, wallet and date: one page
+ * of at most LINKS_LIST_MAX, older than `before` when given (QA low: every live link stays reachable to undo).
+ * `next` is the cursor of the following page, or null when this page is the last.
+ */
+export async function listTransferLinks(
+	db: Db,
+	spaceId: string,
+	before: TransferLinkCursor | null = null
+): Promise<{ links: TransferLinkSummary[]; next: TransferLinkCursor | null }> {
+	const older = before
+		? sql`and (l.created_at < ${before.createdAt} or (l.created_at = ${before.createdAt} and l.id < ${before.id}))`
+		: sql``;
+	const rows = await db.all<TransferLinkSummary>(
+		sql`select l.id, l.created_at as createdAt, d.title,
+			json_extract(l.credit_snapshot, '$.amountMinor') as amountMinor,
+			json_extract(l.credit_snapshot, '$.currency') as currency,
+			coalesce(d.occurred_on, json_extract(l.credit_snapshot, '$.occurredOn')) as occurredOn,
+			d.wallet_id as fromWalletId,
+			json_extract(l.credit_snapshot, '$.walletId') as toWalletId
+		from transfer_links l
+		left join transactions d on d.id = l.debit_transaction_id and d.space_id = l.space_id
+			and d.deleted_at is null
+		where l.space_id = ${spaceId} and l.undone_at is null ${older}
+		order by l.created_at desc, l.id desc
+		limit ${LINKS_LIST_MAX + 1}`
+	);
+	const page = rows.slice(0, LINKS_LIST_MAX);
+	const last = page.at(-1);
+	return {
+		links: page.map((r) => ({
+			...r,
+			title: r.title === null ? null : maskAccountNumbers(r.title)
+		})),
+		next: rows.length > LINKS_LIST_MAX && last ? { createdAt: last.createdAt, id: last.id } : null
+	};
+}

@@ -1,0 +1,11 @@
+From: Bank Contoh <noreply@notifikasi.bank-qris.example>
+To: TO_ADDRESS
+Subject: Transaksi QRIS Berhasil
+Message-ID: <qris-wrong-two@notifikasi.bank-qris.example>
+Content-Type: text/plain; charset=utf-8
+
+Tanggal : 08 Okt 2026 14:32:05 WIB
+Merchant : KEDAI KOPI SENJA
+Nominal : Rp 28.000,00
+Nominal : Rp 82.000,00
+No. Referensi : 20261008143205123457

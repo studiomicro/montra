@@ -1,0 +1,16 @@
+# FN-23 Agent (beta): summary
+
+Status: **complete** (2026-10-10, branch `feat/fn-23-agent`; not merged, not deployed). Tier Large. No fix cycle was needed: QA PASS and red team PASS in cycle 1.
+
+- Goal (PRD): on the Agent plan only, the user asks for a monthly report, an annual recap or a year-end asset list (for the SPT tax return); the Agent works in visible steps and produces files the user downloads; files are deleted after 30 days. Figures come from code; the AI writes only an optional narrative on the user's own key. Not tax or financial advice.
+- Route `/agen` (nav entry, shared components only, so it inherits the parallel phone layout after merge). Loader, create, delete and download all re-check the Agent plan (`agentEnabled`) on the server; Gratis and Pro see a locked page. Works without JavaScript (`<noscript>` refresh).
+- Runtime (documented deviation from CLAUDE.md's "Workflows for agent reports"): steps run as Queue messages on the existing `JOBS_QUEUE`, state in D1 (`agent_runs`), id-only messages, lease plus compare-and-set per step, hourly cron sweep re-sends or fails stalled runs. No wrangler change.
+- Files: CSV and a printable HTML (no PDF), private R2 through the `file_deletions` outbox, attachment download, CSV formula guard, escaped HTML. Deleted 30 days after ready by the cron sweep, and on delete of the report, account or space.
+- Narrative: one optional model call, no tools, through the user's Anthropic key and AI Gateway, passed through Tanya's `guardAnswer`; on failure or rejection the report ships without narrative. The asset list never calls the model. "Belum dikonfigurasi" without key or gateway ids.
+- Limits (defaults accepted): 1 unfinished run per user, 3 per space, 5 per user and 15 per space per 24 h, as one guarded `INSERT ... SELECT ... WHERE`. No credit debit. Reports visible only to their creator.
+- Migration `0036_agent_runs.sql` (journal idx 36, 35 skipped; snapshot `prevId` points at 0034, re-chain at merge if 0035 lands first).
+- Reuse: `readOnlyDb`, `FigureBook`, `guardAnswer`, `askClaude`, `csvLine`, aggregates. Additive edits: `FigureBook.count`, `askClaude` without tools, optional `upTo` in `walletTransactionsSums`, `dataText` moved to `tanya/data-text.ts`.
+- Tests: `test/integration/agen.test.ts` (47), `agen.qa.test.ts` (9), `agent/render.test.ts`, `shared/agent.test.ts`, `scripts/compat-agent.test.ts`, queue/nav/anthropic/answer-guard extensions, `e2e/agen.spec.ts` (5, phone and desktop, JS and no-JS).
+- QA PASS (cycle 1, `npm test` 4509 passed). Red team PASS (cycle 1), no medium or high.
+- Open lows (tracked in TASKS): S1 URL can pass the guard into the "Ringkasan AI" box (plain escaped text); S2/F1 Hapus frees cap slots, including the 24 h caps; S3/F2 cron bumps `attempts` before the re-send; S4 3-second poll re-runs `monthsWithRows` and decrypts the key; S5 no CSP inside the downloaded HTML; S6 removed member's reports stay until expiry; S7 lapsed plan cannot delete own report.
+- Not verified: any real Anthropic call (`npm run compat:agent` not run, no key here); the `thinking` field without tools follows the model table, not live docs; touch targets, contrast and focus return not measured; failed and over-limit UI only covered by loader/action tests; real Cloudflare Queue and R2 not exercised (local D1 and mocks).

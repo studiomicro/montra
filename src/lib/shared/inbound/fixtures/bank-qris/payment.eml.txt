@@ -1,0 +1,21 @@
+Authentication-Results: mx.inbound.example; spf=pass smtp.mailfrom=notifikasi.bank-qris.example; dkim=pass header.d=notifikasi.bank-qris.example header.s=sel1; dmarc=pass (p=REJECT) header.from=notifikasi.bank-qris.example
+Authentication-Results: mx.inbound.example; dmarc=pass header.from=notifikasi.bank-qris.example
+From: Bank Contoh <noreply@notifikasi.bank-qris.example>
+To: TO_ADDRESS
+Subject: Transaksi QRIS Berhasil
+Message-ID: <qris-20261008-0001@notifikasi.bank-qris.example>
+Date: Thu, 08 Oct 2026 07:32:06 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Yth. Nasabah,
+
+Transaksi QRIS Anda berhasil.
+
+Tanggal : 08 Okt 2026 14:32:05 WIB
+Merchant : KEDAI KOPI SENJA
+Nominal : Rp 28.000,00
+No. Referensi : 20261008143205123456
+Sumber dana : 1234567890
+
+Terima kasih.

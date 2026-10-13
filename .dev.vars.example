@@ -1,0 +1,68 @@
+# Local-only variables for `wrangler dev`. Copy to .dev.vars. Names only; never commit real values.
+# DEV_ROUTES=1 enables /dev/ui and /api/v1/dev/* (local development and e2e only; never set in staging or production).
+DEV_ROUTES=1
+# SUPPORT_EMAIL=<address> is the account-deletion request address on the public /hapus-akun page (unset shows "Belum dikonfigurasi").
+# SOURCE_URL=<https://...> is the public link to this instance's source code shown in Pengaturan > Tentang (AGPL-3.0 section 13; unset shows "Belum dikonfigurasi").
+# Web Push (FN-13), local only: generate a key pair with `npx web-push generate-vapid-keys` (docs/RUNBOOK.md › Web Push)
+# and paste it below. Unset or malformed → /pengaturan/notifikasi shows "Belum dikonfigurasi" and never asks for permission.
+# Production keys are an owner item (Cloudflare Worker secrets); never commit real values.
+# VAPID_PUBLIC_KEY=<base64url public key>
+# VAPID_PRIVATE_KEY=<base64url private key>
+# VAPID_SUBJECT=mailto:dev@montra.local
+# Connected apps (FN-29), local only: the key that seals connected-app tokens at rest (32 random bytes, base64url):
+#   openssl rand -base64 32 | tr '+/' '-_' | tr -d '='   (docs/RUNBOOK.md › Connected apps)
+# Unset or not exactly 32 bytes → /pengaturan/aplikasi shows every app as "Belum dikonfigurasi" and stores nothing.
+# CONNECTED_APPS_ENCRYPTION_KEY_PREVIOUS only during a key rotation. Production keys are an owner item; never commit real values.
+# CONNECTED_APPS_ENCRYPTION_KEY=<base64url 32-byte key>
+# CONNECTED_APPS_ENCRYPTION_KEY_PREVIOUS=<base64url 32-byte key>
+# Billing mock (FN-30), local only: BILLING_MOCK_ENABLED=1 shows the "mode uji" upgrade and checkout (no real charge,
+# no provider called). MOCK_PAYMENT_WEBHOOK_SECRET signs the mock's webhook events; generate one with
+# `openssl rand -hex 32`. Unset either → no upgrade button and the webhook answers 401. Never set in production.
+# BILLING_MOCK_ENABLED=1
+# MOCK_PAYMENT_WEBHOOK_SECRET=<64 hex characters>
+# Personal AI keys (FN-41), local only: the key that seals users' own Anthropic keys at rest (32 random bytes,
+# base64url, generated like the connected-apps key; docs/RUNBOOK.md › AI keys). Unset → /pengaturan/integrasi shows
+# "Belum dikonfigurasi" and stores nothing. _PREVIOUS only during a key rotation.
+# AI_KEYS_ENCRYPTION_KEY=<base64url 32-byte key>
+# AI_KEYS_ENCRYPTION_KEY_PREVIOUS=<base64url 32-byte key>
+# The app's Cloudflare AI Gateway for "Tes koneksi" and receipt reading (FN-15; unset → "Belum dikonfigurasi" and
+# Struk stays disabled; saving a key still works).
+# AI_GATEWAY_ACCOUNT_ID=<Cloudflare account id>
+# AI_GATEWAY_ID=<gateway name>
+# E-mail forwarding (FN-19), local only: the forwarding domain (app and inbound Workers) and the authserv-id of the
+# Authentication-Results header Cloudflare Email Routing adds (inbound Worker; read it from a real mail, see
+# docs/RUNBOOK.md › E-mail forwarding). Unset domain → /pengaturan/aplikasi/email shows "Belum dikonfigurasi" and
+# Tambah › Otomatis says why; unset authserv-id → every forwarded mail is an unverified draft.
+# INBOUND_EMAIL_DOMAIN=in.montra.local
+# INBOUND_AUTHSERV_ID=<authserv-id from a real header>
+# Owner-run golden set only (`npm run compat:receipts`, FN-15): your own Anthropic key, read from this file and
+# never from the command line. Never needed for `npm run gates`.
+# COMPAT_RECEIPTS_ANTHROPIC_KEY=<your own sk-ant- key>
+# Comma-separated account ids (users.id) admitted to /pengaturan/integrasi/admin (unset → 404 for everyone). Find
+# yours locally with: npx wrangler d1 execute montra --local --command "SELECT id FROM users WHERE email = '<address>'"
+# ADMIN_ACCOUNT_IDS=<your local account id>
+# Re-claim markers (FN-30): HMAC key for the fingerprint kept of a deleted account's address, so the starter
+# credits and per-person vouchers cannot be claimed again (32 random bytes, base64url:
+# openssl rand -base64 32 | tr '+/' '-_' | tr -d '='). Unset → no markers (credits granted as before).
+# _PREVIOUS only during a key rotation.
+# CLAIM_HASH_KEY=<base64url 32-byte key>
+# CLAIM_HASH_KEY_PREVIOUS=<base64url 32-byte key>
+# Owner-run real-provider check of the assistant only (`npm run compat:tanya`, FN-22; falls back to the key above).
+# COMPAT_TANYA_ANTHROPIC_KEY=<your own sk-ant- key>
+# Owner-run real-provider check of the Agen narrative only (`npm run compat:agent`, FN-23; falls back to the
+# receipts key above).
+# COMPAT_AGENT_ANTHROPIC_KEY=<your own sk-ant- key>
+# Gmail (FN-19), local only: Montra's own Google OAuth Web client (docs/RUNBOOK.md › Gmail; created by the owner in
+# Google Cloud, Testing status) and this environment's one redirect origin (no path, no trailing slash). Any of these
+# or CONNECTED_APPS_ENCRYPTION_KEY unset → /pengaturan/aplikasi/gmail shows "Belum dikonfigurasi" with the reason.
+# The jobs Worker needs the client id, secret and CONNECTED_APPS_ENCRYPTION_KEY too (workers/jobs/.dev.vars).
+# Every Gmail capture is unverified (owner decision 2026-10-13). GOOGLE_OAUTH_TESTING=0 only after Google published
+# the app (hides the 7-day notice).
+# GOOGLE_OAUTH_CLIENT_ID=<client id>.apps.googleusercontent.com
+# GOOGLE_OAUTH_CLIENT_SECRET=<client secret>
+# GOOGLE_OAUTH_REDIRECT_ORIGIN=http://localhost:8787
+# GOOGLE_OAUTH_TESTING=0
+# Cloudflare Turnstile on /masuk and /daftar (FN-50; docs/RUNBOOK.md › Secrets). On only when both are set; one alone
+# behaves as unset and the admin page says so. Local testing: Cloudflare's documented test keys (always passes shown).
+# TURNSTILE_SITE_KEY=1x00000000000000000000AA
+# TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA

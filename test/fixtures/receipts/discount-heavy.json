@@ -1,0 +1,15 @@
+{
+	"is_receipt": true,
+	"shop": "Kedai Uji Coba",
+	"date": "2026-10-08",
+	"currency": "IDR",
+	"items": [
+		{ "name": "Ayam bakar", "amount": "35.000" },
+		{ "name": "Jus jeruk", "amount": "16.000" }
+	],
+	"tax": "1.000",
+	"service": null,
+	"discount": "-10.000",
+	"total": "42.000",
+	"payment_method": null
+}

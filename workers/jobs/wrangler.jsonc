@@ -1,0 +1,81 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "montra-jobs",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	"observability": { "enabled": true },
+	"triggers": { "crons": ["0 23,0-16 * * *"] },
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "montra",
+			"database_id": "00000000-0000-4000-8000-000000000000",
+			"migrations_dir": "../../migrations"
+		}
+	],
+	"r2_buckets": [{ "binding": "FILES", "bucket_name": "montra-files" }],
+	// FN-25: the app Worker's CACHE namespace; the cron writes prices, /kekayaan reads them.
+	"kv_namespaces": [{ "binding": "CACHE", "id": "00000000000000000000000000000000" }],
+	"analytics_engine_datasets": [{ "binding": "STATS", "dataset": "montra_stats" }],
+	"queues": {
+		// FN-24: triggers enqueue `send_push` jobs on the queue they consume.
+		"producers": [{ "binding": "JOBS_QUEUE", "queue": "montra-jobs" }],
+		"consumers": [
+			{
+				"queue": "montra-jobs",
+				"max_batch_size": 10,
+				"max_retries": 3,
+				"dead_letter_queue": "montra-jobs-dlq"
+			}
+		]
+	},
+	"workflows": [
+		{
+			"name": "montra-statement",
+			"binding": "WORKFLOW_STATEMENT",
+			"class_name": "StatementWorkflow"
+		}
+	],
+	"env": {
+		"staging": {
+			// account_id, D1 and KV ids are placeholders: `npm run deploy:staging` fills them from the environment
+			// (CLOUDFLARE_ACCOUNT_ID, STAGING_D1_DATABASE_ID, STAGING_KV_CACHE_ID) or the gitignored .staging.env into a
+			// temporary config (docs/RUNBOOK.md › Staging). Never commit real ids.
+			"name": "montra-jobs-staging",
+			"account_id": "00000000000000000000000000000000",
+			"workers_dev": true,
+			"observability": { "enabled": true },
+			"vars": { "APP_VERSION": "0.11.0", "APP_ENV": "staging" },
+			"triggers": { "crons": ["0 23,0-16 * * *"] },
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "montra-staging",
+					"database_id": "00000000-0000-4000-8000-000000000000",
+					"migrations_dir": "../../migrations"
+				}
+			],
+			"r2_buckets": [{ "binding": "FILES", "bucket_name": "montra-files-staging" }],
+			"kv_namespaces": [{ "binding": "CACHE", "id": "00000000000000000000000000000000" }],
+			"analytics_engine_datasets": [{ "binding": "STATS", "dataset": "montra_stats_staging" }],
+			"queues": {
+				"producers": [{ "binding": "JOBS_QUEUE", "queue": "montra-jobs-staging" }],
+				"consumers": [
+					{
+						"queue": "montra-jobs-staging",
+						"max_batch_size": 10,
+						"max_retries": 3,
+						"dead_letter_queue": "montra-jobs-dlq-staging"
+					}
+				]
+			},
+			"workflows": [
+				{
+					"name": "montra-statement-staging",
+					"binding": "WORKFLOW_STATEMENT",
+					"class_name": "StatementWorkflow"
+				}
+			]
+		}
+	}
+}

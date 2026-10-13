@@ -1,0 +1,149 @@
+# CI (docs/RUNBOOK.md › CI/CD): the gates (check + lint, Vitest in 4 shards, build) and the Playwright journeys on
+# every pull request (forks included) and every push to main. Read-only token, no secrets: every value below is a
+# fictional local one, and the e2e server uses the fixed fake keys in playwright.config.ts.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '24'
+  WRANGLER_SEND_METRICS: 'false'
+  # Playwright never opens a browser window for the HTML report on a runner.
+  PLAYWRIGHT_HTML_OPEN: never
+
+jobs:
+  check:
+    name: check + lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx svelte-kit sync
+      - run: npm run check
+      - run: npm run lint
+
+  test:
+    name: test (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx svelte-kit sync
+      - name: npm run test (shard)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: npm run test -- --shard="$SHARD/4"
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx svelte-kit sync
+      # The two tessdata_fast files (FN-16g red team L2): restored for every run so a build does not depend on
+      # GitHub being reachable; saved only from pushes to main, so a pull request (a fork's included) never writes
+      # the cache main reads. The key follows the pinned asset set; the files are hash-checked on use anyway.
+      - name: Restore .ocr-cache
+        id: ocr-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ocr-cache
+          key: ocr-${{ hashFiles('src/lib/shared/ocr/assets.ts') }}
+      # Also fetches the two pinned, hash-checked tessdata_fast files (scripts/ocr-assets.ts).
+      - run: npm run build
+      - name: Save .ocr-cache
+        if: github.event_name == 'push' && steps.ocr-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ocr-cache
+          key: ocr-${{ hashFiles('src/lib/shared/ocr/assets.ts') }}
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx svelte-kit sync
+      # Chromium for the phone and desktop projects, WebKit for ios-se and ios-pro-max (e2e/ios-responsive.spec.ts).
+      - run: npx playwright install --with-deps chromium webkit
+      # The two tessdata_fast files (FN-16g red team L2): restored for every run so a build does not depend on
+      # GitHub being reachable; saved only from pushes to main, so a pull request (a fork's included) never writes
+      # the cache main reads. The key follows the pinned asset set; the files are hash-checked on use anyway.
+      - name: Restore .ocr-cache
+        id: ocr-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ocr-cache
+          key: ocr-${{ hashFiles('src/lib/shared/ocr/assets.ts') }}
+      # The webServer in playwright.config.ts builds (scripts/e2e-build.sh, real flock), applies every migration to
+      # a fresh local D1 under .wrangler/e2e-state-8787 and starts the three Workers with wrangler dev and fake keys;
+      # auth.setup.ts signs up a fictional user. No .dev.vars, no seed, no Cloudflare account.
+      # 3 workers: the 4-core runner keeps one core for workerd.
+      - run: npx playwright test --workers=3 --reporter=line,html
+      - name: Upload report and traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # One stable name for branch protection ("CI ok"), whatever the matrix looks like.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs: [check, test, build, e2e]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Every CI job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || exit 1; done

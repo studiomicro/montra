@@ -1,0 +1,31 @@
+# Headers for static assets (Workers Assets serves them without running the Worker, so hooks.server.ts never
+# sees them). adapter-cloudflare copies this file into the build and appends its own /_app/* rules.
+# Worker responses get theirs from src/lib/server/security-headers.ts and the SvelteKit CSP.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+
+# The offline page (FN-13): no script at all, its own stylesheet and icon only, never framed.
+/offline.html
+  Content-Security-Policy: default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+
+# The account key's scrypt Web Worker (FN-21, red team L4): a dedicated worker runs under the CSP of its own
+# script response, so it gets one. It is self-contained and makes no requests: nothing is allowed.
+/_app/immutable/workers/*
+  Content-Security-Policy: default-src 'none'; base-uri 'none'
+
+# The on-device OCR engine (FN-16g, static/_ocr/ written by `npm run ocr:assets`). Its Web Workers run under
+# this policy, the only place WebAssembly may be compiled ('wasm-unsafe-eval'); pages never get it. Must equal
+# ocrAssetCsp() in src/lib/server/csp.ts (csp.test.ts). The folder is versioned, so it is cached as immutable.
+/_ocr/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'none'; base-uri 'none'
+  Cache-Control: public, max-age=31536000, immutable
+
+# Self-hosted Geist and Geist Mono (SIL OFL 1.1, owner decision 2026-10-10). The folders carry the package version,
+# so a file never changes under its URL: cached as immutable.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

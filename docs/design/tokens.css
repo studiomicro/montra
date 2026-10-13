@@ -1,0 +1,575 @@
+/*
+ * MONTRA design system v3 — tokens.
+ * Spec: docs/design/DESIGN_SYSTEM.md. FN-00 imports this file from src/app.css (Tailwind v4 reads the @theme block).
+ * Light by default; dark follows the system unless the user picks a theme ([data-theme]). Mono ("Hitam-putih",
+ * FN-40) is greys only — money in/out and the brand focus colour keep their hue — and follows the system scheme too.
+ * FN-46 adds the Pro themes gold ("Emas") and emerald ("Hijau tua"), structured like mono.
+ * The neutral values are Montra's own system; the brand accent is ours too (see § Brand in the spec).
+ */
+
+:root {
+	/* surfaces */
+	--bg: #ffffff;
+	--bg-soft: #fafafa;
+	--panel: #f5f5f7;
+	--panel-2: #ebebef;
+	--line: #e5e5ea;
+
+	/* text */
+	--ink: #171717;
+	--ink-2: #3a3a3c;
+	--muted: #6e6e73;
+	--faint: #a1a1a6;
+
+	/* always-dark surface (feature bands, media) */
+	--dark: #0e0e0f;
+	--dark-panel: #1c1c1e;
+	--dark-panel-2: #262628;
+	--dark-line: #2c2c2e;
+	--on-dark: #f5f5f7;
+	--on-dark-muted: #a1a1a6;
+
+	/* brand — ours, owner may change the hue; never another product's brand colour */
+	--brand: #1f6feb;
+	--brand-deep: #1558c0;
+	--brand-soft: #e8f0fe;
+
+	/* meaning */
+	--money-in: #16813a; /* income, "lebih hemat" (spent less); AA on bg and panel */
+	--money-up: #cf3339; /* spent more than last month, over budget, errors; AA on bg and panel */
+	--same: #5b52e0; /* "hampir sama" (about the same as last month); AA on bg and panel */
+	--same-soft: #eeedfe;
+	--ok: #157a39; /* security / trust ticks */
+
+	/* charts */
+	--chart-bar: #d9d9dd;
+	--chart-track: #ececef;
+
+	/* the one data accent (v2): selected chart series, trend line, today's bar, the heatmap's top step */
+	--accent: #6c63f0;
+	--heat-1: #e2e0fc;
+	--heat-2: #c4c0f8;
+	--heat-3: #9c95f3;
+	--heat-4: #6c63f0;
+	/* "ahead of pace" amber: --warn for bars, --warn-text for text (AA on bg and panel) */
+	--warn: #c27a0e;
+	--warn-text: #a15f00;
+	/* the selected segment of a segmented control (sits on --panel, with --shadow-float) */
+	--raised: #ffffff;
+	/*
+	 * FN-46 Pro look: --pro for the crown (Koko, the badge; 3:1 on bg, panel and --pro-soft), --pro-text for the
+	 * badge's word (AA on --pro-soft), --pro-soft for the badge, the Paket card and Beranda's hero frame (AA for
+	 * --ink and --muted). Never a money colour; greys in mono.
+	 */
+	--pro: #a2760a;
+	--pro-text: #7d5800;
+	--pro-soft: #fdf7e8;
+
+	/* category tile hues (tile = 16 % of the hue on the surface) */
+	--cat-kopi: #b07a4f;
+	--cat-makan: #0ea5e9;
+	--cat-belanja-harian: #14b8a6;
+	--cat-belanja: #f59e0b;
+	--cat-transportasi: #6366f1;
+	--cat-tagihan: #a78bfa;
+	--cat-hiburan: #8b5cf6;
+	--cat-kesehatan: #ef4444;
+	--cat-pendidikan: #3b82f6;
+	--cat-tempat-tinggal: #64748b;
+	--cat-gaji: #22c55e;
+	--cat-bonus: #84cc16;
+	--cat-freelance: #06b6d4;
+	--cat-hadiah: #ec4899;
+	--cat-lain: #a1a1aa;
+	/* FN-39 presets: ride-hailing (orange) and food delivery (crimson), hues the 15 above do not use */
+	--cat-ojek-online: #f97316;
+	--cat-pesan-antar-makanan: #be123c;
+	/* FN-48 bank-statement presets: fee (dark gold), tax (fuchsia), cash (emerald), card bill (deep blue),
+	 * own transfer (warm stone, close to neutral: money moving, not spent) and interest (olive green) */
+	--cat-biaya-bank: #a16207;
+	--cat-pajak: #c026d3;
+	--cat-tarik-tunai: #059669;
+	--cat-kartu-kredit: #1e40af;
+	--cat-transfer: #57534e;
+	--cat-bunga: #65a30d;
+	/* FN-25b net-worth classes (allocation bar and its chips): Montra's own palette, 3:1 on --bg and --panel */
+	--nw-wallets: #0f766e;
+	--nw-cash: #5b6b7d;
+	--nw-investment: #b0336f;
+	--nw-crypto: #a6531a;
+	--nw-gold: #94740c;
+	--nw-property: #4757b8;
+
+	/* FN-43 brand badges: MONTRA's own hue close to (never copied from) each service's public colour; tile =
+	 * 16 % of the hue on the surface with --ink text; also the Alur uang wallet bar (3:1 on --bg, both schemes) */
+	--badge-bca: #2a6cc6;
+	--badge-mandiri: #2f63b0;
+	--badge-bni: #d9622b;
+	--badge-bri: #2d6bc0;
+	--badge-bsi: #13897d;
+	--badge-cimb: #c4313a;
+	--badge-permata: #3d8a3a;
+	--badge-danamon: #d16a12;
+	--badge-btn: #3a64b6;
+	--badge-ocbc: #cc342c;
+	--badge-jago: #c27a0e;
+	--badge-seabank: #de5f1b;
+	--badge-blu: #1592c8;
+	--badge-jenius: #1296ab;
+	--badge-allo: #8452bc;
+	--badge-gopay: #178fc4;
+	--badge-ovo: #764cc0;
+	--badge-dana: #1a86e0;
+	--badge-shopeepay: #e65a24;
+	--badge-linkaja: #d9261c;
+	--badge-astrapay: #3c6bcc;
+	--badge-isaku: #c8302c;
+	--badge-gojek: #129a3c;
+	--badge-gofood: #d22b42;
+	--badge-grab: #109a55;
+	--badge-maxim: #ae8600;
+	--badge-shopeefood: #e0552b;
+	--badge-indrive: #679600;
+
+	/* type */
+	--font: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	/* Geist Mono: keys, endpoints and code samples only (settings pages); never amounts, which stay in Geist with tabular figures */
+	--font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+	/* shape */
+	--r-xs: 8px;
+	--r-s: 12px;
+	--r-group: 20px; /* grouped lists, cards inside the app (v2: 20 px panel fills, no border) */
+	--r-m: 20px;
+	--r-l: 28px;
+	--r-xl: 36px;
+	--r-pill: 999px;
+	--r-logo: 28%; /* service logos: app-icon corners */
+
+	/* layout */
+	--gutter: clamp(16px, 4vw, 40px);
+	--maxw: 1200px;
+	--header-h: 64px;
+	--tabbar-h: 68px;
+
+	/* motion */
+	--ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+	--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+	--spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+	--press-scale: 0.97;
+	/* FN-40 Part 2: every motion is 150–300 ms and off under prefers-reduced-motion (src/lib/ui/motion.ts). */
+	--duration-fast: 150ms; /* press, chip, small state changes */
+	--duration-base: 200ms; /* rows, charts, page fade-in */
+	--duration-slow: 300ms; /* sheets and dialogs, the counting hero number */
+	--duration-loop: 1200ms; /* FN-51: the skeleton shimmer's cycle — the one loop, only while a load is outstanding */
+
+	/* elevation */
+	--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 28px -10px rgba(0, 0, 0, 0.22);
+	--shadow-float: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -8px rgba(0, 0, 0, 0.14);
+	--shadow-sheet: 0 -8px 32px -12px rgba(0, 0, 0, 0.2);
+	--shadow-btn-hover: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
+
+	/*
+	 * glass (FN-40 Part 4; rules in src/app.css `.glass`): floating chrome only — tab bar, sheets, banners, toasts;
+	 * `-soft` is the lighter, page-coloured frost for sticky bars and cards over colour. --glass-solid is the
+	 * opaque fallback that text contrast is tested against (reduced transparency, no backdrop-filter, under a sheet).
+	 */
+	--glass-bg: rgba(255, 255, 255, 0.78);
+	--glass-solid: #ffffff;
+	--glass-border: rgba(255, 255, 255, 0.7);
+	--glass-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 6px -2px rgba(0, 0, 0, 0.08),
+		0 12px 32px -12px rgba(0, 0, 0, 0.24);
+	--glass-blur: blur(16px) saturate(180%);
+	--glass-bg-soft: rgba(255, 255, 255, 0.72);
+	--glass-blur-soft: blur(10px) saturate(150%);
+	--on-glass-active: rgba(0, 0, 0, 0.06);
+	--scrim: rgba(0, 0, 0, 0.35);
+
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--bg: #111112;
+		--bg-soft: #141415;
+		--panel: #1c1c1e;
+		--panel-2: #262628;
+		--line: #2c2c2e;
+		--ink: #f5f5f7;
+		--ink-2: #d1d1d6;
+		--muted: #a1a1a6;
+		--faint: #6e6e73;
+		--dark: #000000;
+		--dark-panel: #161618;
+		--dark-panel-2: #202022;
+		--dark-line: #262628;
+		--brand: #4c8dff;
+		--brand-deep: #2f74f0;
+		--brand-soft: #14223d;
+		--money-in: #3dbe68;
+		--money-up: #ff6b70;
+		--same: #8a81f8;
+		--same-soft: #24223f;
+		--ok: #3dbe68;
+		--chart-bar: #3a3a3a;
+		--chart-track: #303030;
+		--accent: #8b85f5;
+		--heat-1: #34334d;
+		--heat-2: #484674;
+		--heat-3: #615da3;
+		--heat-4: #8b85f5;
+		--warn: #e0a032;
+		--warn-text: #e8aa45;
+		--raised: #3a3a3c;
+		--pro: #d9ab3f;
+		--pro-text: #e9c66d;
+		--pro-soft: #2a2312;
+		--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
+		--shadow-float: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+		--glass-bg: rgba(28, 28, 30, 0.78);
+		--glass-solid: #1c1c1e;
+		--glass-border: rgba(255, 255, 255, 0.1);
+		--glass-shadow:
+			0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.4),
+			0 12px 32px -12px rgba(0, 0, 0, 0.6);
+		--glass-bg-soft: rgba(17, 17, 18, 0.72);
+		--on-glass-active: rgba(255, 255, 255, 0.1);
+		--scrim: rgba(0, 0, 0, 0.55);
+		--nw-wallets: #2fb3a4;
+		--nw-cash: #9aa7b6;
+		--nw-investment: #e46ba5;
+		--nw-crypto: #e08a4f;
+		--nw-gold: #d4ac3c;
+		--nw-property: #8d9bf0;
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme='dark'] {
+	--bg: #111112;
+	--bg-soft: #141415;
+	--panel: #1c1c1e;
+	--panel-2: #262628;
+	--line: #2c2c2e;
+	--ink: #f5f5f7;
+	--ink-2: #d1d1d6;
+	--muted: #a1a1a6;
+	--faint: #6e6e73;
+	--dark: #000000;
+	--dark-panel: #161618;
+	--dark-panel-2: #202022;
+	--dark-line: #262628;
+	--brand: #4c8dff;
+	--brand-deep: #2f74f0;
+	--brand-soft: #14223d;
+	--money-in: #3dbe68;
+	--money-up: #ff6b70;
+	--same: #8a81f8;
+	--same-soft: #24223f;
+	--ok: #3dbe68;
+	--chart-bar: #3a3a3a;
+	--chart-track: #303030;
+	--accent: #8b85f5;
+	--heat-1: #34334d;
+	--heat-2: #484674;
+	--heat-3: #615da3;
+	--heat-4: #8b85f5;
+	--warn: #e0a032;
+	--warn-text: #e8aa45;
+	--raised: #3a3a3c;
+	--pro: #d9ab3f;
+	--pro-text: #e9c66d;
+	--pro-soft: #2a2312;
+	--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
+	--shadow-float: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+	--glass-bg: rgba(28, 28, 30, 0.78);
+	--glass-solid: #1c1c1e;
+	--glass-border: rgba(255, 255, 255, 0.1);
+	--glass-shadow:
+		0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.4),
+		0 12px 32px -12px rgba(0, 0, 0, 0.6);
+	--glass-bg-soft: rgba(17, 17, 18, 0.72);
+	--on-glass-active: rgba(255, 255, 255, 0.1);
+	--scrim: rgba(0, 0, 0, 0.55);
+	--nw-wallets: #2fb3a4;
+	--nw-cash: #9aa7b6;
+	--nw-investment: #e46ba5;
+	--nw-crypto: #e08a4f;
+	--nw-gold: #d4ac3c;
+	--nw-property: #8d9bf0;
+	color-scheme: dark;
+}
+
+/*
+ * Mono — "Hitam-putih" (FN-40 Part 1). One cookie value; the light greys here, the dark greys in the media block
+ * below, which also inherits the dark scheme's --money-in/--money-up/--brand (colour only for meaning and focus).
+ * Everything else is achromatic: test/contrast.test.ts checks every colour here for r = g = b.
+ */
+:root[data-theme='mono'] {
+	--bg: #ffffff;
+	--bg-soft: #fafafa;
+	--panel: #f4f4f4;
+	--panel-2: #eaeaea;
+	--line: #e3e3e3;
+	--ink: #141414;
+	--ink-2: #393939;
+	--muted: #6c6c6c;
+	--faint: #a0a0a0;
+	--dark: #0e0e0e;
+	--dark-panel: #1c1c1c;
+	--dark-panel-2: #262626;
+	--dark-line: #2c2c2c;
+	--on-dark: #f5f5f5;
+	--on-dark-muted: #a3a3a3;
+	--same: #4d4d4d;
+	--same-soft: #ededed;
+	--ok: #393939;
+	--chart-bar: #d8d8d8;
+	--chart-track: #ececec;
+	--accent: #2e2e2e;
+	--heat-1: #e4e4e4;
+	--heat-2: #c8c8c8;
+	--heat-3: #a3a3a3;
+	--heat-4: #2e2e2e;
+	--warn: #6f6f6f;
+	--warn-text: #575757;
+	--raised: #ffffff;
+	--pro: #777777;
+	--pro-text: #4a4a4a;
+	--pro-soft: #f6f6f6;
+	--cat-kopi: #8c8c8c;
+	--cat-makan: #6f6f6f;
+	--cat-belanja-harian: #7d7d7d;
+	--cat-belanja: #9a9a9a;
+	--cat-transportasi: #5e5e5e;
+	--cat-tagihan: #a6a6a6;
+	--cat-hiburan: #707070;
+	--cat-kesehatan: #555555;
+	--cat-pendidikan: #666666;
+	--cat-tempat-tinggal: #616161;
+	--cat-gaji: #4a4a4a;
+	--cat-bonus: #8a8a8a;
+	--cat-freelance: #777777;
+	--cat-hadiah: #959595;
+	--cat-lain: #a1a1a1;
+	--cat-ojek-online: #858585;
+	--cat-pesan-antar-makanan: #5a5a5a;
+	--cat-biaya-bank: #7a7a7a;
+	--cat-pajak: #626262;
+	--cat-tarik-tunai: #8f8f8f;
+	--cat-kartu-kredit: #535353;
+	--cat-transfer: #999999;
+	--cat-bunga: #6b6b6b;
+	--nw-wallets: #2e2e2e;
+	--nw-cash: #5c5c5c;
+	--nw-investment: #444444;
+	--nw-crypto: #747474;
+	--nw-gold: #878787;
+	--nw-property: #3a3a3a;
+	--badge-bca: #6a6a6a;
+	--badge-mandiri: #646464;
+	--badge-bni: #7e7e7e;
+	--badge-bri: #686868;
+	--badge-bsi: #787878;
+	--badge-cimb: #6c6c6c;
+	--badge-permata: #7a7a7a;
+	--badge-danamon: #848484;
+	--badge-btn: #666666;
+	--badge-ocbc: #727272;
+	--badge-jago: #888888;
+	--badge-seabank: #808080;
+	--badge-blu: #8a8a8a;
+	--badge-jenius: #868686;
+	--badge-allo: #6e6e6e;
+	--badge-gopay: #8c8c8c;
+	--badge-ovo: #656565;
+	--badge-dana: #7c7c7c;
+	--badge-shopeepay: #828282;
+	--badge-linkaja: #707070;
+	--badge-astrapay: #6b6b6b;
+	--badge-isaku: #747474;
+	--badge-gojek: #767676;
+	--badge-gofood: #6f6f6f;
+	--badge-grab: #7d7d7d;
+	--badge-maxim: #8e8e8e;
+	--badge-shopeefood: #858585;
+	--badge-indrive: #7f7f7f;
+	--glass-bg: rgba(255, 255, 255, 0.78);
+	--glass-solid: #ffffff;
+	--glass-border: rgba(255, 255, 255, 0.7);
+	--glass-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 6px -2px rgba(0, 0, 0, 0.08),
+		0 12px 32px -12px rgba(0, 0, 0, 0.24);
+	--glass-blur: blur(16px);
+	--glass-bg-soft: rgba(255, 255, 255, 0.72);
+	--glass-blur-soft: blur(10px);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root[data-theme='mono'] {
+		--bg: #121212;
+		--bg-soft: #151515;
+		--panel: #1d1d1d;
+		--panel-2: #272727;
+		--line: #2d2d2d;
+		--ink: #f5f5f5;
+		--ink-2: #d2d2d2;
+		--muted: #a3a3a3;
+		--faint: #6e6e6e;
+		--dark: #000000;
+		--dark-panel: #161616;
+		--dark-panel-2: #202020;
+		--dark-line: #262626;
+		--on-dark: #f5f5f5;
+		--on-dark-muted: #a3a3a3;
+		--same: #bdbdbd;
+		--same-soft: #262626;
+		--ok: #d2d2d2;
+		--chart-bar: #3a3a3a;
+		--chart-track: #303030;
+		--accent: #d6d6d6;
+		--heat-1: #2e2e2e;
+		--heat-2: #444444;
+		--heat-3: #5e5e5e;
+		--heat-4: #d6d6d6;
+		--warn: #9c9c9c;
+		--warn-text: #b4b4b4;
+		--raised: #3a3a3a;
+		--pro: #a6a6a6;
+		--pro-text: #d0d0d0;
+		--pro-soft: #262626;
+		--glass-bg: rgba(29, 29, 29, 0.78);
+		--glass-solid: #1d1d1d;
+		--glass-border: rgba(255, 255, 255, 0.1);
+		--glass-shadow:
+			0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.4),
+			0 12px 32px -12px rgba(0, 0, 0, 0.6);
+		--glass-bg-soft: rgba(18, 18, 18, 0.72);
+		--nw-wallets: #e6e6e6;
+		--nw-cash: #a8a8a8;
+		--nw-investment: #cccccc;
+		--nw-crypto: #8a8a8a;
+		--nw-gold: #bababa;
+		--nw-property: #6f6f6f;
+	}
+}
+
+/*
+ * FN-46 Pro themes — "Emas" (gold) and "Hijau tua" (emerald). Only an account on a paid plan may keep one
+ * (hooks.server.ts turns it back into `system` otherwise). Like mono: one cookie value; the light half here, the
+ * dark half in a prefers-color-scheme block that re-declares every token the dark scheme changes. Surfaces and the
+ * data accent take the hue; ink, money in/out and the brand focus colour stay as they are (colour only for meaning).
+ */
+:root[data-theme='gold'] {
+	--bg: #fffdf8;
+	--bg-soft: #fdf8ee;
+	--panel: #faf5ea;
+	--panel-2: #f1e9d8;
+	--line: #e7ddc7;
+	--chart-bar: #e3d7bd;
+	--chart-track: #efe8d8;
+	--accent: #946603;
+	--heat-1: #f5e8c6;
+	--heat-2: #ead293;
+	--heat-3: #d7b158;
+	--heat-4: #946603;
+	--raised: #fffdf8;
+	--pro-soft: #fcf5e3;
+	--glass-bg: rgba(255, 253, 248, 0.78);
+	--glass-solid: #fffdf8;
+	--glass-bg-soft: rgba(255, 253, 248, 0.72);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root[data-theme='gold'] {
+		--bg: #14120d;
+		--bg-soft: #17150f;
+		--panel: #201c13;
+		--panel-2: #2a251a;
+		--line: #332d20;
+		--chart-bar: #3e3727;
+		--chart-track: #312b1e;
+		--accent: #ddb04a;
+		--heat-1: #3a3220;
+		--heat-2: #574823;
+		--heat-3: #7d6327;
+		--heat-4: #ddb04a;
+		--raised: #3b3527;
+		--pro-soft: #302814;
+		--glass-bg: rgba(32, 28, 19, 0.78);
+		--glass-solid: #201c13;
+		--glass-bg-soft: rgba(20, 18, 13, 0.72);
+	}
+}
+
+:root[data-theme='emerald'] {
+	--bg: #fbfefc;
+	--bg-soft: #f5fbf8;
+	--panel: #f1f8f4;
+	--panel-2: #e3efe8;
+	--line: #d6e7dd;
+	--chart-bar: #cfe1d6;
+	--chart-track: #e5f0ea;
+	--accent: #0b6f6a;
+	--heat-1: #d3eee6;
+	--heat-2: #a3dccd;
+	--heat-3: #62bba7;
+	--heat-4: #0b6f6a;
+	--raised: #fbfefc;
+	--glass-bg: rgba(251, 254, 252, 0.78);
+	--glass-solid: #fbfefc;
+	--glass-bg-soft: rgba(251, 254, 252, 0.72);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root[data-theme='emerald'] {
+		--bg: #0d1311;
+		--bg-soft: #101714;
+		--panel: #16201c;
+		--panel-2: #1f2b26;
+		--line: #27352f;
+		--chart-bar: #33443d;
+		--chart-track: #2a3833;
+		--accent: #4dc2b6;
+		--heat-1: #1b3330;
+		--heat-2: #1f4d47;
+		--heat-3: #27706a;
+		--heat-4: #4dc2b6;
+		--raised: #2d3c36;
+		--glass-bg: rgba(22, 32, 28, 0.78);
+		--glass-solid: #16201c;
+		--glass-bg-soft: rgba(13, 19, 17, 0.72);
+	}
+}
+
+/* Tailwind v4 mapping: bg-panel, text-muted, rounded-group, shadow-card, … */
+@theme inline {
+	--color-bg: var(--bg);
+	--color-bg-soft: var(--bg-soft);
+	--color-panel: var(--panel);
+	--color-panel-2: var(--panel-2);
+	--color-line: var(--line);
+	--color-ink: var(--ink);
+	--color-ink-2: var(--ink-2);
+	--color-muted: var(--muted);
+	--color-faint: var(--faint);
+	--color-brand: var(--brand);
+	--color-brand-soft: var(--brand-soft);
+	--color-money-in: var(--money-in);
+	--color-money-up: var(--money-up);
+	--color-same: var(--same);
+	--color-same-soft: var(--same-soft);
+	--color-accent: var(--accent);
+	--color-warn: var(--warn);
+	--color-warn-text: var(--warn-text);
+	--font-sans: var(--font);
+	--radius-s: var(--r-s);
+	--radius-group: var(--r-group);
+	--radius-m: var(--r-m);
+	--radius-l: var(--r-l);
+	--radius-xl: var(--r-xl);
+	--shadow-card: var(--shadow-card);
+	--shadow-float: var(--shadow-float);
+	--ease-out-soft: var(--ease);
+}

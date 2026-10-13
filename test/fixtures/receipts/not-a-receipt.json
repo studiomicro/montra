@@ -1,0 +1,12 @@
+{
+	"is_receipt": false,
+	"shop": null,
+	"date": null,
+	"currency": null,
+	"items": [],
+	"tax": null,
+	"service": null,
+	"discount": null,
+	"total": null,
+	"payment_method": null
+}

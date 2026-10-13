@@ -1,0 +1,7 @@
+From: Toko Contoh <promo@toko.example>
+To: TO_ADDRESS
+Subject: Promo spesial akhir pekan! Diskon Rp 50.000
+Message-ID: <promo-1@toko.example>
+Content-Type: text/plain; charset=utf-8
+
+Belanja sekarang, hemat Rp 50.000 untuk pembelian pertama.

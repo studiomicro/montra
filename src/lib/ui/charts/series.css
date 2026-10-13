@@ -1,0 +1,159 @@
+/* Series colours for the Laporan SVG charts: `series-<tile key>` sets --c to that category's hue; `series-other`
+ * ("Lainnya") is the neutral bar colour. Chart shapes then use `fill: var(--c)` or `stroke: var(--c)`. */
+.series-kopi {
+	--c: var(--cat-kopi);
+}
+.series-makan {
+	--c: var(--cat-makan);
+}
+.series-belanja-harian {
+	--c: var(--cat-belanja-harian);
+}
+.series-belanja {
+	--c: var(--cat-belanja);
+}
+.series-transportasi {
+	--c: var(--cat-transportasi);
+}
+.series-ojek-online {
+	--c: var(--cat-ojek-online);
+}
+.series-pesan-antar-makanan {
+	--c: var(--cat-pesan-antar-makanan);
+}
+.series-tagihan {
+	--c: var(--cat-tagihan);
+}
+.series-hiburan {
+	--c: var(--cat-hiburan);
+}
+.series-kesehatan {
+	--c: var(--cat-kesehatan);
+}
+.series-pendidikan {
+	--c: var(--cat-pendidikan);
+}
+.series-tempat-tinggal {
+	--c: var(--cat-tempat-tinggal);
+}
+.series-biaya-bank {
+	--c: var(--cat-biaya-bank);
+}
+.series-pajak {
+	--c: var(--cat-pajak);
+}
+.series-tarik-tunai {
+	--c: var(--cat-tarik-tunai);
+}
+.series-kartu-kredit {
+	--c: var(--cat-kartu-kredit);
+}
+.series-transfer {
+	--c: var(--cat-transfer);
+}
+.series-bunga {
+	--c: var(--cat-bunga);
+}
+.series-gaji {
+	--c: var(--cat-gaji);
+}
+.series-bonus {
+	--c: var(--cat-bonus);
+}
+.series-freelance {
+	--c: var(--cat-freelance);
+}
+.series-hadiah {
+	--c: var(--cat-hadiah);
+}
+.series-lain {
+	--c: var(--cat-lain);
+}
+.series-other {
+	--c: var(--chart-bar);
+}
+/* FN-43: a wallet named after a bank, e-wallet or ride/food service (Alur uang) takes its badge hue. */
+.series-brand-bca {
+	--c: var(--badge-bca);
+}
+.series-brand-mandiri {
+	--c: var(--badge-mandiri);
+}
+.series-brand-bni {
+	--c: var(--badge-bni);
+}
+.series-brand-bri {
+	--c: var(--badge-bri);
+}
+.series-brand-bsi {
+	--c: var(--badge-bsi);
+}
+.series-brand-cimb {
+	--c: var(--badge-cimb);
+}
+.series-brand-permata {
+	--c: var(--badge-permata);
+}
+.series-brand-danamon {
+	--c: var(--badge-danamon);
+}
+.series-brand-btn {
+	--c: var(--badge-btn);
+}
+.series-brand-ocbc {
+	--c: var(--badge-ocbc);
+}
+.series-brand-jago {
+	--c: var(--badge-jago);
+}
+.series-brand-seabank {
+	--c: var(--badge-seabank);
+}
+.series-brand-blu {
+	--c: var(--badge-blu);
+}
+.series-brand-jenius {
+	--c: var(--badge-jenius);
+}
+.series-brand-allo {
+	--c: var(--badge-allo);
+}
+.series-brand-gopay {
+	--c: var(--badge-gopay);
+}
+.series-brand-ovo {
+	--c: var(--badge-ovo);
+}
+.series-brand-dana {
+	--c: var(--badge-dana);
+}
+.series-brand-shopeepay {
+	--c: var(--badge-shopeepay);
+}
+.series-brand-linkaja {
+	--c: var(--badge-linkaja);
+}
+.series-brand-astrapay {
+	--c: var(--badge-astrapay);
+}
+.series-brand-isaku {
+	--c: var(--badge-isaku);
+}
+.series-brand-gojek {
+	--c: var(--badge-gojek);
+}
+.series-brand-gofood {
+	--c: var(--badge-gofood);
+}
+.series-brand-grab {
+	--c: var(--badge-grab);
+}
+.series-brand-maxim {
+	--c: var(--badge-maxim);
+}
+.series-brand-shopeefood {
+	--c: var(--badge-shopeefood);
+}
+.series-brand-indrive {
+	--c: var(--badge-indrive);
+}

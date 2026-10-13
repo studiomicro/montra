@@ -1,0 +1,12 @@
+{
+	"is_receipt": true,
+	"shop": "Warung Contoh Sejahtera",
+	"date": "2026-10-08",
+	"currency": "IDR",
+	"items": [{ "name": "Nasi goreng", "amount": 25000 }],
+	"tax": null,
+	"service": null,
+	"discount": null,
+	"total": "25.000",
+	"payment_method": null
+}

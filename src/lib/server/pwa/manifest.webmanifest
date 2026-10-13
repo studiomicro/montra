@@ -1,0 +1,91 @@
+{
+	"name": "Montra",
+	"short_name": "Montra",
+	"description": "Catatan keuangan yang terisi sendiri.",
+	"lang": "id",
+	"dir": "ltr",
+	"id": "/",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#ffffff",
+	"theme_color": "#ffffff",
+	"categories": ["finance", "productivity"],
+	"prefer_related_applications": false,
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+		{
+			"src": "/icons/icon-maskable-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/icons/icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/icons/icon-monochrome-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "monochrome"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Tambah transaksi",
+			"short_name": "Tambah",
+			"description": "Catat pemasukan atau pengeluaran",
+			"url": "/riwayat/baru",
+			"icons": [{ "src": "/icons/shortcut-tambah.png", "sizes": "96x96", "type": "image/png" }]
+		},
+		{
+			"name": "Suara",
+			"short_name": "Suara",
+			"description": "Ucapkan transaksimu",
+			"url": "/riwayat/suara",
+			"icons": [{ "src": "/icons/shortcut-suara.png", "sizes": "96x96", "type": "image/png" }]
+		},
+		{
+			"name": "Struk",
+			"short_name": "Struk",
+			"description": "Foto struk belanja",
+			"url": "/riwayat/struk",
+			"icons": [{ "src": "/icons/shortcut-struk.png", "sizes": "96x96", "type": "image/png" }]
+		},
+		{
+			"name": "Tanya",
+			"short_name": "Tanya",
+			"description": "Tanyakan keuanganmu",
+			"url": "/tanya",
+			"icons": [{ "src": "/icons/shortcut-tanya.png", "sizes": "96x96", "type": "image/png" }]
+		}
+	],
+	"screenshots": [
+		{
+			"src": "/screenshots/narrow-riwayat.png",
+			"sizes": "1080x2340",
+			"type": "image/png",
+			"form_factor": "narrow",
+			"label": "Riwayat: transaksi harian, dengan data demo"
+		},
+		{
+			"src": "/screenshots/narrow-tambah.png",
+			"sizes": "1080x2340",
+			"type": "image/png",
+			"form_factor": "narrow",
+			"label": "Tambah transaksi: ketik, suara atau foto struk"
+		},
+		{
+			"src": "/screenshots/wide-riwayat.png",
+			"sizes": "1280x800",
+			"type": "image/png",
+			"form_factor": "wide",
+			"label": "Riwayat di desktop, dengan data demo"
+		}
+	]
+}

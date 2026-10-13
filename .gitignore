@@ -1,0 +1,45 @@
+node_modules
+
+# Output
+.output
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Playwright
+test-results
+playwright-report
+playwright/.auth
+
+# Wrangler local secrets (see .dev.vars.example)
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# superpowers SDD scratch workspaces
+.superpowers/
+.claude/settings.local.json
+.svelte-kit-build.lock
+
+# FN-16g on-device OCR engine files: copied from node_modules and downloaded (pinned, hash-checked) by
+# `npm run ocr:assets`; never committed.
+/static/_ocr/
+/.ocr-cache/
+
+# Real staging ids and host for `npm run deploy:staging` (docs/RUNBOOK.md › Staging) and the temporary configs it
+# writes from them; never committed (public repository).
+.staging.env
+wrangler.staging.generated.jsonc

@@ -1,0 +1,20 @@
+Authentication-Results: mx.inbound.example; dkim=pass header.d=struk.dompet-digital.example; dmarc=pass header.from=struk.dompet-digital.example
+From: Dompet Contoh <struk@struk.dompet-digital.example>
+To: TO_ADDRESS
+Subject: Bukti pembayaran
+Message-ID: <ew-20261008-1432@struk.dompet-digital.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+Pembayaran ke Kedai Kopi Senja
+Total bayar Rp28.000
+8 Oktober 2026, 14:32
+ID Transaksi: GP-ABC123
+--b1
+Content-Type: text/html; charset=utf-8
+
+<p>Pembayaran ke <b>Kedai Kopi Senja</b></p><p>Total bayar Rp28.000</p>
+--b1--

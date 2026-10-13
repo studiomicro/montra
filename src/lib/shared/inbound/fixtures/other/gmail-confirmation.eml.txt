@@ -1,0 +1,11 @@
+Authentication-Results: mx.inbound.example; dkim=pass header.d=google.com header.s=20230601; dmarc=pass (p=REJECT) header.from=google.com
+From: Gmail Team <forwarding-noreply@google.com>
+To: TO_ADDRESS
+Subject: (#123456789) Gmail Forwarding Confirmation - Receive Mail from budi@mail.example
+Message-ID: <confirm-1@google.com>
+Content-Type: text/plain; charset=utf-8
+
+budi@mail.example has requested to automatically forward mail to your email address.
+Confirmation code: 123456789
+To allow budi@mail.example to automatically forward mail to your address, please click the link below to confirm the request:
+https://mail-settings.google.com/mail/vf-example

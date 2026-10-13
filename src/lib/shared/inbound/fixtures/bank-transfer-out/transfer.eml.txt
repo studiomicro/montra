@@ -1,0 +1,12 @@
+Authentication-Results: mx.inbound.example; dkim=pass header.d=notif.bank-transfer.example; dmarc=pass header.from=notif.bank-transfer.example
+From: Bank Transfer Contoh <notif@notif.bank-transfer.example>
+To: TO_ADDRESS
+Subject: Transfer berhasil
+Message-ID: <out-20261008-1805@notif.bank-transfer.example>
+Content-Type: text/plain; charset=utf-8
+
+Transfer Anda berhasil.
+Ke: Siti Aminah
+Nominal: IDR 250,000.00
+Tanggal: 08/10/2026 18:05
+No. Ref: 9988776655

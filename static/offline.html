@@ -1,0 +1,26 @@
+<!doctype html>
+<!--
+	Shown by the service worker for a page load while the device is offline (FN-13). Served from Cache
+	Storage with no server, so it cannot call tr(): both languages are written here, and the page carries no
+	script and no inline style (styles in offline.css, also cached).
+-->
+<html lang="id">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="color-scheme" content="light dark" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111112" />
+		<title>Offline · Montra</title>
+		<link rel="icon" href="/favicon.svg" />
+		<link rel="stylesheet" href="/offline.css" />
+	</head>
+	<body>
+		<main>
+			<h1>Kamu sedang offline.</h1>
+			<p>Periksa koneksi internet, lalu coba lagi. Catatanmu tetap aman di server.</p>
+			<p lang="en" class="en">You are offline. Check your connection, then try again.</p>
+			<a class="retry" href="">Coba lagi · Try again</a>
+		</main>
+	</body>
+</html>

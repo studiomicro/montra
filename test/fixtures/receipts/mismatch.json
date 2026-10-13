@@ -1,0 +1,15 @@
+{
+	"is_receipt": true,
+	"shop": "Toko Fiktif Makmur",
+	"date": "2026-10-08",
+	"currency": "IDR",
+	"items": [
+		{ "name": "Roti tawar", "amount": "15.000" },
+		{ "name": "Susu UHT", "amount": "12.500" }
+	],
+	"tax": null,
+	"service": null,
+	"discount": null,
+	"total": "30.000",
+	"payment_method": "TUNAI"
+}

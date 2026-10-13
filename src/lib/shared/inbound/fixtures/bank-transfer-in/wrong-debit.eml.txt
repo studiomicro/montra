@@ -1,0 +1,10 @@
+From: Bank Digital Contoh <halo@info.bank-digital.example>
+To: TO_ADDRESS
+Subject: Kamu menerima transfer
+Message-ID: <in-wrong-db@info.bank-digital.example>
+Content-Type: text/plain; charset=utf-8
+
+Dari: Budi Santoso
+Jumlah: Rp 1.500.000 DB
+8 Okt 2026 09:10
+Ref: 77881235

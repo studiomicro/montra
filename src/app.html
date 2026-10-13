@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="%fin.lang%" data-theme="%fin.theme%">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="color-scheme" content="light dark" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<link
+			rel="manifest"
+			href="%sveltekit.assets%/manifest.webmanifest"
+			crossorigin="use-credentials"
+		/>
+		<link
+			rel="preload"
+			href="%sveltekit.assets%/fonts/geist/1.7.2/Geist-Variable.woff2"
+			as="font"
+			type="font/woff2"
+			crossorigin="anonymous"
+		/>
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/icons/%fin.appleTouchIcon%" />
+		<!-- FN-13b: the manifest's display decides standalone, so there is no "capable" tag on purpose; `default`
+		     keeps the status bar readable in light and dark. -->
+		<meta name="apple-mobile-web-app-title" content="Montra" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta
+			name="theme-color"
+			media="(prefers-color-scheme: light)"
+			content="%fin.themeColorLight%"
+		/>
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="%fin.themeColorDark%" />
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div class="app-root">%sveltekit.body%</div>
+	</body>
+</html>

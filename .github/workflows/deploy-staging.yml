@@ -1,0 +1,113 @@
+# CD to staging only (docs/RUNBOOK.md › CI/CD). Runs on a pushed tag v* or by hand on a tag, never on a pull
+# request and never in a fork, and only for a commit already on main. The `staging` environment holds every real
+# value and its required reviewer approves each run. There is no production deploy workflow, and nothing here
+# seeds or resets any database.
+name: Deploy staging
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never two staging deploys from this workflow at once, and never cancel one halfway (migrations). A local
+# `npm run deploy:staging` is outside this group: approve a run only after a local deploy has finished.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.repository.fork == false && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      # Full history, so the tagged commit can be checked against origin/main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # No npm cache in the job that holds the Cloudflare token: dependencies come fresh from the lockfile.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Tag matches package.json and is on main
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          want="v$(node -p 'require("./package.json").version')"
+          if [ "$TAG" != "$want" ]; then echo "::error::the tag is not $want (package.json)"; exit 1; fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::the tagged commit is not on main; merge it first"; exit 1
+          fi
+      # /ship may already have deployed this version locally: then there is nothing to do. An unreachable or
+      # unreadable health check deploys as usual.
+      - name: Already live?
+        id: live
+        env:
+          STAGING_APP_HOST: ${{ secrets.STAGING_APP_HOST }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$STAGING_APP_HOST" ]; then echo "::error::secrets.STAGING_APP_HOST is not set"; exit 1; fi
+          echo "::add-mask::$STAGING_APP_HOST"
+          live=$(curl -fs --max-time 15 "https://$STAGING_APP_HOST/api/v1/health" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).version??""))}catch{}})' \
+            || true)
+          echo "live version: ${live:-unknown}"
+          if [ "v$live" = "$TAG" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.live.outputs.skip != 'true'
+        run: npm ci --ignore-scripts
+      - if: steps.live.outputs.skip != 'true'
+        run: npx svelte-kit sync
+      # The gates include the build; it runs here, without the Cloudflare token, and the deploy reuses its output.
+      - if: steps.live.outputs.skip != 'true'
+        run: npm run gates
+      # wrangler prints the workers.dev address (it holds the account's subdomain): redacted before the log.
+      - name: npm run deploy:staging -- --skip-build
+        if: steps.live.outputs.skip != 'true'
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STAGING_D1_DATABASE_ID: ${{ secrets.STAGING_D1_DATABASE_ID }}
+          STAGING_KV_CACHE_ID: ${{ secrets.STAGING_KV_CACHE_ID }}
+          STAGING_APP_HOST: ${{ secrets.STAGING_APP_HOST }}
+          # Public by design (rendered into the sign-in page); unset keeps Turnstile off.
+          STAGING_TURNSTILE_SITE_KEY: ${{ vars.STAGING_TURNSTILE_SITE_KEY }}
+        run: |
+          npm run deploy:staging -- --skip-build 2>&1 \
+            | sed -E 's/[A-Za-z0-9.-]+\.workers\.dev/<redacted>.workers.dev/g' \
+            | tee "$RUNNER_TEMP/deploy.log"
+      # Also after a failure: once the bookmark is read, a later failed step may need the Time Travel restore.
+      - name: Job summary (Time Travel bookmark)
+        if: always()
+        env:
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          SKIP: ${{ steps.live.outputs.skip }}
+        run: |
+          log="$RUNNER_TEMP/deploy.log"
+          {
+            echo "## Staging deploy $TAG ($SHA)"
+            echo
+            if [ "$SKIP" = "true" ]; then
+              echo "Skipped: staging already runs $TAG (deployed locally by /ship). Nothing was changed."
+              exit 0
+            fi
+            bookmark=$(grep -oE 'Time Travel bookmark [0-9a-f-]+' "$log" 2>/dev/null | tail -n 1 | cut -d' ' -f4 || true)
+            if [ -n "$bookmark" ]; then
+              echo "D1 Time Travel bookmark (rollback point, taken before the migrations): \`$bookmark\`"
+              echo
+              echo "Restore (locally, after \`npm run deploy:staging -- --write-config\`; docs/RUNBOOK.md › Staging):"
+              echo "\`npx wrangler d1 time-travel restore montra-staging --bookmark $bookmark -c wrangler.staging.generated.jsonc --env staging\`"
+            else
+              echo "No Time Travel bookmark was read, so no migration ran."
+            fi
+            if grep -q 'deploy:staging: done.' "$log" 2>/dev/null; then echo; echo "Result: deployed."; else echo; echo "Result: not deployed (see the step log)."; fi
+          } >> "$GITHUB_STEP_SUMMARY"

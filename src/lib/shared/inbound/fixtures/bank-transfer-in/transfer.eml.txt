@@ -1,0 +1,12 @@
+Authentication-Results: mx.inbound.example; dkim=pass header.d=info.bank-digital.example; dmarc=pass header.from=info.bank-digital.example
+From: Bank Digital Contoh <halo@info.bank-digital.example>
+To: TO_ADDRESS
+Subject: Kamu menerima transfer
+Message-ID: <in-20261008-0910@info.bank-digital.example>
+Content-Type: text/plain; charset=utf-8
+
+Hai, ada uang masuk!
+Dari: Budi Santoso
+Jumlah: Rp 1.500.000
+8 Okt 2026 09:10
+Ref: 77881234

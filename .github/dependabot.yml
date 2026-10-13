@@ -1,0 +1,24 @@
+# Weekly dependency updates (docs/RUNBOOK.md › CI/CD). Minor and patch updates arrive as one grouped pull request
+# per ecosystem; majors come one by one. Every pull request runs the full CI.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # FN-16g: these exact versions are pinned with the byte size and SHA-256 of every shipped OCR file
+      # (src/lib/shared/ocr/assets.ts); a bump needs new pins and a new OCR_ASSET_VERSION, so it is done by hand.
+      - dependency-name: tesseract.js
+      - dependency-name: tesseract.js-core
+      - dependency-name: pdfjs-dist
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]

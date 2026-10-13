@@ -1,0 +1,40 @@
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "montra-inbound",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	"observability": { "enabled": true },
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "montra",
+			"database_id": "00000000-0000-4000-8000-000000000000",
+			"migrations_dir": "../../migrations"
+		}
+	],
+	// FN-19: an unparsed payment mail is read with AI by the jobs Worker (`inbound_read`, ids only on the queue).
+	// Optional vars INBOUND_EMAIL_DOMAIN, INBOUND_AUTHSERV_ID, AI_GATEWAY_ACCOUNT_ID, AI_GATEWAY_ID are set per
+	// environment by the owner (docs/RUNBOOK.md › E-mail forwarding); unset, every mail is refused.
+	"queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "montra-jobs" }] },
+	"env": {
+		"staging": {
+			// account_id, D1 and KV ids are placeholders: `npm run deploy:staging` fills them from the environment
+			// (CLOUDFLARE_ACCOUNT_ID, STAGING_D1_DATABASE_ID, STAGING_KV_CACHE_ID) or the gitignored .staging.env into a
+			// temporary config (docs/RUNBOOK.md › Staging). Never commit real ids.
+			"name": "montra-inbound-staging",
+			"account_id": "00000000000000000000000000000000",
+			"workers_dev": true,
+			"observability": { "enabled": true },
+			"vars": { "APP_VERSION": "0.11.0", "APP_ENV": "staging" },
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "montra-staging",
+					"database_id": "00000000-0000-4000-8000-000000000000",
+					"migrations_dir": "../../migrations"
+				}
+			],
+			"queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "montra-jobs-staging" }] }
+		}
+	}
+}

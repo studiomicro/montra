@@ -1,0 +1,10 @@
+From: Toko Daring Contoh <invoice@toko-daring.example>
+To: TO_ADDRESS
+Subject: Invoice pesanan INV/2026/10/0001
+Message-ID: <inv-1@toko-daring.example>
+Content-Type: text/plain; charset=utf-8
+
+Terima kasih atas pesananmu.
+Total pembayaran: Rp 125.500
+Dibayar dengan kartu 4111 1111 1111 1234 pada 8 Oktober 2026 pukul 10:15 WIB.
+Rekening pengembalian 1234567890.

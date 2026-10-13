@@ -1,0 +1,7 @@
+From: Bank Contoh <noreply@notifikasi.bank-qris.example>
+To: TO_ADDRESS
+Subject: Kode OTP Anda
+Message-ID: <otp-1@notifikasi.bank-qris.example>
+Content-Type: text/plain; charset=utf-8
+
+Kode OTP Anda 123456 untuk transaksi Rp 28.000. Jangan berikan kepada siapa pun.

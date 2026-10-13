@@ -1,0 +1,16 @@
+{
+	"is_receipt": true,
+	"shop": "Warung Contoh Sejahtera",
+	"date": "2026-10-08",
+	"currency": "IDR",
+	"items": [
+		{ "name": "Nasi goreng", "amount": "25.000" },
+		{ "name": "Es teh manis", "amount": "8.000" },
+		{ "name": "Kopi susu", "amount": "Rp 18.000" }
+	],
+	"tax": "5.100",
+	"service": null,
+	"discount": null,
+	"total": "Rp 56.100,00",
+	"payment_method": "QRIS"
+}

@@ -1,0 +1,9 @@
+From: Bank Transfer Contoh <notif@notif.bank-transfer.example>
+To: TO_ADDRESS
+Subject: Transfer berhasil
+Message-ID: <out-wrong-date@notif.bank-transfer.example>
+Content-Type: text/plain; charset=utf-8
+
+Ke: Siti Aminah
+Nominal: IDR 250,000.00
+No. Ref: 9988776656
