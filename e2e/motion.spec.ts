@@ -9,7 +9,7 @@ import {
 	tickSignUpBoxes,
 	waitForHydration
 } from './helpers';
-import { addWallet, freshUser as freshLedgerUser, ids, postExpense } from './ledger';
+import { addWallet, freshUser as freshLedgerUser, ids, postExpense, today } from './ledger';
 
 // Red team L2: every page this spec opens — motion on and off — is watched for CSP violations (the @starting-style
 // sheet, the Web Animations fade, the counting number and the illustrations must need no CSP exception).
@@ -495,41 +495,60 @@ test.describe('FN-51 lists', () => {
 		const { wallet, category } = await ids(page);
 		const walletId = await wallet('BCA');
 		const categoryId = await category('Kopi');
-		for (let i = 1; i <= 51; i++)
-			await postExpense(page, { walletId, categoryId, amount: '1.000', title: `Baris ${i}` });
+		// 50 rows on one day fill the first page; the next page holds 10 rows from the day before, so it adds a new
+		// day section (a page that continues the same day would only grow the section already shown). Both days are
+		// in last month, so the pair never straddles a month boundary.
+		const start = new Date(`${today().slice(0, 7)}-01T00:00:00Z`);
+		start.setUTCMonth(start.getUTCMonth() - 1);
+		const month = start.toISOString().slice(0, 7);
+		for (let i = 1; i <= 60; i++)
+			await postExpense(page, {
+				walletId,
+				categoryId,
+				amount: '1.000',
+				title: `Baris ${i}`,
+				occurredOn: `${month}-${i <= 10 ? '01' : '02'}`
+			});
 		const motion = await browser.newContext({
 			reducedMotion: 'no-preference',
 			viewport: { width: 360, height: 780 },
 			storageState: await context.storageState()
 		});
 		const view = await open(motion);
-		await view.goto(`${APP_ORIGIN}/riwayat`);
+		await view.goto(`${APP_ORIGIN}/riwayat?month=${month}`);
 		await waitForHydration(view);
 		const rows = view.locator('main a[href$="/edit"]');
 		await expect(rows).toHaveCount(50);
+		// Every element whose animation starts from the tap on: a slow runner may finish the fade before the
+		// list is read, so the start events are recorded rather than sampled while running.
+		await view.evaluate(() => {
+			const started = new Set<Element>();
+			(window as unknown as { started: Set<Element> }).started = started;
+			document.addEventListener('animationstart', (e) => started.add(e.target as Element), true);
+		});
 		await view.getByRole('link', { name: 'Muat lebih banyak' }).click();
-		await expect(rows).toHaveCount(51);
-		// The appended page is a new day section (or the same day's merged list): its header and its first row
-		// are animating right now; the 9th row of the group would not be.
+		await expect(rows).toHaveCount(60);
+		// The appended page is a new day section: its header and its first row fade in; the 9th row does not.
 		const sections = view.locator('main section.day');
 		const last = sections.last();
-		const running = await last.evaluate((section) => {
-			const header = section.querySelector('.day');
-			const first = section.querySelector('ul.group > li');
-			const ninth = section.querySelector('ul.group > li:nth-child(9)');
-			const isRunning = (el: Element | null) =>
-				!!el && el.getAnimations().some((a) => a.playState === 'running');
-			return {
-				header: isRunning(header),
-				first: isRunning(first),
-				ninth: ninth ? isRunning(ninth) : false
-			};
-		});
-		expect(running.header).toBe(true);
-		expect(running.first).toBe(true);
-		expect(running.ninth).toBe(false);
+		const animated = () =>
+			last.evaluate((section) => {
+				const { started } = window as unknown as { started: Set<Element> };
+				const header = section.querySelector('.day');
+				const first = section.querySelector('ul.group > li');
+				const ninth = section.querySelector('ul.group > li:nth-child(9)');
+				return {
+					header: !!header && started.has(header),
+					first: !!first && started.has(first),
+					ninth: !!ninth && started.has(ninth)
+				};
+			});
+		// The start events arrive on the frame after the rows are inserted.
+		await expect.poll(animated).toMatchObject({ header: true, first: true });
+		expect((await animated()).ninth).toBe(false);
 		const firstRow = last.locator('ul.group > li a').first();
 		const href = await firstRow.getAttribute('href');
+		await firstRow.scrollIntoViewIfNeeded();
 		const box = (await firstRow.boundingBox())!;
 		await view.mouse.click(box.x + 40, box.y + box.height / 2);
 		await expect(view).toHaveURL(`${APP_ORIGIN}${href}`);
