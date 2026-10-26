@@ -10,9 +10,9 @@ import {
 	STATEMENT_TOO_LARGE
 } from '../imports/messages';
 import { FILENAME_MAX_LENGTH } from '../imports/validation';
-import { ID_MAX_LENGTH } from '../transactions/validation';
 import { PDF_PASSWORD_MAX_LENGTH } from './pdf-text';
 import { STATEMENT_MAX_BYTES } from './read';
+import { ID_MAX_LENGTH } from '../forms';
 
 /** Largest body the statement actions read: the 15 MB file plus multipart framing and the short fields. */
 export const STATEMENT_BODY_MAX_BYTES = STATEMENT_MAX_BYTES + 64 * 1024;

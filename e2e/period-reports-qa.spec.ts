@@ -28,6 +28,9 @@ for (const scheme of ['light', 'dark'] as const) {
 	test(`snapshots: Q3 report with a gap, a partial month and group changes (${scheme})`, async ({
 		browser
 	}, testInfo) => {
+		// Sign-up, seeding through the wrangler CLI, two contexts and four full-page screenshots: more than the
+		// default 30 s when every worker is busy.
+		test.setTimeout(90_000);
 		const signedUp = await freshUser(browser, testInfo, 'nwqa');
 		await addWallet(signedUp.page, 'BCA', '100.000');
 		await seedSnapshots(signedUp.email);

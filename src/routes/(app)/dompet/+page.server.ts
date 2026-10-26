@@ -1,12 +1,12 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { cardSummaries } from '#lib/server/cards/summary';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, expectedUpdatedAt, ID_MAX_LENGTH, idField } from '#lib/server/forms';
 import { errorLabel } from '#lib/server/util';
 import { GOAL_LIMIT, GOAL_NOT_FOUND, GOALS_LOAD_FAILED } from '#lib/server/goals/messages';
 import { goalsSetAside } from '#lib/server/goals/progress';
 import { createGoal, listGoals } from '#lib/server/goals/repo';
 import { parseGoalForm } from '#lib/server/goals/validation';
-import { requireSpaceAccess } from '#lib/server/spaces/access';
+import { currentSpaceAccess } from '#lib/server/spaces/current';
 import { balanceTotals, shownBalance } from '#lib/server/wallets/balance';
 import { walletHasTransactions } from '#lib/server/transactions/repo';
 import { walletTransactionsSums } from '#lib/server/transactions/wallet-sum';
@@ -28,7 +28,6 @@ import {
 	setFavourite,
 	updateWallet,
 	walletHasCardStatements,
-	type WalletScope,
 	type WalletWriteResult
 } from '#lib/server/wallets/repo';
 import { parseWalletForm, walletFormValues } from '#lib/server/wallets/validation';
@@ -41,30 +40,7 @@ import type { Actions, PageServerLoad, RequestEvent } from './$types';
 // locals.user, so there is one access rule; a wallet id from the form is only ever looked up inside that space,
 // so another space's id and an unknown id get the same answer.
 
-/** Longest wallet id read from a form; ids are UUIDs, anything longer cannot match. */
-const WALLET_ID_MAX_LENGTH = 64;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
-
-async function walletScope(locals: App.Locals) {
-	const user = locals.user;
-	if (!user) redirect(303, '/masuk');
-	if (!locals.space) error(404, 'Not found');
-	const access = await requireSpaceAccess(locals.db, user.id, locals.space.id);
-	const scope: WalletScope = { spaceId: access.space.id, userId: user.id };
-	return { scope, space: access.space };
-}
-
-function walletId(form: FormData): string {
-	const id = textField(form, 'walletId');
-	return id.length > WALLET_ID_MAX_LENGTH ? '' : id;
-}
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
+const walletId = (form: FormData) => idField(form, 'walletId');
 
 function refused(result: Exclude<WalletWriteResult, 'ok'>) {
 	if (result === 'card_locked') return fail(409, { error: CARD_TYPE_LOCKED });
@@ -85,13 +61,13 @@ async function loadGoals(db: App.Locals['db'], spaceId: string, includeArchived:
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const { scope, space } = await walletScope(locals);
+	const { scope, space } = await currentSpaceAccess(locals);
 	// The space's own name only for a shared space; a personal space is labelled by the page.
 	const spaceLabel = { kind: space.kind, name: space.kind === 'shared' ? space.name : '' };
 	const showArchived = url.searchParams.get('arsip') === '1';
 	// `?tambah=1` / `?ubah=<id>` open the wallet form and `?target=baru` the goal form without JavaScript (a
 	// sheet does it with JavaScript).
-	const editId = url.searchParams.get('ubah')?.slice(0, WALLET_ID_MAX_LENGTH) ?? null;
+	const editId = url.searchParams.get('ubah')?.slice(0, ID_MAX_LENGTH) ?? null;
 	const open = url.searchParams.get('tambah') === '1' ? 'add' : editId;
 	// `&jenis=kartu_kredit` (the card page's "Tambah kartu"): the new wallet starts as a card, without JavaScript too.
 	const addCard = open === 'add' && url.searchParams.get('jenis') === 'kartu_kredit';
@@ -102,38 +78,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const emoneyPick =
 		open === 'add' ? (emoneyQuickPick(url.searchParams.get('kartu'))?.issuer ?? null) : null;
 	const openGoal = url.searchParams.get('target') === 'baru';
-	// The goals (FN-10) load on their own: a failure there leaves the wallets untouched, and back.
-	const goalsSection = await loadGoals(locals.db, scope.spaceId, showArchived);
+	// The goals (FN-10) and the wallets load side by side, each on its own: a failure in one leaves the other
+	// untouched.
+	const [goalsSection, walletSection] = await Promise.all([
+		loadGoals(locals.db, scope.spaceId, showArchived),
+		loadWallets(locals.db, scope.spaceId, showArchived)
+	]);
 	const base = { space: spaceLabel, showArchived, openGoal, ...goalsSection };
-	try {
-		const [rows, sums] = await Promise.all([
-			listWallets(locals.db, scope.spaceId, { includeArchived: showArchived }),
-			walletTransactionsSums(locals.db, scope.spaceId)
-		]);
-		const wallets = rows.map((w) => ({ ...w, balanceMinor: shownBalance(w, sums.get(w.id)) }));
-		const live = wallets.filter((w) => !w.archived);
-		const heroCurrency = live.find((w) => w.isFavourite)?.currency ?? 'IDR';
-		// FN-55a: a live card's owed amount, available credit and due chip (computed, never typed).
-		const cards = await cardSummaries(
-			locals.db,
-			scope.spaceId,
-			live.filter((w) => w.type === 'kartu_kredit'),
-			wibTodayString()
-		);
-		return {
-			...base,
-			wallets,
-			cards,
-			totals: balanceTotals(live, heroCurrency),
-			heroCurrency,
-			loadError: null,
-			open,
-			quickPick,
-			emoneyPick,
-			addCard
-		};
-	} catch (e) {
-		console.error('dompet: wallet list failed', errorLabel(e));
+	if (!walletSection)
 		return {
 			...base,
 			wallets: [],
@@ -146,12 +98,36 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			emoneyPick: null,
 			addCard: false
 		};
-	}
+	return { ...base, ...walletSection, loadError: null, open, quickPick, emoneyPick, addCard };
 };
+
+/** The wallets with their balances, the live cards' summaries and the totals; null when they cannot be loaded. */
+async function loadWallets(db: App.Locals['db'], spaceId: string, showArchived: boolean) {
+	try {
+		const [rows, sums] = await Promise.all([
+			listWallets(db, spaceId, { includeArchived: showArchived }),
+			walletTransactionsSums(db, spaceId)
+		]);
+		const wallets = rows.map((w) => ({ ...w, balanceMinor: shownBalance(w, sums.get(w.id)) }));
+		const live = wallets.filter((w) => !w.archived);
+		const heroCurrency = live.find((w) => w.isFavourite)?.currency ?? 'IDR';
+		// FN-55a: a live card's owed amount, available credit and due chip (computed, never typed).
+		const cards = await cardSummaries(
+			db,
+			spaceId,
+			live.filter((w) => w.type === 'kartu_kredit'),
+			wibTodayString()
+		);
+		return { wallets, cards, totals: balanceTotals(live, heroCurrency), heroCurrency };
+	} catch (e) {
+		console.error('dompet: wallet list failed', errorLabel(e));
+		return null;
+	}
+}
 
 async function guarded(event: RequestEvent) {
 	const form = await readFormBody(event.request);
-	const { scope } = await walletScope(event.locals);
+	const { scope } = await currentSpaceAccess(event.locals);
 	return { form, scope, db: event.locals.db };
 }
 

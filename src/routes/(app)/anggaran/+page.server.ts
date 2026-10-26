@@ -6,12 +6,12 @@ import {
 } from '#lib/server/budgets/actions';
 import { anggaranSummary } from '#lib/server/budgets/anggaran';
 import { ANGGARAN_LOAD_FAILED } from '#lib/server/budgets/messages';
-import { ensurePresetCategories } from '#lib/server/categories/repo';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { currentSpaceScope } from '#lib/server/spaces/current';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { errorLabel } from '#lib/server/util';
 import { wibTodayString } from '#lib/shared/dates';
 import type { Actions, PageServerLoad } from './$types';
+import { ID_MAX_LENGTH } from '#lib/server/forms';
 
 // Anggaran (APP_PARITY § 3) works on the session's current space (locals.space), re-checked through
 // requireSpaceAccess on every load and action (currentSpaceScope). A category id from the URL or a form is only
@@ -26,11 +26,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			? ('total' as const)
 			: (url.searchParams.get('kategori')?.slice(0, ID_MAX_LENGTH) ?? null);
 	try {
-		await ensurePresetCategories(locals.db, spaceId);
+		// The presets are checked (and topped up when missing) with the category list, beside the other reads.
+		const categories = listCategoriesWithPresets(locals.db, spaceId, { includeHidden: true });
 		return {
 			today,
 			open,
-			summary: await anggaranSummary(locals.db, spaceId, today),
+			summary: await anggaranSummary(locals.db, spaceId, today, categories),
 			loadError: null
 		};
 	} catch (e) {

@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoHorizontalScroll, isPhone, simulatedClientIp, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense, postForm, rp, today } from './ledger';
+import {
+	APP_ORIGIN,
+	expectNoHorizontalScroll,
+	isPhone,
+	simulatedClientIp,
+	waitForHydration
+} from './helpers';
+import { addWallet, freshUser, ids, postExpense, rp, today } from './ledger';
 
 /**
  * FN-07/08 journeys: Beranda's budget, safe-to-spend line, today's list and chart picker. Every test signs up
@@ -89,15 +95,12 @@ test('chart picker switches views without a request; tapping a bar changes the r
 		amount: '25.000',
 		title: 'Kopi'
 	});
-	await postForm(page, '/riwayat/baru?/create', {
-		type: 'expense',
-		amount: '10.000',
+	await postExpense(page, {
 		walletId,
 		categoryId: await category('Transportasi'),
+		amount: '10.000',
 		title: 'Parkir',
-		note: '',
-		occurredOn: shiftDays(today(), -1),
-		occurredTime: ''
+		occurredOn: shiftDays(today(), -1)
 	});
 
 	await openBeranda(page);
@@ -195,7 +198,7 @@ test('without JavaScript the budget form works as a plain form: refusal and succ
 	const page = await context.newPage();
 	await page.goto('/');
 	await budget(page).getByRole('link', { name: 'Atur anggaran' }).click();
-	await page.waitForURL(`${BASE}/?anggaran=1`);
+	await page.waitForURL(`${APP_ORIGIN}/?anggaran=1`);
 	const inline = main(page).locator('section', {
 		has: page.getByRole('heading', { name: 'Anggaran bulanan' })
 	});

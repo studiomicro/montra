@@ -43,6 +43,7 @@ test('settings → Aplikasi terhubung: five apps, all "Belum dikonfigurasi"; Hub
 		const record = (r: { url: () => string }) => requests.push(r.url());
 		page.on('request', record);
 		await connect.click({ force: true });
+		// Proves a negative: no request follows the click, so there is nothing to await; a short grace is all there is.
 		await page.waitForTimeout(300);
 		page.off('request', record);
 		expect(requests).toEqual([]);

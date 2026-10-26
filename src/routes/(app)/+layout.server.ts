@@ -4,6 +4,7 @@ import { releaseNoteFor } from '#lib/server/content/release-notes';
 import { getEnv } from '#lib/server/env';
 import { getFeatureFlags } from '#lib/server/feature-flags/repo';
 import { inboundDomain } from '#lib/shared/inbound/address';
+import { errorLabel } from '#lib/server/util';
 import type { ShellData } from '#lib/ui/shell/shell-data';
 import type { LayoutServerLoad } from './$types';
 
@@ -57,7 +58,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			whatsNew
 		};
 	} catch (e) {
-		console.error('app layout: feature flags failed', e);
+		console.error('app layout: feature flags failed', errorLabel(e));
 		return {
 			hiddenModules: [] as Module[],
 			shell,

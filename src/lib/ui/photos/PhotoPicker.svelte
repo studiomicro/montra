@@ -31,7 +31,6 @@
 		describedby,
 		required = false,
 		invalid = false,
-		accept = PHOTO_ACCEPT,
 		prepare = 'none',
 		onpick
 	}: {
@@ -44,7 +43,6 @@
 		required?: boolean;
 		/** The caller shows an error for this field. */
 		invalid?: boolean;
-		accept?: string;
 		/** 'none': the caller prepares the file itself (Struk); 'downscale': item photos (Owner decision 3). */
 		prepare?: 'none' | 'downscale';
 		/** The one prepared file, as the form will send it. */
@@ -52,6 +50,7 @@
 	} = $props();
 
 	const { tr, trf } = useI18n();
+	const accept = PHOTO_ACCEPT;
 
 	/** null: server render, before hydration and without JavaScript (the plain input). */
 	let mode = $state<PickerMode | null>(null);

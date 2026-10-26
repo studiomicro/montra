@@ -5,6 +5,7 @@ import { cardStatements } from '../db/schema';
 import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
+import { bumpedUpdatedAt } from '../sync/updated-at';
 
 /**
  * Stored card statements (FN-55b, `card_statements`): one live row per card wallet and statement date, holding only
@@ -118,7 +119,7 @@ export function tombstoneCardStatementsOfBatch(
 			minimumPaymentMinor: null,
 			limitMinor: null,
 			currency: null,
-			updatedAt: sql`max(${now}, ${cardStatements.updatedAt} + 1)`,
+			updatedAt: bumpedUpdatedAt(cardStatements.updatedAt, now),
 			seq: currentSpaceSeq(spaceId)
 		})
 		.where(
@@ -144,7 +145,7 @@ export function moveCardStatementsOfBatch(
 		.update(cardStatements)
 		.set({
 			walletId,
-			updatedAt: sql`max(${now}, ${cardStatements.updatedAt} + 1)`,
+			updatedAt: bumpedUpdatedAt(cardStatements.updatedAt, now),
 			seq: currentSpaceSeq(spaceId)
 		})
 		.where(

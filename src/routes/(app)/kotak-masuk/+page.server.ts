@@ -14,30 +14,29 @@ import {
 	seedDemoDrafts
 } from '#lib/server/drafts/repo';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
+import { expectedUpdatedAt, idField, readFormBody } from '#lib/server/forms';
 import type { MerchantReason } from '#lib/shared/merchants/resolve';
 import { draftHints, draftSuggestedName } from '#lib/server/merchants/drafts';
 import { countUnread } from '#lib/server/notifications/repo';
 import { currentSpaceScope } from '#lib/server/spaces/current';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { listWallets } from '#lib/server/wallets/repo';
 import { wibTodayString } from '#lib/shared/dates';
+import { errorLabel, sectionOr } from '#lib/server/util';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
 /** The dev-only seed tools exist only in `vite dev` or with DEV_ROUTES=1 (same gate as /dev/ui). */
 const devTools = () => devRoutesEnabled(getEnv() as { DEV_ROUTES?: string }, dev);
-
-const UPDATED_AT = /^\d{1,15}$/;
 
 export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const scope = await currentSpaceScope(locals);
 	const { spaceId } = scope;
 	const notice = takeSavedNotice(cookies, locals.secure);
 	// FN-24: the unread notification count is the user's own (no space); a failure only hides the number.
-	const unread = await countUnread(locals.db, locals.user?.id ?? '').catch((e) => {
-		console.error('kotak-masuk: unread count failed', e);
-		return null;
-	});
+	const unread = await sectionOr(
+		'kotak-masuk: unread count failed',
+		countUnread(locals.db, locals.user?.id ?? ''),
+		null
+	);
 	const base = { today: wibTodayString(), devTools: devTools(), notice, unread };
 	try {
 		const db = locals.db;
@@ -66,7 +65,7 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 			loadError: null
 		};
 	} catch (e) {
-		console.error('kotak-masuk: load failed', e);
+		console.error('kotak-masuk: load failed', errorLabel(e));
 		return {
 			...base,
 			drafts: [],
@@ -91,15 +90,14 @@ export const actions: Actions = {
 	discard: async (event) => {
 		const form = await readFormBody(event.request);
 		const scope = await currentSpaceScope(event.locals);
-		const id = textField(form, 'id');
-		const updatedAt = textField(form, 'updatedAt');
+		const id = idField(form, 'id');
 		// A malformed id or version matches nothing: the same answers as an unknown draft or a stale page.
 		const result = await discardDraft(
 			event.locals.db,
 			scope,
 			{
-				id: id.length > ID_MAX_LENGTH ? '' : id,
-				updatedAt: UPDATED_AT.test(updatedAt) ? Number(updatedAt) : -1
+				id,
+				updatedAt: expectedUpdatedAt(form)
 			},
 			Date.now()
 		);
@@ -115,11 +113,10 @@ export const actions: Actions = {
 	useName: async (event) => {
 		const form = await readFormBody(event.request);
 		const scope = await currentSpaceScope(event.locals);
-		const id = textField(form, 'id');
-		const updatedAt = textField(form, 'updatedAt');
+		const id = idField(form, 'id');
 		const ref = {
-			id: id.length > ID_MAX_LENGTH ? '' : id,
-			updatedAt: UPDATED_AT.test(updatedAt) ? Number(updatedAt) : -1
+			id,
+			updatedAt: expectedUpdatedAt(form)
 		};
 		const db = event.locals.db;
 		const [draft] = ref.id ? await getDrafts(db, scope.spaceId, [ref.id]) : [];

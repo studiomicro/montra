@@ -1,11 +1,11 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
+	newUser,
 	SIGNED_OUT,
-	simulatedClientIp,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 import { GPS_MARK, realJpegWithGps, realPng } from './photos';
@@ -14,33 +14,10 @@ import { GPS_MARK, realJpegWithGps, realPng } from './photos';
  * FN-28 journeys. Every test signs up its own fictional user (own simulated client address), so its personal
  * space starts with no collectibles. Photos are made in the test (e2e/photos.ts), like FN-27's.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 const MINUS = '−';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: { javaScriptEnabled?: boolean; n?: number } = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, opts.n ?? 1) },
-		javaScriptEnabled: opts.javaScriptEnabled
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Kolektor');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn28-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn28', name: 'Kolektor', ...opts });
 
 async function openKoleksi(page: Page) {
 	await page.goto('/koleksi');
@@ -73,7 +50,7 @@ test('add a collectible with a photo: value and rupiah gain first, thumbnail via
 	const csp = collectCspViolations(page);
 	const offOrigin = new Set<string>();
 	page.on('request', (r) => {
-		if (!r.url().startsWith(BASE) && !r.url().startsWith('data:')) offOrigin.add(r.url());
+		if (!r.url().startsWith(APP_ORIGIN) && !r.url().startsWith('data:')) offOrigin.add(r.url());
 	});
 	await openKoleksi(page);
 	await expect(page.getByText('Belum ada koleksi.', { exact: false })).toBeVisible();
@@ -228,6 +205,7 @@ test('AI controls and automatic market price are visible, disabled and send noth
 			exact: false
 		})
 	).toBeVisible();
+	// Proves a negative: the disabled AI controls send nothing, so there is no event to await; a short grace is all there is.
 	await page.waitForTimeout(300);
 	expect(requests).toBe(0);
 	await expectNoHorizontalScroll(page);

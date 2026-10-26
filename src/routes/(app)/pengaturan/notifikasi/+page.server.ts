@@ -25,7 +25,7 @@ import {
 import { PushSendError, sendPushNotification } from '#lib/server/push/send';
 import { ENDPOINT_MAX_LENGTH, parseSubscription } from '#lib/server/push/validation';
 import { vapidKeys } from '#lib/server/push/vapid';
-import { sha256Hex } from '#lib/server/util';
+import { errorLabel, sectionOr, sha256Hex } from '#lib/server/util';
 import { appName } from '#lib/shared/sanity';
 import { createTranslator } from '#lib/shared/i18n';
 import {
@@ -49,19 +49,18 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const keys = vapidKeys(getEnv());
 	// FN-24: which kinds this user wants (in-app and push alike); shown and saved even without VAPID keys.
 	// FN-34b: plus the evening reminder's WIB hour (the default when none is stored).
-	const prefs = await Promise.all([
-		getNotificationPrefs(locals.db, user.id),
-		getCloseReminderHour(locals.db, user.id)
-	])
-		.then(([p, hour]) => ({ prefs: p, closeReminderHour: hour, prefsError: null }))
-		.catch((e) => {
-			console.error('pengaturan/notifikasi: prefs load failed', e);
-			return {
-				prefs: prefsFrom([]),
-				closeReminderHour: CLOSE_REMINDER_DEFAULT_HOUR,
-				prefsError: PREFS_LOAD_FAILED
-			};
-		});
+	const prefs = await sectionOr(
+		'pengaturan/notifikasi: prefs load failed',
+		Promise.all([
+			getNotificationPrefs(locals.db, user.id),
+			getCloseReminderHour(locals.db, user.id)
+		]).then(([p, hour]) => ({ prefs: p, closeReminderHour: hour, prefsError: null })),
+		{
+			prefs: prefsFrom([]),
+			closeReminderHour: CLOSE_REMINDER_DEFAULT_HOUR,
+			prefsError: PREFS_LOAD_FAILED
+		}
+	);
 	const base = {
 		configured: keys !== null,
 		// Public by design: the browser needs it as `applicationServerKey`. The private key never leaves the server.
@@ -75,7 +74,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const endpointHashes = await Promise.all(rows.map((r) => sha256Hex(r.endpoint)));
 		return { ...base, endpointHashes, loadError: null };
 	} catch (e) {
-		console.error('pengaturan/notifikasi: load failed', e);
+		console.error('pengaturan/notifikasi: load failed', errorLabel(e));
 		return { ...base, endpointHashes: [] as string[], loadError: PUSH_LOAD_FAILED };
 	}
 };

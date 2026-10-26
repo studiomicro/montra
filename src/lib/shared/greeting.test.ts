@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { wibDateString } from './dates';
 import { en } from './i18n-en';
-import { greetingPeriod, GREETINGS, wibHour } from './greeting';
+import { wibHour } from './dates';
+import { greetingPeriod, GREETINGS } from './greeting';
 
 const at = (iso: string) => Date.parse(iso);
 

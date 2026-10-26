@@ -7,19 +7,19 @@
 	let {
 		currentMinor,
 		diffMinor,
-		monthName,
-		sameThresholdMinor = 5_000_000
+		monthName
 	}: {
 		/** This period's total (null when too large to show); with a zero difference, zero hides the pill. */
 		currentMinor: number | null;
 		/** This period minus the compared one (positive = spent more). */
 		diffMinor: number;
 		monthName: string;
-		sameThresholdMinor?: number;
 	} = $props();
 
+	/** "Hampir sama" within Rp 5 jt either way. */
+	const SAME_THRESHOLD_MINOR = 5_000_000;
 	const { trf, locale } = useI18n();
-	const kind = $derived(comparisonKind(diffMinor, sameThresholdMinor));
+	const kind = $derived(comparisonKind(diffMinor, SAME_THRESHOLD_MINOR));
 	const amount = $derived(shown(formatMoneyCompact(Math.abs(diffMinor), 'IDR', locale)));
 	/** The glyph carries the direction; the words carry it too (colour is never the only signal). */
 	const GLYPH = { same: '≈', more: '↑', less: '↓' } as const;

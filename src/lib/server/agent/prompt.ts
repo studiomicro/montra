@@ -1,10 +1,7 @@
 /**
- * The Agen narrative's system prompt (FN-23), one static, versioned constant: it never holds user data (the facts
- * arrive as data in the user message), so it is the same bytes for every report. Bump the version when the
- * wording changes.
+ * The Agen narrative's system prompt (FN-23), one static constant: it never holds user data (the facts arrive as
+ * data in the user message), so it is the same bytes for every report.
  */
-export const AGENT_NARRATIVE_PROMPT_VERSION = 1;
-
 export const AGENT_NARRATIVE_PROMPT = `You write the short summary at the top of a money report in Montra, a money tracker for Indonesia. The user message is JSON data the app computed from the user's own records: the period, figures, category names and merchant names. The report's tables already show every figure; your summary only points at what stands out.
 
 Rules:

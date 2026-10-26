@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
-import { readFormBody, textField } from '#lib/server/forms';
+import { listCategories, listCategoriesWithPresets } from '#lib/server/categories/repo';
+import { boundedId, idField, readFormBody, textField } from '#lib/server/forms';
 import { readSplitForm, type SplitFormErrors } from '#lib/server/patungan/form';
 import { BILL_UNAVAILABLE, SPLIT_LIMIT, SPLITS_LOAD_FAILED } from '#lib/server/patungan/messages';
 import {
@@ -20,16 +20,12 @@ import {
 	WALLET_REQUIRED
 } from '#lib/server/transactions/messages';
 import { setSplitSavedNotice } from '#lib/server/transactions/saved-notice';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { getWallet, listWallets } from '#lib/server/wallets/repo';
 import { minorToAmountText } from '#lib/shared/amount-input';
 import { wibTodayString } from '#lib/shared/dates';
 import { isClientId } from '#lib/shared/offline-queue';
 import type { PatunganFormValues } from '#lib/shared/patungan';
 import type { Actions, PageServerLoad } from './$types';
-
-/** An id from the URL or a field: '' when over-long (matches nothing). */
-const bounded = (value: string | null) => (!value || value.length > ID_MAX_LENGTH ? '' : value);
 
 // FN-49 "Patungan baru". `?dariTransaksi=<id>` (Riwayat's "Buat patungan", or the picker below) links that
 // expense as the bill: its title, total, currency and date are taken from it and the total is fixed. Without it,
@@ -39,15 +35,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const { spaceId } = scope;
 	const db = locals.db;
 	const today = wibTodayString();
-	const asked = bounded(url.searchParams.get('dariTransaksi'));
+	const asked = boundedId(url.searchParams.get('dariTransaksi') ?? '');
 	try {
-		await ensurePresetCategories(db, spaceId);
 		const [bill, candidates, members, wallets, categories] = await Promise.all([
 			asked ? billCandidate(db, spaceId, asked) : null,
 			billCandidates(db, spaceId),
 			spaceMemberNames(db, spaceId),
 			listWallets(db, spaceId),
-			listCategories(db, spaceId)
+			listCategoriesWithPresets(db, spaceId)
 		]);
 		const values: PatunganFormValues = {
 			title: bill?.title ?? '',
@@ -106,7 +101,7 @@ export const actions: Actions = {
 			setSplitSavedNotice(event.cookies, event.locals.secure, 'created');
 			redirect(303, `/patungan/${clientId}?saved=created`);
 		}
-		const billId = bounded(textField(form, 'bill'));
+		const billId = idField(form, 'bill');
 		const [bill, members] = await Promise.all([
 			billId ? billCandidate(db, spaceId, billId) : null,
 			spaceMemberNames(db, spaceId)
@@ -119,8 +114,8 @@ export const actions: Actions = {
 		let currency = bill?.currency ?? 'IDR';
 		let own: { walletId: string; categoryId: string } | null = null;
 		if (!bill) {
-			const walletId = bounded(textField(form, 'walletId'));
-			const categoryId = bounded(textField(form, 'categoryId'));
+			const walletId = idField(form, 'walletId');
+			const categoryId = idField(form, 'categoryId');
 			const [wallet, categories] = await Promise.all([
 				walletId ? getWallet(db, spaceId, walletId) : null,
 				listCategories(db, spaceId)

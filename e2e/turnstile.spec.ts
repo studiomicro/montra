@@ -3,6 +3,7 @@ import {
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
+	PASSWORD,
 	SIGNED_OUT,
 	simulatedClientIp,
 	waitForHydration
@@ -19,7 +20,6 @@ test.skip(!MODE, 'needs Turnstile test keys in .dev.vars (QA_TS_MODE=pass|fail)'
 test.use({ storageState: SIGNED_OUT });
 test.describe.configure({ timeout: 180_000 });
 
-const PASSWORD = 'terang-benderang-8';
 const BOT_FAILED = 'Verifikasi keamanan gagal. Muat ulang halaman lalu coba lagi.';
 const freshEmail = (tag: string) =>
 	`fn50ts-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;

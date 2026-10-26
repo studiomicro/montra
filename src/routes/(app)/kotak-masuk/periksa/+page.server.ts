@@ -25,7 +25,7 @@ import {
 } from '#lib/server/drafts/repo';
 import { parseSelection } from '#lib/server/drafts/validation';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, textField, ID_MAX_LENGTH } from '#lib/server/forms';
 import type { MerchantReason } from '#lib/shared/merchants/resolve';
 import { draftHints, suggestDraftCategories } from '#lib/server/merchants/drafts';
 import {
@@ -36,9 +36,9 @@ import {
 } from '#lib/server/merchants/messages';
 import type { AiStepState } from '#lib/server/merchants/resolve';
 import { currentSpaceScope } from '#lib/server/spaces/current';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { listWallets } from '#lib/server/wallets/repo';
 import { wibTodayString } from '#lib/shared/dates';
+import { errorLabel } from '#lib/server/util';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -76,7 +76,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			loadError: null
 		};
 	} catch (e) {
-		console.error('kotak-masuk/periksa: load failed', e);
+		console.error('kotak-masuk/periksa: load failed', errorLabel(e));
 		return {
 			today,
 			drafts: [],

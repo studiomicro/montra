@@ -1,4 +1,4 @@
-import { parseQueueItem, type QueueItem } from '#lib/shared/offline-queue';
+import type { QueueItem } from '#lib/shared/offline-queue';
 
 /**
  * FN-02: the offline queue's IndexedDB store (`financer-queue` v1, store `items` keyed by `clientId`, index
@@ -9,6 +9,13 @@ import { parseQueueItem, type QueueItem } from '#lib/shared/offline-queue';
 const QUEUE_DB_NAME = 'financer-queue';
 const STORE = 'items';
 const BY_ACCOUNT = 'byAccount';
+
+/**
+ * The zod schema loads on first use as its own chunk, so it is not in the app layout's entry closure. Await it
+ * before opening a transaction: an IndexedDB transaction commits as soon as the event loop has nothing queued.
+ */
+const queueItemParser = () =>
+	import('#lib/shared/offline-queue-schema').then((m) => m.parseQueueItem);
 
 const done = (request: IDBRequest) =>
 	new Promise<unknown>((resolve, reject) => {
@@ -47,6 +54,7 @@ export class QueueDb {
 
 	/** Every stored item of any account (malformed records are skipped, never trusted). */
 	async all(): Promise<QueueItem[]> {
+		const parseQueueItem = await queueItemParser();
 		const tx = this.db.transaction(STORE, 'readonly');
 		const rows = (await done(tx.objectStore(STORE).getAll())) as unknown[];
 		return rows.map(parseQueueItem).filter((r): r is QueueItem => r !== null);
@@ -54,6 +62,7 @@ export class QueueDb {
 
 	/** This account's items in the order they were made. */
 	async list(accountId: string): Promise<QueueItem[]> {
+		const parseQueueItem = await queueItemParser();
 		const tx = this.db.transaction(STORE, 'readonly');
 		const rows = (await done(
 			tx.objectStore(STORE).index(BY_ACCOUNT).getAll(IDBKeyRange.only(accountId))
@@ -87,6 +96,7 @@ export class QueueDb {
 
 	/** Applies `change` to the stored item (read and write in one transaction); no-op when it is gone. */
 	async update(clientId: string, change: (item: QueueItem) => QueueItem): Promise<void> {
+		const parseQueueItem = await queueItemParser();
 		const tx = this.db.transaction(STORE, 'readwrite');
 		const store = tx.objectStore(STORE);
 		const finished = committed(tx);

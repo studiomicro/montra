@@ -20,6 +20,7 @@
 	import ErrorState from '#lib/ui/kit/ErrorState.svelte';
 	import GroupList from '#lib/ui/kit/GroupList.svelte';
 	import GroupRow from '#lib/ui/kit/GroupRow.svelte';
+	import HeroFigure from '#lib/ui/kit/HeroFigure.svelte';
 	import Skeleton from '#lib/ui/kit/Skeleton.svelte';
 	import EmptyState from '#lib/ui/shell/EmptyState.svelte';
 	import PageAction from '#lib/ui/shell/PageAction.svelte';
@@ -270,16 +271,16 @@
 				: tr('Nilai koleksi')}
 		</h2>
 		{#if data.loadError || refreshing}
-			<p class="figure num muted">—</p>
+			<HeroFigure muted>—</HeroFigure>
 		{:else if data.totals.length === 0}
-			<p class="figure num">{formatMoney(0, 'IDR')}</p>
+			<HeroFigure>{formatMoney(0, 'IDR')}</HeroFigure>
 		{:else}
 			{#each data.totals as total (total.currency)}
-				<p class="figure num">
+				<HeroFigure>
 					{total.valueMinor === null
 						? tr('Total terlalu besar untuk ditampilkan')
 						: formatMoney(total.valueMinor, total.currency)}
-				</p>
+				</HeroFigure>
 				{#if total.gainMinor !== null}
 					<p class="gain-total num {tone(total.gainMinor)}">
 						{trf('{jumlah} dari harga beli', {
@@ -380,19 +381,6 @@
 		font-weight: 500;
 		color: var(--muted);
 	}
-	.figure {
-		margin: 0;
-		font-size: 44px;
-		font-weight: 700;
-		line-height: 1.05;
-		letter-spacing: -0.04em;
-		overflow-wrap: anywhere;
-	}
-	@media (min-width: 1024px) {
-		.figure {
-			font-size: 52px;
-		}
-	}
 	.disclosure {
 		display: flex;
 		flex-wrap: wrap;
@@ -482,9 +470,6 @@
 	}
 	.demo {
 		margin-top: 4px;
-	}
-	.muted {
-		color: var(--muted);
 	}
 	.cancel {
 		display: inline-flex;

@@ -1,8 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { CATEGORY_NOT_FOUND } from '../categories/messages';
-import { readFormBody, textField } from '../forms';
+import { readFormBody, textField, idField } from '../forms';
 import { currentSpaceScope } from '../spaces/current';
-import { ID_MAX_LENGTH } from '../transactions/validation';
 import { deleteCategoryBudget, setCategoryBudget } from './category-repo';
 import { BUDGET_CHANGED, BUDGET_CURRENCY_INVALID } from './messages';
 import { deleteBudget, isBudgetCurrency, setBudget } from './repo';
@@ -38,10 +37,7 @@ function refused(result: 'stale' | 'gone' | 'missing') {
 const typedAmount = (form: FormData) => textField(form, 'amount').slice(0, 64);
 
 /** The category id a form names; an over-long one matches nothing. */
-function categoryIdOf(form: FormData): string {
-	const id = textField(form, 'categoryId');
-	return id.length > ID_MAX_LENGTH ? '' : id;
-}
+const categoryIdOf = (form: FormData) => idField(form, 'categoryId');
 
 export async function setBudgetAction(event: ActionEvent) {
 	const { form, scope, db } = await guarded(event);

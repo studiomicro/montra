@@ -11,7 +11,7 @@ import {
 import { createApiToken, listApiTokens, revokeApiToken } from '#lib/server/auth/api-tokens';
 import { CHANGED_MEANWHILE } from '#lib/server/account-keys/messages';
 import { proveCurrentPassword } from '#lib/server/auth/prove-password';
-import { readFormBody, textField } from '#lib/server/forms';
+import { ID_MAX_LENGTH, readFormBody, textField } from '#lib/server/forms';
 import { listSpaces } from '#lib/server/spaces/spaces';
 import { errorLabel } from '#lib/server/util';
 import {
@@ -30,8 +30,6 @@ import type { Actions, PageServerLoad } from './$types';
 // restricted token's space is checked inside the insert (createApiToken: a live membership), so a space the
 // user left meanwhile is refused. The raw token is in the create action's response only; the page data never
 // carries a token or its hash.
-
-const ID_MAX_LENGTH = 64;
 
 function signedIn(locals: App.Locals) {
 	const user = locals.user;

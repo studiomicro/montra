@@ -1,4 +1,5 @@
 import { msg } from './i18n.ts';
+import { groupThousands } from './money-format.ts';
 
 /**
  * Net worth (FN-25): what a space owns and owes beyond its wallets. Every figure here is integer or exact
@@ -192,7 +193,7 @@ export function formatQuantity(quantityScaled: string, scale: number, grouped = 
 	const digits = quantityScaled.padStart(scale + 1, '0');
 	const whole = digits.slice(0, digits.length - scale);
 	const frac = digits.slice(digits.length - scale).replace(/0+$/, '');
-	const wholeText = grouped ? whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : whole;
+	const wholeText = grouped ? groupThousands(whole, '.') : whole;
 	return frac ? `${wholeText},${frac}` : wholeText;
 }
 

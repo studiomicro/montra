@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
+import { expectedUpdatedAt, idField, readFormBody, textField } from '#lib/server/forms';
 import { resolveMerchants } from '#lib/server/merchants/resolve';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { frequentManualTransactions, MAX_FREQUENT } from '#lib/server/transactions/aggregate';
@@ -18,7 +18,6 @@ import {
 	VOICE_ROWS_INVALID
 } from '#lib/server/transactions/messages';
 import { deleteTransaction } from '#lib/server/transactions/repo';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import {
 	checkVoiceRows,
 	recordAgain,
@@ -26,7 +25,7 @@ import {
 	submissionKey,
 	VOICE_FORM_MAX_BYTES
 } from '#lib/server/transactions/voice';
-import { newId } from '#lib/server/util';
+import { errorLabel, newId } from '#lib/server/util';
 import { listWallets } from '#lib/server/wallets/repo';
 import { wibTodayString } from '#lib/shared/dates';
 import { cleanMoneyText } from '#lib/shared/money-parse';
@@ -44,10 +43,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const db = locals.db;
 	const today = wibTodayString();
 	try {
-		await ensurePresetCategories(db, spaceId);
 		const [wallets, categories, frequent] = await Promise.all([
 			listWallets(db, spaceId),
-			listCategories(db, spaceId),
+			listCategoriesWithPresets(db, spaceId),
 			frequentManualTransactions(db, spaceId, { limit: MAX_FREQUENT, today })
 		]);
 		// Spoken amounts are rupiah: the favourite wallet (listed first) unless it is not IDR, then the first IDR one.
@@ -71,7 +69,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			loadError: null
 		};
 	} catch (e) {
-		console.error('riwayat/suara: load failed', e);
+		console.error('riwayat/suara: load failed', errorLabel(e));
 		return {
 			wallets: [],
 			categories: [],
@@ -81,11 +79,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 			loadError: TRANSACTIONS_LOAD_FAILED
 		};
 	}
-};
-
-const idField = (form: FormData, name: string) => {
-	const value = textField(form, name);
-	return value.length > ID_MAX_LENGTH ? '' : value;
 };
 
 export const actions: Actions = {
@@ -192,13 +185,11 @@ export const actions: Actions = {
 		const form = await readFormBody(event.request);
 		const scope = await currentSpaceScope(event.locals);
 		const id = idField(form, 'id');
-		const updatedAtText = textField(form, 'updatedAt');
-		const updatedAt = /^\d{1,15}$/.test(updatedAtText) ? Number(updatedAtText) : -1;
 		const result = await deleteTransaction(
 			event.locals.db,
 			scope,
 			id,
-			updatedAt,
+			expectedUpdatedAt(form),
 			Date.now(),
 			getEnv()
 		);

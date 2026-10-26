@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoHorizontalScroll, TX_PAGE, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, PASSWORD, postExpense, rp } from './ledger';
+import {
+	APP_ORIGIN,
+	expectNoHorizontalScroll,
+	PASSWORD,
+	TX_PAGE,
+	waitForHydration
+} from './helpers';
+import { addWallet, freshUser, ids, postExpense, rp } from './ledger';
 import { composeOffline, PUSH, QUEUED_HERE, queueOneBlocked, queueSize } from './offline-queue';
 
 /**
@@ -32,7 +38,7 @@ async function signIn(page: Page, email: string) {
 	await page.getByLabel('E-mail').fill(email);
 	await page.getByLabel('Kata sandi').fill(PASSWORD);
 	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
-	await page.waitForURL(`${BASE}/`);
+	await page.waitForURL(`${APP_ORIGIN}/`);
 }
 
 test('offline create: "Menunggu koneksi", never saved; online: one row, badge clears, a second drain adds nothing', async ({
@@ -205,6 +211,7 @@ test('two tabs come online together: the queued item is sent once', async ({
 	]);
 	// Sending waits for the push round trip and the tabs' lock hand-off, which can take seconds on a CI runner.
 	await expect.poll(() => queueSize(page), { timeout: 20_000 }).toBe(0);
+	// Proves "sent exactly once": a second tab's duplicate push would arrive after the queue drains, so wait it out.
 	await page.waitForTimeout(500);
 	expect(sent).toBe(1);
 	await page.goto('/riwayat');
@@ -222,7 +229,7 @@ test('account deletion with a queued change needs no extra confirmation', async 
 	await page.locator('#delete-password').fill(PASSWORD);
 	await page.getByRole('checkbox', { name: /dihapus permanen/ }).check();
 	await page.getByRole('button', { name: 'Hapus akun permanen' }).click();
-	await expect(page).toHaveURL(`${BASE}/akun-dihapus`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/akun-dihapus`);
 	expect(await queueSize(page)).toBe(0);
 	await context.close();
 });

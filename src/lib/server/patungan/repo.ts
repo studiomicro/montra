@@ -6,9 +6,10 @@ import { patunganParticipants, patunganSplits, transactions } from '../db/schema
 import { isLiveMember, MAX_SPACE_MEMBERS, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { safeMinor } from '../transactions/aggregate';
-import { insertTransactions, MANUAL, MAX_TRANSACTIONS_PER_SPACE } from '../transactions/repo';
+import { insertTransactions, MANUAL, transactionCapReached } from '../transactions/repo';
 import type { TransactionInput } from '../transactions/validation';
 import { isUniqueViolation } from '../util';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 /**
  * FN-49 Patungan: every read and write of splits. Each function takes a space the caller admitted through
@@ -350,9 +351,6 @@ export async function billCandidate(
 	return row ?? null;
 }
 
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
-
 /** SQL: the split `splitId` was written by this very batch (its `seq` is the one this batch took, at `updatedAt`). */
 const writtenNow = (spaceId: string, splitId: string, updatedAt: number) =>
 	sql`exists (select 1 from patungan_splits s where s.id = ${splitId} and s.space_id = ${spaceId}
@@ -491,7 +489,7 @@ function setLink(db: Db, spaceId: string, splitId: string, share: number, now: n
 		.set({
 			patunganSplitId: splitId,
 			patunganEffectiveAmountMinor: share,
-			updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+			updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 			seq: currentSpaceSeq(spaceId)
 		})
 		.where(and(eq(transactions.spaceId, spaceId), isNull(transactions.deletedAt), where));
@@ -590,10 +588,7 @@ export async function createSplit(
 	);
 	if ((splits?.n ?? 0) >= MAX_SPLITS_PER_SPACE) return { ok: false, reason: 'split_limit' };
 	if (bill.kind === 'link') return { ok: false, reason: 'bill' };
-	const [live] = await db.all<{ n: number }>(
-		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-	);
-	if ((live?.n ?? 0) >= MAX_TRANSACTIONS_PER_SPACE) return { ok: false, reason: 'limit' };
+	if (await transactionCapReached(db, spaceId)) return { ok: false, reason: 'limit' };
 	return gone();
 }
 
@@ -687,7 +682,7 @@ export async function updateSplit(
 					amountMinor: sql`case when ${transactions.patunganEffectiveAmountMinor} = ${transactions.amountMinor}
 						then ${share} else ${transactions.amountMinor} end`,
 					patunganEffectiveAmountMinor: share,
-					updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+					updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 					seq: currentSpaceSeq(spaceId)
 				})
 				.where(
@@ -790,7 +785,7 @@ export async function setParticipantPaid(
 			.set({
 				paidAmountMinor: paid ? sql`${patunganParticipants.shareAmountMinor}` : 0,
 				paidAt: paid ? now : null,
-				updatedAt: sql`max(${now}, ${patunganParticipants.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(patunganParticipants.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -836,7 +831,7 @@ export async function unlinkSplit(
 			.set({
 				patunganSplitId: null,
 				patunganEffectiveAmountMinor: null,
-				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -874,7 +869,7 @@ export async function linkSplit(
 			.set({
 				patunganSplitId: splitId,
 				patunganEffectiveAmountMinor: share,
-				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -968,10 +963,7 @@ export async function createOwnShare(
 	if (!current || current.isDemo) return 'missing';
 	if (current.createdByUserId !== userId) return 'forbidden';
 	if (current.linked) return 'already';
-	const [live] = await db.all<{ n: number }>(
-		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-	);
-	return (live?.n ?? 0) >= MAX_TRANSACTIONS_PER_SPACE ? 'limit' : 'gone';
+	return (await transactionCapReached(db, spaceId)) ? 'limit' : 'gone';
 }
 
 /**
@@ -1031,7 +1023,7 @@ export async function deleteSplit(
 			.set({
 				patunganSplitId: null,
 				patunganEffectiveAmountMinor: null,
-				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(

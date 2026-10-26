@@ -3,7 +3,6 @@ import { CSV_FORMATS, CSV_MAX_BYTES, type CsvFormat } from '#lib/shared/csv';
 import { addDays, daysBetween, isDateString } from '#lib/shared/dates';
 import { cleanText, maskAccountNumbers } from '#lib/shared/text';
 import { MAX_FILTER_DAYS } from '../transactions/aggregate';
-import { ID_MAX_LENGTH } from '../transactions/validation';
 import {
 	FILE_EMPTY,
 	FILE_NOT_TEXT,
@@ -11,6 +10,7 @@ import {
 	FILE_TOO_LARGE,
 	FORMAT_INVALID
 } from './messages';
+import { ID_MAX_LENGTH } from '../forms';
 
 /**
  * Largest body an upload action reads: the 5 MB file plus the multipart framing and the few short fields

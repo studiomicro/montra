@@ -1,57 +1,24 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
+	newUser,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
+import { addWallet } from './ledger';
 
 /**
  * FN-11 journeys. Every test signs up its own fictional user in its own context (own simulated client address),
  * so its personal space starts empty. Drafts come from the dev-only seed action (the e2e server runs with
  * DEV_ROUTES=1); a wallet is added through the app's own form action, never straight into D1.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: { javaScriptEnabled?: boolean } = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto(`${BASE}/daftar`);
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Peninjau');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn11-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
-
-/** A wallet through the /dompet form action (a plain form post with the page's session). */
-async function addWallet(page: Page, name = 'BCA') {
-	const res = await page.request.post(`${BASE}/dompet?/createWallet`, {
-		form: { name, type: 'bank', currency: 'IDR', openingBalance: '100.000', lastFour: '' },
-		headers: { origin: BASE, accept: 'text/html' },
-		maxRedirects: 0
-	});
-	expect([200, 303]).toContain(res.status());
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn11', name: 'Peninjau', ...opts });
 
 async function openInboxWithDemo(page: Page) {
-	await page.goto(`${BASE}/kotak-masuk`);
+	await page.goto(`${APP_ORIGIN}/kotak-masuk`);
 	await waitForHydration(page);
 	await expect(page.getByRole('heading', { level: 1, name: 'Kotak masuk' })).toBeVisible();
 	await expect(page.getByText('Tidak ada draf yang menunggu.')).toBeVisible();
@@ -65,7 +32,7 @@ test('seeded drafts: badges, mixed-kind refusal, bulk category and wallet, then 
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
-	await addWallet(page);
+	await addWallet(page, 'BCA');
 	await openInboxWithDemo(page);
 	await expect(page.getByText('Data demo')).toHaveCount(4);
 	await expect(page.getByText('Mungkin duplikat')).toHaveCount(1);
@@ -75,7 +42,7 @@ test('seeded drafts: badges, mixed-kind refusal, bulk category and wallet, then 
 	await expectNoHorizontalScroll(page);
 
 	await page.getByRole('link', { name: 'Periksa draf' }).click();
-	await page.waitForURL(`${BASE}/kotak-masuk/periksa`);
+	await page.waitForURL(`${APP_ORIGIN}/kotak-masuk/periksa`);
 	await waitForHydration(page);
 	await expect(page.getByText('4 dipilih')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Simpan 4 transaksi' })).toBeEnabled();
@@ -113,11 +80,11 @@ test('seeded drafts: badges, mixed-kind refusal, bulk category and wallet, then 
 
 	// The income draft still has no category: it stays, the three others save (owner decision B).
 	await page.getByRole('button', { name: 'Simpan 4 transaksi' }).click();
-	await page.waitForURL(`${BASE}/kotak-masuk`);
+	await page.waitForURL(`${APP_ORIGIN}/kotak-masuk`);
 	await expect(page.getByText('Disimpan 3 dari 4 transaksi · 1 belum lengkap')).toBeVisible();
 	await expect(page.getByText('1 draf menunggu')).toBeVisible();
 
-	await page.goto(`${BASE}/riwayat`);
+	await page.goto(`${APP_ORIGIN}/riwayat`);
 	await expect(page.getByText('Kedai Kopi Senja').first()).toBeVisible();
 	await expect(page.getByText('Toko Serba Ada')).toBeVisible();
 	await context.close();
@@ -145,8 +112,8 @@ test('without JavaScript: refusals and the save summary show after plain form po
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
-	await addWallet(page);
-	await page.goto(`${BASE}/kotak-masuk`);
+	await addWallet(page, 'BCA');
+	await page.goto(`${APP_ORIGIN}/kotak-masuk`);
 	await page.getByRole('button', { name: 'Tambah draf contoh' }).click();
 	await expect(page.getByText('4 draf menunggu')).toBeVisible();
 	await page.getByRole('link', { name: 'Periksa draf' }).click();
@@ -161,7 +128,7 @@ test('without JavaScript: refusals and the save summary show after plain form po
 	).toBeVisible();
 
 	await page.getByRole('button', { name: 'Simpan 4 transaksi' }).click();
-	await expect(page).toHaveURL(`${BASE}/kotak-masuk`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/kotak-masuk`);
 	await expect(page.getByText('Disimpan 1 dari 4 transaksi · 3 belum lengkap')).toBeVisible();
 	await expect(page.getByText('3 draf menunggu')).toBeVisible();
 	await context.close();

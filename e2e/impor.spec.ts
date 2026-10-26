@@ -1,11 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
+	newUser,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 import { addWallet } from './ledger';
@@ -21,40 +20,11 @@ import { OCBC_JULY, ocbcPdf } from '../test/fixtures/statements/ocbc';
  * empty. Files are built in memory and handed to the file input (setInputFiles); nothing is written to D1 by
  * the test itself.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 const HEADER =
 	'date,type,merchant,amount,currency,category,payment_method,recurrence,tag,notes,wallet_source,reference';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: {
-		javaScriptEnabled?: boolean;
-		viewport?: { width: number; height: number };
-		hasTouch?: boolean;
-		isMobile?: boolean;
-	} = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		acceptDownloads: true,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto(`${BASE}/daftar`);
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pengimpor');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn18-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn18', name: 'Pengimpor', ...opts });
 
 const csv = (name: string, lines: string[]) => ({
 	name,
@@ -86,7 +56,7 @@ test('import with preview, duplicate flag, re-import, undo and a formula-safe ex
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await expect(page.getByRole('heading', { level: 1, name: 'Impor' })).toBeVisible();
 	await expect(page.getByText('Belum ada impor.')).toBeVisible();
@@ -122,12 +92,12 @@ test('import with preview, duplicate flag, re-import, undo and a formula-safe ex
 	).toBeVisible();
 
 	// Riwayat lists the imported rows.
-	await page.goto(`${BASE}/riwayat?from=2026-10-01&to=2026-10-31`);
+	await page.goto(`${APP_ORIGIN}/riwayat?from=2026-10-01&to=2026-10-31`);
 	await expect(page.getByText('Kopi Pagi')).toHaveCount(1);
 	await expect(page.getByText('Honor')).toBeVisible();
 
 	// Export: a download whose formula cell is neutralised.
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await page.getByLabel('Dari tanggal').fill('2026-10-01');
 	await page.getByLabel('Sampai tanggal').fill('2026-10-31');
@@ -147,7 +117,7 @@ test('import with preview, duplicate flag, re-import, undo and a formula-safe ex
 	await first.getByRole('button', { name: 'Ya, urungkan' }).click();
 	await expect(page.getByText('Impor diurungkan.')).toBeVisible();
 	await expect(first.getByText('Diurungkan')).toBeVisible();
-	await page.goto(`${BASE}/riwayat?from=2026-10-01&to=2026-10-31`);
+	await page.goto(`${APP_ORIGIN}/riwayat?from=2026-10-01&to=2026-10-31`);
 	await expect(page.getByText('Kopi Pagi')).toHaveCount(0);
 	await expect(page.getByText('Honor')).toBeVisible();
 	await context.close();
@@ -162,7 +132,7 @@ test('FN-16j at 360 px on a touch screen: "Pindahkan ke dompet lain" moves a who
 		isMobile: true
 	});
 	await addWallet(page, 'Rekening Tujuan');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await chooseFile(page, FILE_A);
 	await expect(
@@ -205,20 +175,20 @@ test('without JavaScript: "Pindahkan ke dompet lain" moves as a plain form post'
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
 	await addWallet(page, 'Rekening Tujuan');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await chooseFile(page, FILE_A);
 	await page.getByRole('button', { name: 'Impor', exact: true }).click();
 	await expect(
 		page.getByText('Diimpor 2 · Dilewati 1 · Sudah pernah diimpor 0', { exact: true }).first()
 	).toBeVisible();
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	const item = page.getByRole('listitem').filter({ hasText: 'mutasi-a.csv' });
 	await item.getByText('Pindahkan ke dompet lain', { exact: true }).click();
 	await item.getByLabel('Dompet tujuan').selectOption({ label: 'Rekening Tujuan' });
 	await item.getByRole('button', { name: 'Ya, pindahkan' }).click();
 	await expect(page.getByText('2 transaksi dipindahkan ke Rekening Tujuan.')).toBeVisible();
 	// The rows now sit in Rekening Tujuan: the next page offers Tunai.
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await item.getByText('Pindahkan ke dompet lain', { exact: true }).click();
 	await expect(item.getByLabel('Dompet tujuan').locator('option')).toHaveText(['Tunai']);
 	await context.close();
@@ -228,7 +198,7 @@ test('FN-16j AC-21: with no other same-currency wallet, the move control shows t
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	// A fresh space has no wallet yet: the import auto-creates "Tunai" from wallet_source, leaving no other
 	// same-currency wallet to move to.
@@ -253,7 +223,7 @@ test('FN-16j AC-5: a batch whose rows sit in more than one wallet shows the move
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'Rekening Tujuan');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	const mixed = csv('mutasi-mix.csv', [
 		'2026-10-02,expense,Kopi Pagi,28.000,IDR,Kopi,QRIS,,,,Tunai,',
@@ -281,7 +251,7 @@ test('an unknown header asks for the format; a broken file is refused inline', a
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await page.getByLabel('Pilih berkas CSV').setInputFiles({
 		name: 'lain.csv',
@@ -318,7 +288,7 @@ test('without JavaScript: import and export work as plain form posts', async ({
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await chooseFile(page, FILE_A);
 	await page.getByRole('button', { name: 'Impor', exact: true }).click();
 	await expect(
@@ -340,7 +310,7 @@ test('the Dompet picker sheet chooses the wallet for rows without one; AI readin
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'BCA');
 	await addWallet(page, 'Jago');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await expect(page.getByRole('button', { name: 'Baca dengan AI' })).toBeDisabled();
 	await expect(page.getByRole('button', { name: 'Baca dengan AI' })).toHaveAccessibleDescription(
@@ -360,7 +330,7 @@ test('the Dompet picker sheet chooses the wallet for rows without one; AI readin
 	await expect(
 		page.getByText('Diimpor 1 · Dilewati 0 · Sudah pernah diimpor 0', { exact: true }).first()
 	).toBeVisible();
-	await page.goto(`${BASE}/riwayat?period=range&from=2026-10-01&to=2026-10-31`);
+	await page.goto(`${APP_ORIGIN}/riwayat?period=range&from=2026-10-01&to=2026-10-31`);
 	await expect(page.locator('main').getByText(/Roti/).first()).toBeVisible();
 	await expect(page.locator('main').getByText(/Jago/).first()).toBeVisible();
 	await expectNoHorizontalScroll(page);
@@ -387,7 +357,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		const { context, page } = await freshUser(browser, testInfo);
 		await page.emulateMedia({ colorScheme });
 		await addWallet(page, 'BCA');
-		await page.goto(`${BASE}/impor`);
+		await page.goto(`${APP_ORIGIN}/impor`);
 		await waitForHydration(page);
 		await chooseSource(page, 'Mutasi bank');
 		const section = page.locator('#mutasi');
@@ -426,7 +396,7 @@ test('statement upload: a BCA e-statement is detected, reconciles and imports on
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'BCA');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await chooseSource(page, 'Mutasi bank');
 	const section = page.locator('#mutasi');
@@ -453,7 +423,7 @@ test('statement upload: a BCA mutation CSV (KlikBCA/myBCA) is detected, reconcil
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'BCA');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await chooseSource(page, 'Mutasi bank');
 	const section = page.locator('#mutasi');
@@ -479,7 +449,7 @@ test('statement upload: a password-protected BNI mutasi asks for the password, t
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'BNI');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await chooseSource(page, 'Mutasi bank');
 	const section = page.locator('#mutasi');
@@ -514,7 +484,7 @@ test('statement upload: a Mandiri consolidated statement asks which account, the
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'Mandiri');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await chooseSource(page, 'Mutasi bank');
 	const section = page.locator('#mutasi');
@@ -543,7 +513,7 @@ test('without JavaScript: the Mandiri account picker works as plain form posts (
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
 	await addWallet(page, 'Mandiri');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await chooseSource(page, 'Mutasi bank');
 	const section = page.locator('#mutasi');
 	const mandiri = pdfFile('mutasi-mandiri-fiktif.pdf', mandiriPdf(MANDIRI_AUGUST));
@@ -572,7 +542,7 @@ test('statement upload: an OCBC consolidated statement is detected, reconciled a
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'OCBC');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await chooseSource(page, 'Mutasi bank');
 	const section = page.locator('#mutasi');
@@ -611,7 +581,7 @@ test('statement upload: a continuity gap is named, rows still import, and "Catat
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await addWallet(page, 'BCA', '0');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await chooseSource(page, 'Mutasi bank');
 	const section = page.locator('#mutasi');
@@ -628,7 +598,7 @@ test('statement upload: a continuity gap is named, rows still import, and "Catat
 	await expect(result).toContainText('Diimpor 7 · Dilewati 0 · Sudah pernah diimpor 0');
 	await expect(result).toContainText('Baris mutasi tetap diimpor.');
 
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	const continuity = page.locator('#kesinambungan');
 	await expect(continuity.getByText('Ada selisih')).toBeVisible();
 	await continuity.getByText('Catat selisihnya').click();
@@ -637,7 +607,7 @@ test('statement upload: a continuity gap is named, rows still import, and "Catat
 	await expect(continuity).toHaveCount(0);
 
 	// The wallet now shows the statement's own printed Saldo Akhir (1,000,000 + 2,501,234.56 − 285,747.41).
-	await page.goto(`${BASE}/dompet`);
+	await page.goto(`${APP_ORIGIN}/dompet`);
 	await expect(page.getByText(/Rp\s?3\.215\.487/).first()).toBeVisible();
 	await expectNoHorizontalScroll(page);
 	await context.close();
@@ -649,13 +619,13 @@ test('without JavaScript: "Catat selisihnya" closes a continuity gap as a plain 
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
 	await addWallet(page, 'BCA', '0');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await chooseSource(page, 'Mutasi bank');
 	await page
 		.getByLabel('Pilih berkas mutasi')
 		.setInputFiles(pdfFile('mutasi-bca-fiktif.pdf', bcaPdf(BCA_SEPTEMBER)));
 	await page.locator('#mutasi').getByRole('button', { name: 'Impor', exact: true }).click();
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	const continuity = page.locator('#kesinambungan');
 	await expect(continuity.getByText('Ada selisih')).toBeVisible();
 	// <details>/<summary> opens without JavaScript; the confirm form inside posts as a plain form.
@@ -669,7 +639,7 @@ test('without JavaScript: a statement refusal shows from the plain form post', a
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await chooseSource(page, 'Mutasi bank');
 	// FN-16i: the plain select offers only what can be read; an unsupported bank can never be posted.
 	await expect(page.locator('#mutasi select[name="institution"] option')).toHaveText([
@@ -717,7 +687,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		await page.emulateMedia({ colorScheme });
 		await addWallet(page, 'BCA');
 		await addWallet(page, 'Tunai');
-		await page.goto(`${BASE}/impor`);
+		await page.goto(`${APP_ORIGIN}/impor`);
 		await waitForHydration(page);
 		await expect(
 			page.getByText('Berkas dibaca dulu, lalu hasilnya kamu periksa sebelum disimpan.')
@@ -809,7 +779,7 @@ test('Impor layout at 1280 px: two columns, import then history then export, oth
 	const { context, page } = await freshUser(browser, testInfo, {
 		viewport: { width: 1280, height: 900 }
 	});
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	const headings = await headingsByPosition(page);
 	// The right column starts well right of every left card's heading.

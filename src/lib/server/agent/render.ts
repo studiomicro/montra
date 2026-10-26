@@ -102,6 +102,9 @@ function assetNotes(l: Labels, a: AssetFact, valuedOn: string): string {
 const percentText = (p: number | null | undefined) =>
 	p === null || p === undefined ? '' : `${p}%`;
 
+/** A money cell of either file: the amount, or "terlalu besar" when its sum overflowed (null). */
+type AmountText = (minor: number | null, currency: string) => string;
+
 // ── CSV ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export function renderCsv(facts: AgentFacts, narrative: string | null, locale: Locale): string {
@@ -116,87 +119,103 @@ export function renderCsv(facts: AgentFacts, narrative: string | null, locale: L
 	];
 	if (narrative) out.push(csvLine([t.tr('Ringkasan AI'), clip(narrative, 2000)]));
 	out.push('\r\n');
-	if (facts.type === 'spt_assets') {
-		out.push(
-			csvLine([
-				t.tr('Bagian'),
-				t.tr('Nama'),
-				t.tr('Jenis'),
-				t.tr('Mata uang'),
-				t.tr('Nilai'),
-				t.tr('Nilai per'),
-				t.tr('Tanggal perolehan'),
-				t.tr('Harga perolehan'),
-				t.tr('Keterangan')
-			])
-		);
-		const b = facts.balances;
-		if (b) {
-			const note = facts.partial ? t.tr('Saldo saat ini') : t.tr('Saldo akhir tahun');
-			for (const w of b.wallets)
-				out.push(
-					csvLine([
-						t.tr('Dompet'),
-						clip(w.name),
-						t.tr('Dompet'),
-						w.currency,
-						amount(w.balanceMinor, w.currency),
-						b.asOf,
-						'',
-						'',
-						note
-					])
-				);
-			for (const tot of b.totals)
-				out.push(
-					csvLine([
-						t.tr('Total dompet'),
-						'',
-						'',
-						tot.currency,
-						amount(tot.totalMinor, tot.currency),
-						b.asOf,
-						'',
-						'',
-						note
-					])
-				);
-		}
-		const a = facts.assets;
-		if (a) {
-			for (const group of ['items', 'debts', 'belongings', 'collectibles'] as const) {
-				for (const row of a[group])
-					out.push(
-						csvLine([
-							groupLabel(t, group),
-							clip(row.name),
-							kindLabel(t, row.kind),
-							row.currency,
-							row.unpriced ? '' : amount(row.valueMinor, row.currency),
-							a.valuedOn,
-							row.acquiredOn ?? '',
-							row.acquisitionMinor === null ? '' : amount(row.acquisitionMinor, row.currency),
-							assetNotes(l, row, a.valuedOn)
-						])
-					);
-				for (const s of a.subtotals.filter((x) => x.group === group))
-					out.push(
-						csvLine([
-							t.trf('Subtotal {bagian}', { bagian: groupLabel(t, group) }),
-							'',
-							'',
-							s.currency,
-							amount(s.totalMinor, s.currency),
-							a.valuedOn,
-							'',
-							'',
-							''
-						])
-					);
-			}
-		}
-		return out.join('');
+	out.push(
+		...(facts.type === 'spt_assets'
+			? assetCsvLines(facts, l, amount)
+			: periodCsvLines(facts, l, amount))
+	);
+	return out.join('');
+}
+
+/** The CSV body of an SPT asset list: wallet balances, then each asset group with its subtotals. */
+function assetCsvLines(facts: AgentFacts, l: Labels, amount: AmountText): string[] {
+	const { t } = l;
+	const out: string[] = [];
+	out.push(
+		csvLine([
+			t.tr('Bagian'),
+			t.tr('Nama'),
+			t.tr('Jenis'),
+			t.tr('Mata uang'),
+			t.tr('Nilai'),
+			t.tr('Nilai per'),
+			t.tr('Tanggal perolehan'),
+			t.tr('Harga perolehan'),
+			t.tr('Keterangan')
+		])
+	);
+	const b = facts.balances;
+	if (b) {
+		const note = facts.partial ? t.tr('Saldo saat ini') : t.tr('Saldo akhir tahun');
+		for (const w of b.wallets)
+			out.push(
+				csvLine([
+					t.tr('Dompet'),
+					clip(w.name),
+					t.tr('Dompet'),
+					w.currency,
+					amount(w.balanceMinor, w.currency),
+					b.asOf,
+					'',
+					'',
+					note
+				])
+			);
+		for (const tot of b.totals)
+			out.push(
+				csvLine([
+					t.tr('Total dompet'),
+					'',
+					'',
+					tot.currency,
+					amount(tot.totalMinor, tot.currency),
+					b.asOf,
+					'',
+					'',
+					note
+				])
+			);
 	}
+	const a = facts.assets;
+	if (a) {
+		for (const group of ['items', 'debts', 'belongings', 'collectibles'] as const) {
+			for (const row of a[group])
+				out.push(
+					csvLine([
+						groupLabel(t, group),
+						clip(row.name),
+						kindLabel(t, row.kind),
+						row.currency,
+						row.unpriced ? '' : amount(row.valueMinor, row.currency),
+						a.valuedOn,
+						row.acquiredOn ?? '',
+						row.acquisitionMinor === null ? '' : amount(row.acquisitionMinor, row.currency),
+						assetNotes(l, row, a.valuedOn)
+					])
+				);
+			for (const s of a.subtotals.filter((x) => x.group === group))
+				out.push(
+					csvLine([
+						t.trf('Subtotal {bagian}', { bagian: groupLabel(t, group) }),
+						'',
+						'',
+						s.currency,
+						amount(s.totalMinor, s.currency),
+						a.valuedOn,
+						'',
+						'',
+						''
+					])
+				);
+		}
+	}
+	return out;
+}
+
+/** The CSV body of a monthly or annual report: the summary per currency, then categories and merchants. */
+function periodCsvLines(facts: AgentFacts, l: Labels, amount: AmountText): string[] {
+	const { t, locale } = l;
+	const out: string[] = [];
 	out.push(
 		csvLine([t.tr('Bagian'), t.tr('Nama'), t.tr('Mata uang'), t.tr('Jumlah'), t.tr('Keterangan')])
 	);
@@ -302,7 +321,7 @@ export function renderCsv(facts: AgentFacts, narrative: string | null, locale: L
 				])
 			);
 	}
-	return out.join('');
+	return out;
 }
 
 // ── HTML ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -364,159 +383,11 @@ export function renderHtml(facts: AgentFacts, narrative: string | null, locale: 
 		parts.push(
 			`<div class="narrative"><strong>${esc(t.tr('Ringkasan AI'))}</strong>${esc(clip(narrative, 2000))}</div>`
 		);
-	if (facts.type === 'spt_assets') {
-		const b = facts.balances;
-		if (b) {
-			parts.push(
-				`<h2>${esc(facts.partial ? t.tr('Saldo dompet saat ini') : t.tr('Saldo dompet akhir tahun'))}</h2>`
-			);
-			parts.push(
-				table(
-					[
-						{ text: t.tr('Dompet') },
-						{ text: t.tr('Mata uang') },
-						{ text: t.tr('Saldo'), num: true }
-					],
-					[
-						...b.wallets.map((w) => [clip(w.name), w.currency, money(w.balanceMinor, w.currency)]),
-						...b.totals.map((x) => [
-							t.tr('Total dompet'),
-							x.currency,
-							money(x.totalMinor, x.currency)
-						])
-					],
-					b.totals.length
-				)
-			);
-		}
-		const a = facts.assets;
-		if (a) {
-			for (const group of ['items', 'debts', 'belongings', 'collectibles'] as const) {
-				const rows = a[group];
-				if (rows.length === 0) continue;
-				const subtotals = a.subtotals.filter((x) => x.group === group);
-				parts.push(`<h2>${esc(groupLabel(t, group))}</h2>`);
-				parts.push(
-					table(
-						[
-							{ text: t.tr('Nama') },
-							{ text: t.tr('Jenis') },
-							{ text: t.tr('Nilai'), num: true },
-							{ text: t.tr('Tanggal perolehan') },
-							{ text: t.tr('Harga perolehan'), num: true },
-							{ text: t.tr('Keterangan') }
-						],
-						[
-							...rows.map((r) => [
-								clip(r.name),
-								kindLabel(t, r.kind),
-								r.unpriced ? '' : money(r.valueMinor, r.currency),
-								r.acquiredOn ? formatShortDate(r.acquiredOn, locale) : '',
-								r.acquisitionMinor === null ? '' : money(r.acquisitionMinor, r.currency),
-								assetNotes(l, r, a.valuedOn)
-							]),
-							...subtotals.map((s) => [
-								t.trf('Subtotal {bagian}', { bagian: groupLabel(t, group) }),
-								s.currency,
-								money(s.totalMinor, s.currency),
-								'',
-								'',
-								''
-							])
-						],
-						subtotals.length
-					)
-				);
-			}
-		}
-	} else {
-		if (facts.read)
-			parts.push(
-				`<p>${esc(t.trf('{n} transaksi di periode ini', { n: groupedCount(facts.read.count, locale) }))}</p>`
-			);
-		for (const s of facts.summary?.currencies ?? []) {
-			const c = s.currency;
-			parts.push(`<h2>${esc(t.trf('Ringkasan {mataUang}', { mataUang: c }))}</h2>`);
-			const rows = [
-				[t.tr('Pemasukan'), money(s.inMinor, c)],
-				[t.tr('Pengeluaran'), money(s.outMinor, c)],
-				[t.tr('Selisih'), money(s.netMinor, c)]
-			];
-			if (s.previousOutMinor !== undefined && facts.summary?.previousPeriod) {
-				rows.push([
-					t.trf('Pengeluaran {bulan}', {
-						bulan: formatMonthLabel(facts.summary.previousPeriod, locale)
-					}),
-					money(s.previousOutMinor, c)
-				]);
-				rows.push([t.tr('Perubahan pengeluaran'), percentText(s.changePercent)]);
-			}
-			if (s.highestMonth)
-				rows.push([t.tr('Bulan pengeluaran tertinggi'), formatMonthLabel(s.highestMonth, locale)]);
-			if (s.lowestMonth)
-				rows.push([t.tr('Bulan pengeluaran terendah'), formatMonthLabel(s.lowestMonth, locale)]);
-			parts.push(table([{ text: '' }, { text: t.tr('Jumlah'), num: true }], rows));
-			if (s.months)
-				parts.push(
-					table(
-						[
-							{ text: t.tr('Bulan') },
-							{ text: t.tr('Pemasukan'), num: true },
-							{ text: t.tr('Pengeluaran'), num: true }
-						],
-						s.months.map((m) => [
-							formatMonthLabel(m.month, locale),
-							money(m.inMinor, c),
-							money(m.outMinor, c)
-						])
-					)
-				);
-			const g = facts.group?.currencies.find((x) => x.currency === c);
-			if (g && (g.categories.length > 0 || g.otherCount > 0)) {
-				parts.push(
-					`<h2>${esc(t.trf('Pengeluaran per kategori ({mataUang})', { mataUang: c }))}</h2>`
-				);
-				parts.push(
-					table(
-						[{ text: t.tr('Kategori') }, { text: t.tr('Jumlah'), num: true }],
-						[
-							...g.categories.map((r) => [
-								r.name === null ? t.tr('Tanpa kategori') : clip(r.name),
-								money(r.outMinor, c)
-							]),
-							...(g.otherCount > 0
-								? [
-										[
-											`${t.tr('Lainnya')} (${t.trf('{n} kategori', { n: g.otherCount })})`,
-											money(g.otherMinor, c)
-										]
-									]
-								: [])
-						]
-					)
-				);
-			}
-			if (g && g.merchants.length > 0) {
-				parts.push(
-					`<h2>${esc(t.trf('Tempat belanja teratas ({mataUang})', { mataUang: c }))}</h2>`
-				);
-				parts.push(
-					table(
-						[
-							{ text: t.tr('Tempat belanja') },
-							{ text: t.tr('Transaksi'), num: true },
-							{ text: t.tr('Jumlah'), num: true }
-						],
-						g.merchants.map((m) => [
-							m.title === null ? t.tr('Tanpa judul') : clip(m.title),
-							groupedCount(m.count, locale),
-							money(m.amountMinor, c)
-						])
-					)
-				);
-			}
-		}
-	}
+	parts.push(
+		...(facts.type === 'spt_assets'
+			? assetHtmlParts(facts, l, money)
+			: periodHtmlParts(facts, l, money))
+	);
 	parts.push(`<p class="disclaimer">${esc(l.disclaimer)}</p>`);
 	return `<!doctype html>
 <html lang="${locale === 'en' ? 'en' : 'id'}">
@@ -532,6 +403,164 @@ ${parts.join('\n')}
 </body>
 </html>
 `;
+}
+
+/** The HTML body of an SPT asset list: wallet balances, then one table per asset group. */
+function assetHtmlParts(facts: AgentFacts, l: Labels, money: AmountText): string[] {
+	const { t, locale } = l;
+	const parts: string[] = [];
+	const b = facts.balances;
+	if (b) {
+		parts.push(
+			`<h2>${esc(facts.partial ? t.tr('Saldo dompet saat ini') : t.tr('Saldo dompet akhir tahun'))}</h2>`
+		);
+		parts.push(
+			table(
+				[{ text: t.tr('Dompet') }, { text: t.tr('Mata uang') }, { text: t.tr('Saldo'), num: true }],
+				[
+					...b.wallets.map((w) => [clip(w.name), w.currency, money(w.balanceMinor, w.currency)]),
+					...b.totals.map((x) => [
+						t.tr('Total dompet'),
+						x.currency,
+						money(x.totalMinor, x.currency)
+					])
+				],
+				b.totals.length
+			)
+		);
+	}
+	const a = facts.assets;
+	if (a) {
+		for (const group of ['items', 'debts', 'belongings', 'collectibles'] as const) {
+			const rows = a[group];
+			if (rows.length === 0) continue;
+			const subtotals = a.subtotals.filter((x) => x.group === group);
+			parts.push(`<h2>${esc(groupLabel(t, group))}</h2>`);
+			parts.push(
+				table(
+					[
+						{ text: t.tr('Nama') },
+						{ text: t.tr('Jenis') },
+						{ text: t.tr('Nilai'), num: true },
+						{ text: t.tr('Tanggal perolehan') },
+						{ text: t.tr('Harga perolehan'), num: true },
+						{ text: t.tr('Keterangan') }
+					],
+					[
+						...rows.map((r) => [
+							clip(r.name),
+							kindLabel(t, r.kind),
+							r.unpriced ? '' : money(r.valueMinor, r.currency),
+							r.acquiredOn ? formatShortDate(r.acquiredOn, locale) : '',
+							r.acquisitionMinor === null ? '' : money(r.acquisitionMinor, r.currency),
+							assetNotes(l, r, a.valuedOn)
+						]),
+						...subtotals.map((s) => [
+							t.trf('Subtotal {bagian}', { bagian: groupLabel(t, group) }),
+							s.currency,
+							money(s.totalMinor, s.currency),
+							'',
+							'',
+							''
+						])
+					],
+					subtotals.length
+				)
+			);
+		}
+	}
+	return parts;
+}
+
+/** The HTML body of a monthly or annual report: per currency its summary, categories and merchants. */
+function periodHtmlParts(facts: AgentFacts, l: Labels, money: AmountText): string[] {
+	const { t, locale } = l;
+	const parts: string[] = [];
+	if (facts.read)
+		parts.push(
+			`<p>${esc(t.trf('{n} transaksi di periode ini', { n: groupedCount(facts.read.count, locale) }))}</p>`
+		);
+	for (const s of facts.summary?.currencies ?? []) {
+		const c = s.currency;
+		parts.push(`<h2>${esc(t.trf('Ringkasan {mataUang}', { mataUang: c }))}</h2>`);
+		const rows = [
+			[t.tr('Pemasukan'), money(s.inMinor, c)],
+			[t.tr('Pengeluaran'), money(s.outMinor, c)],
+			[t.tr('Selisih'), money(s.netMinor, c)]
+		];
+		if (s.previousOutMinor !== undefined && facts.summary?.previousPeriod) {
+			rows.push([
+				t.trf('Pengeluaran {bulan}', {
+					bulan: formatMonthLabel(facts.summary.previousPeriod, locale)
+				}),
+				money(s.previousOutMinor, c)
+			]);
+			rows.push([t.tr('Perubahan pengeluaran'), percentText(s.changePercent)]);
+		}
+		if (s.highestMonth)
+			rows.push([t.tr('Bulan pengeluaran tertinggi'), formatMonthLabel(s.highestMonth, locale)]);
+		if (s.lowestMonth)
+			rows.push([t.tr('Bulan pengeluaran terendah'), formatMonthLabel(s.lowestMonth, locale)]);
+		parts.push(table([{ text: '' }, { text: t.tr('Jumlah'), num: true }], rows));
+		if (s.months)
+			parts.push(
+				table(
+					[
+						{ text: t.tr('Bulan') },
+						{ text: t.tr('Pemasukan'), num: true },
+						{ text: t.tr('Pengeluaran'), num: true }
+					],
+					s.months.map((m) => [
+						formatMonthLabel(m.month, locale),
+						money(m.inMinor, c),
+						money(m.outMinor, c)
+					])
+				)
+			);
+		const g = facts.group?.currencies.find((x) => x.currency === c);
+		if (g && (g.categories.length > 0 || g.otherCount > 0)) {
+			parts.push(
+				`<h2>${esc(t.trf('Pengeluaran per kategori ({mataUang})', { mataUang: c }))}</h2>`
+			);
+			parts.push(
+				table(
+					[{ text: t.tr('Kategori') }, { text: t.tr('Jumlah'), num: true }],
+					[
+						...g.categories.map((r) => [
+							r.name === null ? t.tr('Tanpa kategori') : clip(r.name),
+							money(r.outMinor, c)
+						]),
+						...(g.otherCount > 0
+							? [
+									[
+										`${t.tr('Lainnya')} (${t.trf('{n} kategori', { n: g.otherCount })})`,
+										money(g.otherMinor, c)
+									]
+								]
+							: [])
+					]
+				)
+			);
+		}
+		if (g && g.merchants.length > 0) {
+			parts.push(`<h2>${esc(t.trf('Tempat belanja teratas ({mataUang})', { mataUang: c }))}</h2>`);
+			parts.push(
+				table(
+					[
+						{ text: t.tr('Tempat belanja') },
+						{ text: t.tr('Transaksi'), num: true },
+						{ text: t.tr('Jumlah'), num: true }
+					],
+					g.merchants.map((m) => [
+						m.title === null ? t.tr('Tanpa judul') : clip(m.title),
+						groupedCount(m.count, locale),
+						money(m.amountMinor, c)
+					])
+				)
+			);
+		}
+	}
+	return parts;
 }
 
 function groupedCount(n: number, locale: Locale): string {

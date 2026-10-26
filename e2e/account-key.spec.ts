@@ -1,9 +1,11 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
+	newDevice,
+	PASSWORD,
 	SIGNED_OUT,
-	simulatedClientIp,
+	signUp,
+	uniqueEmail,
 	waitForHydration
 } from './helpers';
 
@@ -14,44 +16,12 @@ import {
  */
 test.use({ storageState: SIGNED_OUT });
 
-const PASSWORD = 'terang-benderang-8';
 const NEW_PASSWORD = 'pagi-cerah-2026';
 const KEY_STALE =
 	'Kunci akun tidak bisa dibuka dengan kata sandi barumu. Kunci ulang di bawah ini.';
 const NOT_OPEN = 'Kunci akun belum dibuka di sesi ini. Buka dengan kata sandi di halaman Akun.';
 
-function freshEmail(tag: string): string {
-	return `fn21-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
-}
-
-let contexts = 0;
-async function newDevice(
-	browser: Browser,
-	opts: {
-		javaScriptEnabled?: boolean;
-		storageState?: Awaited<ReturnType<BrowserContext['storageState']>>;
-	} = {}
-): Promise<{ context: BrowserContext; page: Page }> {
-	const context = await browser.newContext({
-		baseURL: APP_ORIGIN,
-		locale: 'id-ID',
-		javaScriptEnabled: opts.javaScriptEnabled ?? true,
-		storageState: opts.storageState ?? SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(test.info(), ++contexts) }
-	});
-	return { context, page: await context.newPage() };
-}
-
-async function signUp(page: Page, email: string, next?: string, js = true) {
-	await page.goto(next ? `/daftar?next=${encodeURIComponent(next)}` : '/daftar');
-	if (js) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Budi Santoso');
-	await page.getByLabel('E-mail').fill(email);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL((url) => url.pathname !== '/daftar', { timeout: 30_000 });
-}
+const freshEmail = (tag: string) => uniqueEmail(`fn21-${tag}`);
 
 async function signIn(page: Page, email: string, password: string, next: string) {
 	await page.goto(`/masuk?next=${encodeURIComponent(next)}`);
@@ -78,7 +48,7 @@ test.describe('account key (FN-21)', () => {
 	}) => {
 		const email = freshEmail('key');
 		const a = await newDevice(browser);
-		await signUp(a.page, email, '/dev/ui');
+		await signUp(a.page, { email: email, next: '/dev/ui' });
 		await expect(a.page).toHaveURL(`${APP_ORIGIN}/dev/ui`);
 		await waitForHydration(a.page);
 		// Held right after sign-up (client navigation kept the page session).
@@ -124,7 +94,7 @@ test.describe('account key (FN-21)', () => {
 	}) => {
 		const email = freshEmail('stale');
 		const a = await newDevice(browser);
-		await signUp(a.page, email, '/');
+		await signUp(a.page, { email: email, next: '/' });
 		const state = await a.context.storageState();
 
 		// The same session on a browser without JavaScript: the password changes, the key cannot be re-wrapped.
@@ -171,7 +141,7 @@ test.describe('account key (FN-21)', () => {
 	}) => {
 		const email = freshEmail('change');
 		const a = await newDevice(browser);
-		await signUp(a.page, email, '/pengaturan/akun');
+		await signUp(a.page, { email: email, next: '/pengaturan/akun' });
 		await waitForHydration(a.page);
 		await a.page.locator('#change-current-password').fill('salah-sekali-1');
 		await a.page.locator('#change-new-password').fill(NEW_PASSWORD);
@@ -201,7 +171,7 @@ test.describe('account key (FN-21)', () => {
 	}) => {
 		const email = freshEmail('nojs');
 		const noJs = await newDevice(browser, { javaScriptEnabled: false });
-		await signUp(noJs.page, email, undefined, false);
+		await signUp(noJs.page, { email, js: false });
 		await expect(noJs.page).toHaveURL(`${APP_ORIGIN}/`);
 		await noJs.page.goto('/pengaturan/akun');
 		await expect(noJs.page.getByText(/^Kunci akun belum aktif\./)).toBeVisible();
@@ -231,7 +201,7 @@ test.describe('account key (FN-21)', () => {
 	}) => {
 		const email = freshEmail('revoke');
 		const a = await newDevice(browser);
-		await signUp(a.page, email, '/pengaturan/akun');
+		await signUp(a.page, { email: email, next: '/pengaturan/akun' });
 		const b = await newDevice(browser);
 		await signIn(b.page, email, PASSWORD, '/riwayat');
 		await expect(b.page).toHaveURL(`${APP_ORIGIN}/riwayat`);
@@ -256,7 +226,7 @@ test.describe('account key (FN-21)', () => {
 	}) => {
 		const email = freshEmail('tabs');
 		const a = await newDevice(browser);
-		await signUp(a.page, email, '/dev/ui');
+		await signUp(a.page, { email: email, next: '/dev/ui' });
 		await expect(a.page).toHaveURL(`${APP_ORIGIN}/dev/ui`);
 		await waitForHydration(a.page);
 		await sealAndUnseal(a.page, 'sebelum keluar');
@@ -282,7 +252,7 @@ test.describe('account key (FN-21)', () => {
 				if (/\/_app\/immutable\/workers\/derive\.worker-[^/]+\.js$/.test(r.url())) resolve(r.url());
 			})
 		);
-		await signUp(a.page, freshEmail('csp'), '/');
+		await signUp(a.page, { email: freshEmail('csp'), next: '/' });
 		const response = await a.page.request.get(await workerUrl);
 		expect(response.status()).toBe(200);
 		expect(response.headers()['content-security-policy']).toBe(

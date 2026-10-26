@@ -3,9 +3,8 @@ import {
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
-	tickSignUpBoxes,
+	newUser,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 
@@ -14,29 +13,8 @@ import {
  * runs with BILLING_MOCK_ENABLED=1 and a local-only MOCK_PAYMENT_WEBHOOK_SECRET (playwright.config.ts): the
  * "mode uji" checkout charges nothing and calls no provider; the absent-when-off case is covered in Vitest.
  */
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: { javaScriptEnabled?: boolean } = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik Paket');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn30-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill('terang-benderang-8');
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${APP_ORIGIN}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn30', name: 'Pemilik Paket', ...opts });
 
 test('starter credits, placeholder prices, a refused voucher, then a mock upgrade through the signed webhook', async ({
 	browser

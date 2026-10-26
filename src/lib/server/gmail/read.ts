@@ -10,8 +10,7 @@ import { isAiGatewayConfigured, type AiGatewayEnv } from '../ai-keys/anthropic';
 import type { AiKeysEnv } from '../ai-keys/crypto';
 import { resolveAnthropicKey } from '../ai-keys/lookup';
 import { gmailMail, gmailScans } from '../db/schema';
-import { readMailText } from '../inbound/ai-read';
-import { INBOUND_READ_MAX_ATTEMPTS, INBOUND_RETRY_DELAY_S } from '../inbound/consume';
+import { aiReadFailure, readMailText } from '../inbound/ai-read';
 import {
 	captureBatch,
 	captureMerchant,
@@ -189,32 +188,21 @@ export async function processGmailRead(
 	const text = maskMailLines(mail.text).slice(0, PENDING_TEXT_MAX);
 	const outcome = await readMailText(env, key, text, deps.aiFetch ?? fetch);
 	const aiRow = { ...kept, parser: 'ai' as const };
-	switch (outcome.kind) {
-		case 'ok':
-			return capture({
-				...outcome.reading,
-				reference: null,
+	if (outcome.kind === 'ok')
+		return capture({
+			...outcome.reading,
+			reference: null,
+			parser: 'ai',
+			dedupeKey: await mailDedupeKey({
 				parser: 'ai',
-				dedupeKey: await mailDedupeKey({
-					parser: 'ai',
-					referenceKey: null,
-					amountMinor: outcome.reading.amountMinor,
-					messageKey
-				})
-			});
-		case 'not_payment':
-			return notPayment();
-		case 'currency':
-			return unreadable('currency', aiRow);
-		case 'invalid':
-			return unreadable('ai_invalid', aiRow);
-		case 'not_configured':
-			return unreadable('ai_unconfigured', kept);
-		case 'network':
-			if (attempts >= INBOUND_READ_MAX_ATTEMPTS) return unreadable('ai_failed', aiRow);
-			throw new RetryLaterError('gmail read: provider unavailable', INBOUND_RETRY_DELAY_S);
-		default:
-			// Invalid key, quota, model unavailable: retrying will not help; the user fixes it, then "Baca ulang".
-			return unreadable('ai_failed', aiRow);
-	}
+				referenceKey: null,
+				amountMinor: outcome.reading.amountMinor,
+				messageKey
+			})
+		});
+	if (outcome.kind === 'not_payment') return notPayment();
+	// Invalid key, quota, model unavailable: the user fixes it, then "Baca ulang". An unconfigured gateway keeps
+	// the row as if no read was tried.
+	const reason = aiReadFailure(outcome, attempts, 'gmail read');
+	return unreadable(reason, reason === 'ai_unconfigured' ? kept : aiRow);
 }

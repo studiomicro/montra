@@ -9,8 +9,8 @@
 		switchAmountText,
 		typedAmountMinor
 	} from '#lib/shared/amount-input';
-	import { createTranslator } from '#lib/shared/i18n';
 	import { moneyParts } from '#lib/shared/money-format';
+	import { createClientTranslator } from '#lib/ui/client-i18n';
 	import { useLocale } from '#lib/ui/i18n-context';
 
 	let {
@@ -36,7 +36,7 @@
 	const id = $props.id();
 	// The UI language decides the separators of a currency with cents; standalone (tests, previews) Indonesian.
 	const locale = useLocale();
-	const { tr } = createTranslator(locale);
+	const { tr } = createClientTranslator(locale);
 	// Rendered on the server too, so a pre-filled field shows its value without JavaScript.
 	let text = $state(
 		untrack(() => typed ?? minorToAmountText(valueMinor ?? null, currency, locale))

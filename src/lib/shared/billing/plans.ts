@@ -1,4 +1,7 @@
+import { DAY_MS } from '../dates.ts';
 import { msg } from '../i18n.ts';
+
+export { DAY_MS };
 
 /**
  * FN-30 plan catalogue: a plain data module (like subscriptions-catalogue.ts), changed by code review, never by
@@ -19,7 +22,6 @@ export type BillingPeriod = (typeof BILLING_PERIODS)[number];
 
 /** Length of one paid period. A month is 30 days: a plan period is a duration, not a calendar month. */
 export const PERIOD_DAYS: Record<BillingPeriod, number> = { weekly: 7, monthly: 30 };
-export const DAY_MS = 86_400_000;
 
 export interface PlanEntry {
 	id: Plan;
@@ -92,10 +94,6 @@ export const PLAN_FEATURES: Record<Plan, readonly string[]> = {
 
 /** Credits every new account starts with (FEATURES.md FN-30, owner decision 3). */
 export const STARTER_CREDITS = 300;
-
-export function isPlan(value: string): value is Plan {
-	return (PLANS as readonly string[]).includes(value);
-}
 
 export function isPaidPlan(value: string): value is PaidPlan {
 	return (PAID_PLANS as readonly string[]).includes(value);

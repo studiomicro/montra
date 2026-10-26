@@ -1,6 +1,7 @@
 import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
 import { inspect } from 'node:util';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import { saveKey } from '#lib/server/ai-keys/repo';
 import { signUp } from '#lib/server/auth/accounts';
 import { overUserAttemptLimit, THROTTLE_WINDOW_MS } from '#lib/server/auth/throttle';
@@ -638,7 +639,7 @@ describe('/impor spreadsheet actions', () => {
 
 	it(`throttles: past ${STATEMENT_UPLOADS_PER_WINDOW} uploads a user gets 429 before the body is read; 503 + Retry-After in the lane`, async () => {
 		const a = await account();
-		const now = Date.now();
+		const now = pinThrottleWindow();
 		await d1
 			.prepare(
 				`insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)
@@ -697,7 +698,7 @@ describe('/impor spreadsheet actions', () => {
 	it('an import counts as one creating action: 429 at the per-user limit, nothing written', async () => {
 		const a = await account();
 		const w = await wallet(a.scope);
-		const now = Date.now();
+		const now = pinThrottleWindow();
 		await d1
 			.prepare(
 				`insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)

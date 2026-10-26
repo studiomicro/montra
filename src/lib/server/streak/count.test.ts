@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addDays } from '#lib/shared/dates';
-import { countStreak, longestStreak, streakHistory } from './count';
+import { countStreak, streakHistory } from './count';
 
 describe('countStreak', () => {
 	it('is 0 with no closures at all', () => {
@@ -111,16 +111,16 @@ describe('streakHistory: freezes (FN-34b owner decision B)', () => {
 	});
 });
 
-describe('longestStreak (FN-34b)', () => {
+describe('streakHistory longest (FN-34b)', () => {
 	it('is the longest run anywhere, not the run ending today', () => {
 		// A 10-day run two months ago, a 3-day run now.
 		const closed = [...run('2026-08-01', 10), ...run('2026-10-06', 3)];
-		expect(longestStreak(closed, '2026-10-08')).toBe(10);
+		expect(streakHistory(closed, '2026-10-08').longest).toBe(10);
 		expect(countStreak(closed, '2026-10-08').current).toBe(3);
 	});
 
 	it('is 0 without closures and equals current for a single run', () => {
-		expect(longestStreak([], '2026-10-08')).toBe(0);
-		expect(longestStreak(run('2026-10-04', 5), '2026-10-08')).toBe(5);
+		expect(streakHistory([], '2026-10-08').longest).toBe(0);
+		expect(streakHistory(run('2026-10-04', 5), '2026-10-08').longest).toBe(5);
 	});
 });

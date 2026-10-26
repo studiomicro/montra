@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, boundedId, expectedUpdatedAt } from '#lib/server/forms';
 import { learnFromCorrection } from '#lib/server/merchants/learn';
 import { resolveMerchants } from '#lib/server/merchants/resolve';
 import { getSeries } from '#lib/server/recurring/repo';
@@ -20,24 +20,15 @@ import {
 	type TransactionUpdateResult
 } from '#lib/server/transactions/repo';
 import { setSavedNotice } from '#lib/server/transactions/saved-notice';
-import { ID_MAX_LENGTH, parseAdjustmentEdit } from '#lib/server/transactions/validation';
+import { parseAdjustmentEdit } from '#lib/server/transactions/validation';
 import { listWallets } from '#lib/server/wallets/repo';
 import { minorToAmountText } from '#lib/shared/amount-input';
 import type { MerchantReason } from '#lib/shared/merchants/resolve';
 import type { AdjustmentFormValues, TransactionFormValues } from '#lib/shared/transactions';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
-
 /** The route's id, cut so an over-long one costs the same lookup (and matches nothing). */
-const routeId = (params: { id: string }) => (params.id.length > ID_MAX_LENGTH ? '' : params.id);
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
+const routeId = (params: { id: string }) => boundedId(params.id);
 
 function refused(result: Exclude<TransactionUpdateResult, 'ok'>) {
 	if (result === 'missing') return fail(404, { error: TRANSACTION_NOT_FOUND });
@@ -78,9 +69,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const transaction = await getTransaction(db, spaceId, routeId(params));
 	// Unknown, deleted and other-space ids get the one same answer.
 	if (!transaction) error(404, 'Not found');
-	await ensurePresetCategories(db, spaceId);
 	const [categories, wallets, series, categoryReason] = await Promise.all([
-		listCategories(db, spaceId, { includeHidden: true }),
+		listCategoriesWithPresets(db, spaceId, { includeHidden: true }),
 		listWallets(db, spaceId, { includeArchived: true }),
 		// FN-36: the live series this row came from ("Ubah seri" links to it); this form edits the row only.
 		transaction.recurringSeriesId ? getSeries(db, spaceId, transaction.recurringSeriesId) : null,

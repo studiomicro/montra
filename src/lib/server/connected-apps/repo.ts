@@ -5,10 +5,10 @@ import {
 	type ConnectionView
 } from '#lib/shared/connected-apps/providers';
 import type { Db } from '../db';
-import { auditEvents, connectedApps, spaceSeq } from '../db/schema';
+import { auditEvents, connectedApps } from '../db/schema';
 import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { recordAuditEvent } from '../spaces/audit';
-import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
+import { bumpSpaceSeq, bumpSpaceSeqsWhere, currentSpaceSeq } from '../sync/seq';
 import { isUniqueViolation, newId } from '../util';
 import { encryptToken, type ConnectedAppsKeyEnv } from './crypto';
 
@@ -54,7 +54,7 @@ const tombstone = (now: number, spaceId: string | SQL) => ({
 	scope: null,
 	deletedAt: now,
 	updatedAt: now,
-	seq: sql<number>`(select seq from space_seq where space_id = ${spaceId})`
+	seq: currentSpaceSeq(spaceId)
 });
 
 export type DisconnectResult = 'ok' | 'missing' | 'forbidden';
@@ -108,15 +108,7 @@ export function autoDisconnectItems(db: Db, userId: string, inSpace: SQL, guard:
 	const ending = sql`${connectedApps.createdByUserId} = ${userId} and ${connectedApps.deletedAt} is null
 		and ${inSpace} and ${guard}`;
 	return [
-		db
-			.insert(spaceSeq)
-			.select((qb) =>
-				qb
-					.selectDistinct({ spaceId: connectedApps.spaceId, seq: sql`1`.as('seq') })
-					.from(connectedApps)
-					.where(ending)
-			)
-			.onConflictDoUpdate({ target: spaceSeq.spaceId, set: { seq: sql`${spaceSeq.seq} + 1` } }),
+		bumpSpaceSeqsWhere(db, connectedApps, ending),
 		db.insert(auditEvents).select((qb) =>
 			qb
 				.select({

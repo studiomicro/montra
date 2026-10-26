@@ -7,6 +7,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { CollectibleInput } from './validation';
+import { nextUpdatedAt } from '../sync/updated-at';
 
 /** Most live collectibles one space holds (PRD Owner decision 4, matching belongings); also the list's row cap. */
 export const MAX_COLLECTIBLES_PER_SPACE = 300;
@@ -156,8 +157,6 @@ export async function collectibleSpaceId(db: Db, id: string): Promise<string> {
 		.get();
 	return row?.spaceId ?? '';
 }
-
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
 
 export type CreateCollectibleResult =
 	{ ok: true; id: string } | { ok: false; reason: 'limit' | 'gone' };

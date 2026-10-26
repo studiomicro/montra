@@ -1,11 +1,9 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
+	newUser,
 	waitForHydration
 } from './helpers';
 
@@ -14,28 +12,14 @@ import {
  * read and goes to the goal, dismissing removes it; per-kind preferences persist. Each test signs up its own
  * fictional user, so its list starts empty.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(browser: Browser, testInfo: TestInfo) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 2) },
+const freshUser = (browser: Browser, testInfo: TestInfo) =>
+	newUser(browser, testInfo, {
+		prefix: 'fn24',
+		name: 'Pengingat',
+		n: 2,
 		viewport: { width: 360, height: 780 }
 	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pengingat');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn24-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
 
 async function open(page: Page, path: string) {
 	await page.goto(path);
@@ -50,7 +34,7 @@ test('goal milestone → notification: empty state, listed unread, open goes to 
 
 	await open(page, '/kotak-masuk');
 	await page.locator('main').getByRole('link', { name: 'Notifikasi' }).click();
-	await page.waitForURL(`${BASE}/kotak-masuk/notifikasi`);
+	await page.waitForURL(`${APP_ORIGIN}/kotak-masuk/notifikasi`);
 	await waitForHydration(page);
 	await expect(page.getByText('Belum ada notifikasi.')).toBeVisible();
 

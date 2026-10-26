@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoHorizontalScroll, TX_PAGE, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense, rp, today } from './ledger';
+import { APP_ORIGIN, expectNoHorizontalScroll, TX_PAGE, waitForHydration } from './helpers';
+import { addWallet, freshUser, ids, postExpense, rp, today } from './ledger';
 
 /**
  * FN-05/06 journeys. Every test signs up its own fictional user in its own context (own simulated client
@@ -31,7 +31,7 @@ test('Ketik manual from the Tambah sheet → expense saved → in Riwayat and in
 		.getByRole('dialog', { name: 'Tambah transaksi' })
 		.getByRole('link', { name: /Ketik manual/ })
 		.click();
-	await page.waitForURL(`${BASE}/riwayat/baru`);
+	await page.waitForURL(`${APP_ORIGIN}/riwayat/baru`);
 	await waitForHydration(page);
 	await expect(page.getByRole('radio', { name: 'Pengeluaran', exact: true })).toBeChecked();
 	await expect(page.getByLabel('Tanggal')).toHaveValue(today());
@@ -251,7 +251,7 @@ test('manage categories: a hidden category leaves the picker but old rows still 
 
 	await page.goto('/riwayat/baru');
 	await page.getByRole('link', { name: 'Kelola kategori' }).click();
-	await page.waitForURL(`${BASE}/pengaturan/kategori`);
+	await page.waitForURL(`${APP_ORIGIN}/pengaturan/kategori`);
 	await waitForHydration(page);
 	const kopi = main(page)
 		.getByRole('listitem')

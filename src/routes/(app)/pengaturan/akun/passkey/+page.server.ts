@@ -16,7 +16,7 @@ import {
 import { listPasskeys, removePasskey } from '#lib/server/auth/passkeys';
 import { proveCurrentPassword } from '#lib/server/auth/prove-password';
 import { overUserAttemptLimit } from '#lib/server/auth/throttle';
-import { readFormBody, textField } from '#lib/server/forms';
+import { ID_MAX_LENGTH, readFormBody, textField } from '#lib/server/forms';
 import { errorLabel } from '#lib/server/util';
 import { formatShortDate, wibDateString } from '#lib/shared/dates';
 import { msg } from '#lib/shared/i18n';
@@ -28,7 +28,6 @@ import type { Actions, PageServerLoad } from './$types';
 // outlives the session that made it); removing one does too. The page data never carries a public key or a
 // credential id. hooks.server.ts (auth/gate.ts) answers every signed-out request before it gets here.
 
-const ID_MAX_LENGTH = 64;
 const LOAD_FAILED = msg('Daftar passkey tidak bisa dimuat. Muat ulang halaman.');
 
 function signedIn(locals: App.Locals) {

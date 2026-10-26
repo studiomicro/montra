@@ -15,14 +15,18 @@ import {
 	CLEANUP_NOTHING
 } from '#lib/server/categories/messages';
 import { listCategories } from '#lib/server/categories/repo';
-import { readFormBody, textField } from '#lib/server/forms';
+import {
+	expectedUpdatedAt,
+	ID_MAX_LENGTH,
+	idField,
+	readFormBody,
+	textField
+} from '#lib/server/forms';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { TRANSACTION_CHANGED } from '#lib/server/transactions/messages';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { errorLabel, newId } from '#lib/server/util';
 import type { Actions, PageServerLoad } from './$types';
 
-const UPDATED_AT = /^\d{1,15}$/;
 /** The review's nonce (`newId`, a UUID): the id the batch is written under, so a resent form is recognised. */
 const BATCH_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 /** Room for CLEANUP_PREVIEW_MAX ids (`id=<uuid>&`, about 40 bytes each) plus the nonce. */
@@ -89,14 +93,13 @@ export const actions: Actions = {
 	undo: async (event) => {
 		const form = await readFormBody(event.request);
 		const scope = await currentSpaceScope(event.locals);
-		const id = textField(form, 'id');
-		const updatedAt = textField(form, 'updatedAt');
+		const id = idField(form, 'id');
 		// A malformed id or version matches nothing: the same answers as an unknown batch or a stale page.
 		const result = await undoCleanup(
 			event.locals.db,
 			scope,
-			id.length > ID_MAX_LENGTH ? '' : id,
-			UPDATED_AT.test(updatedAt) ? Number(updatedAt) : -1,
+			id,
+			expectedUpdatedAt(form),
 			Date.now()
 		);
 		if (result.status === 'missing') return fail(404, { error: CLEANUP_NOT_FOUND });

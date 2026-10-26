@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { APP_ORIGIN, expectNoHorizontalScroll, STORAGE_STATE, waitForHydration } from './helpers';
+import {
+	APP_ORIGIN,
+	collectCspViolations,
+	expectNoHorizontalScroll,
+	newUser,
+	STORAGE_STATE,
+	waitForHydration
+} from './helpers';
 import { addWallet } from './ledger';
 
 /**
@@ -16,7 +23,6 @@ test.beforeEach(({ browserName }, testInfo) =>
 	)
 );
 
-const BASE = APP_ORIGIN;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 /** Three days before today (WIB), as the screen prints it and as Riwayat filters it. */
 const DAY = new Date(Date.now() + 7 * 3600_000 - 3 * 86_400_000);
@@ -121,13 +127,8 @@ function imagePdf(jpeg: Buffer, width: number, height: number, pages: number): B
 
 /** CSP violations reported by the page or any of its workers, and every request leaving the page. */
 function watch(page: Page) {
-	const violations: string[] = [];
+	const violations = collectCspViolations(page);
 	const requests: string[] = [];
-	const onConsole = (text: string) => {
-		if (/Content Security Policy|Refused to/i.test(text)) violations.push(text);
-	};
-	page.on('console', (m) => onConsole(m.text()));
-	page.on('worker', (w) => w.on('console', (m) => onConsole(m.text())));
 	page.on('request', (r) => requests.push(r.url()));
 	return { violations, requests };
 }
@@ -157,11 +158,11 @@ test('engine loads only after a pick, from this origin only, under the OCR asset
 	const seen = watch(page);
 	const scripts: string[] = [];
 	page.on('response', async (r) => {
-		if (r.request().resourceType() === 'script' && r.url().startsWith(BASE))
+		if (r.request().resourceType() === 'script' && r.url().startsWith(APP_ORIGIN))
 			scripts.push(await r.text().catch(() => ''));
 	});
 	for (const path of ['/', '/dompet', '/impor']) {
-		await page.goto(`${BASE}${path}`);
+		await page.goto(`${APP_ORIGIN}${path}`);
 		await waitForHydration(page);
 	}
 	await showOcr(page);
@@ -170,7 +171,8 @@ test('engine loads only after a pick, from this origin only, under the OCR asset
 	for (const body of scripts) expect(body).not.toMatch(/TesseractCore|pdfjsVersion|PDFPageProxy/);
 
 	// The page policy: worker-src self, no wasm-unsafe-eval, no blob:.
-	const pageCsp = (await request.get(`${BASE}/impor`)).headers()['content-security-policy'] ?? '';
+	const pageCsp =
+		(await request.get(`${APP_ORIGIN}/impor`)).headers()['content-security-policy'] ?? '';
 	expect(pageCsp).toContain("worker-src 'self'");
 	expect(pageCsp).not.toMatch(/wasm-unsafe-eval|blob:/);
 
@@ -186,7 +188,7 @@ test('engine loads only after a pick, from this origin only, under the OCR asset
 
 	const ocr = seen.requests.filter((u) => u.includes('/_ocr/'));
 	expect(ocr.length).toBeGreaterThan(3);
-	expect(seen.requests.every((u) => u.startsWith(BASE) || u.startsWith('data:'))).toBe(true);
+	expect(seen.requests.every((u) => u.startsWith(APP_ORIGIN) || u.startsWith('data:'))).toBe(true);
 	expect(page.workers().every((w) => !w.url().startsWith('blob:'))).toBe(true);
 	expect(seen.violations).toEqual([]);
 	expect(await page.evaluate(() => (window as unknown as { __csp: string[] }).__csp)).toEqual([]);
@@ -205,10 +207,19 @@ test('engine loads only after a pick, from this origin only, under the OCR asset
 });
 
 test('cancel, then a full journey: read → review → tick → import → Riwayat → undo (criteria 10, 14, 38)', async ({
-	page
-}) => {
+	browser
+}, testInfo) => {
+	// Its own user: an undone import is still remembered ("Sudah pernah diimpor"), so a second run of the same
+	// journey (a retry, --repeat-each) on the shared user would never reach "Diimpor 3".
+	const { context, page } = await newUser(browser, testInfo, {
+		prefix: 'fn16g',
+		sapaanOff: true,
+		viewport: { width: 360, height: 780 },
+		hasTouch: true,
+		isMobile: true
+	});
 	await addWallet(page, 'GoPay Fiktif');
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await showOcr(page);
 	const block = ocrBlock(page);
@@ -249,12 +260,28 @@ test('cancel, then a full journey: read → review → tick → import → Riway
 	await expect(shown(page, 'Dibatalkan. Tidak ada yang dikirim.')).toBeVisible();
 	await throttle(-1);
 
-	// Batal while reading: the engine worker is terminated.
+	// Batal while reading: nothing is posted and no engine worker is left. The read is held where the test
+	// controls it, so it cannot finish before Batal is pressed: the engine's Worker request (resource type
+	// "script"; the download's own fetch of the same file passes) waits until the test has cancelled.
+	let release!: () => void;
+	const released = new Promise<void>((resolve) => (release = resolve));
+	let holding!: () => void;
+	const held = new Promise<void>((resolve) => (holding = resolve));
+	await page.route(/\/_ocr\/[^/]+\/worker\.min\.js$/, async (route) => {
+		if (route.request().resourceType() !== 'script') return route.continue();
+		holding();
+		await released;
+		await route.continue().catch(() => {});
+	});
 	await block.getByTestId('ocr-gallery').setInputFiles(png);
 	await expect(shown(page, 'Membaca halaman 1 dari 1 (100%)')).toBeVisible({ timeout: 30_000 });
+	await held;
 	await block.getByRole('button', { name: 'Batal' }).click();
 	await expect(shown(page, 'Dibatalkan. Tidak ada yang dikirim.')).toBeVisible();
+	// An engine whose start the cancel overtook is terminated as soon as it arrives.
+	release();
 	await expect.poll(() => page.workers().length).toBe(0);
+	await page.unroute(/\/_ocr\/[^/]+\/worker\.min\.js$/);
 	expect(posts).toEqual([]);
 
 	// The full run.
@@ -281,20 +308,21 @@ test('cancel, then a full journey: read → review → tick → import → Riway
 	await expect(shown(page, 'Diimpor 3 · Dilewati 0 · Sudah pernah diimpor 0')).toBeVisible();
 	expect(posts.filter((u) => u.includes('importOcr'))).toHaveLength(1);
 
-	await page.goto(`${BASE}/riwayat?from=${DAY_ISO}&to=${DAY_ISO}`);
+	await page.goto(`${APP_ORIGIN}/riwayat?from=${DAY_ISO}&to=${DAY_ISO}`);
 	await expect(page.getByText('Kopi Senja Fiktif')).toBeVisible();
 	await expect(page.getByText('−Rp 25.000').first()).toBeVisible();
 	await page.reload();
 	await expect(page.getByText('Kopi Senja Fiktif')).toBeVisible();
 
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	const batch = page.getByRole('listitem').filter({ hasText: 'Berkas mutasi' }).first();
 	await batch.getByText('Urungkan', { exact: true }).click();
 	await batch.getByRole('button', { name: 'Ya, urungkan' }).click();
 	await expect(page.getByText('Impor diurungkan.')).toBeVisible();
-	await page.goto(`${BASE}/riwayat?from=${DAY_ISO}&to=${DAY_ISO}`);
+	await page.goto(`${APP_ORIGIN}/riwayat?from=${DAY_ISO}&to=${DAY_ISO}`);
 	await expect(page.getByText('Kopi Senja Fiktif')).toHaveCount(0);
+	await context.close();
 });
 
 test('camera action: capture input, and without a camera the gallery pick takes over (criteria 15, 40)', async ({
@@ -304,7 +332,7 @@ test('camera action: capture input, and without a camera the gallery pick takes 
 	// Without JavaScript the block explains that it needs it, and offers no inputs; the PDF/CSV forms remain.
 	const noJs = await browser.newContext({ storageState: STORAGE_STATE, javaScriptEnabled: false });
 	const plain = await noJs.newPage();
-	await plain.goto(`${BASE}/impor`);
+	await plain.goto(`${APP_ORIGIN}/impor`);
 	await showOcr(plain);
 	await expect(
 		ocrBlock(plain).getByText(
@@ -315,7 +343,7 @@ test('camera action: capture input, and without a camera the gallery pick takes 
 	await expect(plain.getByLabel('Pilih berkas mutasi')).toBeAttached();
 	await noJs.close();
 
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await showOcr(page);
 	const block = ocrBlock(page);
@@ -349,7 +377,7 @@ test('a scanned (image-only) PDF is rendered with pdf.js and read; pages past 12
 	page
 }) => {
 	test.setTimeout(240_000);
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await showOcr(page);
 	const seen = watch(page);
@@ -368,6 +396,6 @@ test('a scanned (image-only) PDF is rendered with pdf.js and read; pages past 12
 	expect(seen.requests.some((u) => u.includes('/_ocr/') && u.endsWith('pdf.worker.min.mjs'))).toBe(
 		true
 	);
-	expect(seen.requests.every((u) => u.startsWith(BASE) || u.startsWith('data:'))).toBe(true);
+	expect(seen.requests.every((u) => u.startsWith(APP_ORIGIN) || u.startsWith('data:'))).toBe(true);
 	expect(seen.violations).toEqual([]);
 });

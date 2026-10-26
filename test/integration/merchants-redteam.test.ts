@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import { saveKey } from '#lib/server/ai-keys/repo';
 import { THROTTLE_WINDOW_MS } from '#lib/server/auth/throttle';
 import { sha256Hex } from '#lib/server/util';
@@ -409,7 +410,7 @@ describe('FN-20 red team: membership and bounds', () => {
 				}).event as never
 			)) as Response;
 		// Use up the budget directly (one counted row) instead of 300 requests.
-		const now = Date.now();
+		const now = pinThrottleWindow();
 		await d1
 			.prepare(
 				`insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)

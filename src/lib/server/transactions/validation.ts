@@ -13,7 +13,7 @@ import {
 	type TransactionFormValues,
 	type TransactionType
 } from '#lib/shared/transactions';
-import { amountMinorFromText, amountRefusal, textField } from '../forms';
+import { amountMinorFromText, amountRefusal, ID_MAX_LENGTH, textField } from '../forms';
 import {
 	ADJUSTMENT_SAME,
 	ADJUSTMENT_TOO_LARGE,
@@ -35,8 +35,6 @@ import {
 	WALLET_REQUIRED
 } from './messages';
 
-/** Longest id read from a form; ids are UUIDs, anything longer cannot match. */
-export const ID_MAX_LENGTH = 64;
 // The bound lives with the shared money parser so statement rows (FN-16a) use the same one.
 export { MAX_AMOUNT_MINOR };
 /**

@@ -1,7 +1,7 @@
 import { categoryHintFromWords } from './category-keywords.ts';
 import { cleanMoneyText, findMoneyMentions } from './money-parse.ts';
 import { TITLE_MAX_LENGTH, type TileKey } from './transactions.ts';
-import { cleanText } from './text.ts';
+import { asciiLowerKey, cleanText } from './text.ts';
 import type { WalletType } from './wallets.ts';
 
 /**
@@ -48,11 +48,6 @@ const WALLET_TYPE_WORDS: readonly { words: readonly string[]; type: WalletType }
 /** Words that introduce a wallet ("pakai gopay"); dropped from the title together with the wallet words. */
 const WALLET_LEADS: ReadonlySet<string> = new Set(['pakai', 'pake', 'via', 'dengan', 'dari']);
 
-/** ASCII-only lower case: same length, no Unicode case folding (as the money parser reads text). */
-function asciiLower(text: string): string {
-	return text.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
-}
-
 /** Text → words; a comma is its own word so it can act as a separator. */
 function words(text: string): string[] {
 	return text
@@ -62,7 +57,7 @@ function words(text: string): string[] {
 }
 
 /** A word without the punctuation around it, lower-cased (for keyword checks only). */
-const bare = (word: string) => asciiLower(word).replace(/^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu, '');
+const bare = (word: string) => asciiLowerKey(word).replace(/^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu, '');
 
 const isSeparator = (word: string) => word === ',' || SEPARATORS.has(bare(word));
 
@@ -99,7 +94,7 @@ function matchWallet(
 ): { walletHint?: string; rest: string[] } {
 	const bareWords = itemWords.map(bare);
 	const byName = wallets
-		.map((w) => ({ id: w.id, run: words(asciiLower(w.name)).map(bare).filter(Boolean) }))
+		.map((w) => ({ id: w.id, run: words(asciiLowerKey(w.name)).map(bare).filter(Boolean) }))
 		.filter((w) => w.run.length > 0)
 		.sort((a, b) => b.run.join(' ').length - a.run.join(' ').length);
 	const candidates: { id: string; run: string[] }[] = [...byName];

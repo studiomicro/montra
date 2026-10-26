@@ -2,7 +2,6 @@ import { isHttpError } from '@sveltejs/kit';
 import { addDays, wibInstantUtcMs, wibTodayString } from '#lib/shared/dates';
 import type { Locale } from '#lib/shared/i18n';
 import {
-	parsePushRequest,
 	QUEUE_INVALID,
 	QUEUE_ONLINE_ONLY,
 	QUEUE_SPACE_GONE,
@@ -10,10 +9,11 @@ import {
 	type PushResponse,
 	type PushResult
 } from '#lib/shared/offline-queue';
+import { parsePushRequest } from '#lib/shared/offline-queue-schema';
 import { SESSION_ENDED } from '../auth/gate';
 import type { Db } from '../db';
 import { getEnv } from '../env';
-import { textField } from '../forms';
+import { ID_MAX_LENGTH, idField } from '../forms';
 import { requireSpaceAccess, type SpaceScope } from '../spaces/access';
 import { createTransactionOnce } from '../transactions/client-id';
 import { overTransactionCreateLimit } from '../transactions/create-limit';
@@ -33,7 +33,7 @@ import {
 	updateTransaction,
 	type TransactionDetail
 } from '../transactions/repo';
-import { ID_MAX_LENGTH, type TransactionInput } from '../transactions/validation';
+import { type TransactionInput } from '../transactions/validation';
 import {
 	checkVoiceRows,
 	recordAgain,
@@ -90,11 +90,6 @@ function formOf(item: PushRequest): FormData {
 /** The first field error's message id (every one is a msg() phrase). */
 const firstError = (errors: Partial<Record<string, string>>) =>
 	Object.values(errors).find((m): m is string => typeof m === 'string');
-
-const idField = (form: FormData, name: string) => {
-	const value = textField(form, name);
-	return value.length > ID_MAX_LENGTH ? '' : value;
-};
 
 /**
  * Pushes one user may send per throttle window (10 minutes): a full queue (200 items) drains three times over,

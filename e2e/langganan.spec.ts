@@ -1,45 +1,23 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
 	isPhone,
-	SIGNED_OUT,
+	newUser,
 	simulatedClientIp,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
+import { addWalletInSheet } from './ledger';
 
 /**
  * FN-26 journeys. Every test signs up its own fictional user in its own context (own simulated client address),
  * so its personal space starts without subscriptions or wallets and parallel tests never see each other's rows.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: { javaScriptEnabled?: boolean } = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pelanggan');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn26-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn26', name: 'Pelanggan', ...opts });
 
 async function open(page: Page, path = '/langganan') {
 	await page.goto(path);
@@ -51,12 +29,7 @@ const row = (page: Page, name: string) =>
 
 async function addWallet(page: Page, name = 'BCA') {
 	await open(page, '/dompet');
-	await page.getByRole('link', { name: 'Tambah dompet' }).first().click();
-	const sheet = page.getByRole('dialog', { name: 'Tambah dompet' });
-	await sheet.getByLabel('Nama dompet').fill(name);
-	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
-	await expect(sheet).toBeHidden();
-	await expect(page.getByText('Dompet ditambahkan.')).toBeVisible();
+	await addWalletInSheet(page, { name });
 }
 
 /** Adds a catalogue subscription through the sheets; resolves once the server-confirmed row is listed. */
@@ -174,9 +147,9 @@ test('works without JavaScript: picker, refusal and save are plain form posts', 
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
 	await page.goto('/langganan');
 	await page.getByRole('link', { name: 'Tambah langganan' }).first().click();
-	await expect(page).toHaveURL(`${BASE}/langganan?tambah=1`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/langganan?tambah=1`);
 	await page.getByRole('link', { name: 'Spotify', exact: true }).click();
-	await expect(page).toHaveURL(`${BASE}/langganan?tambah=spotify`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/langganan?tambah=spotify`);
 	await expect(page.getByLabel('Nama langganan')).toHaveValue('Spotify');
 	await page.getByRole('button', { name: 'Tambah langganan' }).click();
 	await expect(
@@ -223,7 +196,7 @@ test('hiding Langganan (FN-12) removes its entries; the page still loads with a 
 		page.getByText('Langganan disembunyikan dari menu. Angkanya tetap dihitung.')
 	).toBeVisible();
 	await page.getByRole('link', { name: 'Tampilkan lagi di menu' }).click();
-	await expect(page).toHaveURL(`${BASE}/pengaturan/fitur`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/pengaturan/fitur`);
 	await expectNoHorizontalScroll(page);
 	await context.close();
 });
@@ -370,10 +343,10 @@ test('FN-26b without JavaScript: the check list and "Bukan langganan" are plain 
 	const page = await context.newPage();
 	await page.goto('/langganan');
 	await page.getByRole('link', { name: 'Jalankan pemeriksaan' }).click();
-	await expect(page).toHaveURL(`${BASE}/langganan?periksa=1`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/langganan?periksa=1`);
 	const spotify = page.getByRole('listitem').filter({ hasText: 'Rp 54.990' }).first();
 	await spotify.getByRole('link', { name: 'Tambah' }).click();
-	await expect(page).toHaveURL(`${BASE}/langganan?kandidat=cat%3Aspotify`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/langganan?kandidat=cat%3Aspotify`);
 	await expect(page.getByLabel('Nama langganan')).toHaveValue('Spotify');
 	await page.goto('/langganan?periksa=1');
 	await spotify.getByText('Bukan langganan', { exact: true }).click();

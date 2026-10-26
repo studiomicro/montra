@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
-import { readFormBody } from '#lib/server/forms';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
+import { readFormBody, boundedId, expectedUpdatedAt } from '#lib/server/forms';
 import { SERIES_CHANGED, SERIES_NOT_FOUND, SERIES_STOPPED } from '#lib/server/recurring/messages';
 import {
 	deleteSeries,
@@ -12,7 +12,7 @@ import {
 	updateSeries,
 	type SeriesWriteResult
 } from '#lib/server/recurring/repo';
-import { boundedId, expectedUpdatedAt, readRecurringForm } from '#lib/server/recurring/validation';
+import { readRecurringForm } from '#lib/server/recurring/validation';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { REFS_GONE } from '#lib/server/transactions/messages';
 import { setSeriesSavedNotice, type SeriesSavedKind } from '#lib/server/transactions/saved-notice';
@@ -28,9 +28,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const series = await getSeries(db, spaceId, boundedId(params.id));
 	// Unknown, deleted and other-space ids get the one same answer.
 	if (!series) error(404, 'Not found');
-	await ensurePresetCategories(db, spaceId);
 	const [categories, wallets, instances] = await Promise.all([
-		listCategories(db, spaceId),
+		listCategoriesWithPresets(db, spaceId),
 		listWallets(db, spaceId),
 		listSeriesInstances(db, spaceId, series.id)
 	]);

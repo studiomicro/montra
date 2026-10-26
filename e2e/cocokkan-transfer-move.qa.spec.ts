@@ -1,11 +1,5 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
-import {
-	APP_ORIGIN,
-	SIGNED_OUT,
-	simulatedClientIp,
-	tickSignUpBoxes,
-	waitForHydration
-} from './helpers';
+import { APP_ORIGIN, newUser, type UserOptions, waitForHydration } from './helpers';
 
 /**
  * FN-48 Part C "Cocokkan transfer" in a real browser: the /impor card, the review at 360 px on a touch screen
@@ -13,8 +7,6 @@ import {
  * answered and persisted across a reload, the undo, and the whole flow as plain form posts without JavaScript.
  * Every test signs up its own fictional user; the two rows come from a CSV import through the app's own form.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 const HEADER =
 	'date,type,merchant,amount,currency,category,payment_method,recurrence,tag,notes,wallet_source,reference';
 // The owner's shape: a BCA debit on 10 July and the OCBC credit the next day, Rp 5.000.000 each, both already in
@@ -32,38 +24,12 @@ const PAIR_FILE = {
 	)
 };
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: {
-		javaScriptEnabled?: boolean;
-		viewport?: { width: number; height: number };
-		hasTouch?: boolean;
-		isMobile?: boolean;
-	} = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto(`${BASE}/daftar`);
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pencocok');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn48c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn48c', name: 'Pencocok', ...opts });
 
 /** Imports the pair through /impor's own form (works with and without JavaScript). */
 async function importPair(page: Page, js: boolean) {
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	if (js) await waitForHydration(page);
 	await page.getByLabel('Pilih berkas CSV').setInputFiles(PAIR_FILE);
 	if (js)
@@ -86,29 +52,29 @@ test('QA cycle 2: /impor shows the transfer_linked note while the match is live,
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await importPair(page, true);
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await expect(page.getByText(MIXED)).toBeVisible();
 	await expect(page.getByText(LINKED)).toHaveCount(0);
 
-	await page.goto(`${BASE}/impor/cocokkan-transfer`);
+	await page.goto(`${APP_ORIGIN}/impor/cocokkan-transfer`);
 	await waitForHydration(page);
 	await page.getByRole('button', { name: 'Cocokkan', exact: true }).click();
 	await expect(page.getByText('Pasangan dicocokkan menjadi satu transfer.')).toBeVisible();
 
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await expect(page.getByText(LINKED)).toBeVisible();
 	await expect(page.getByText(MIXED)).toHaveCount(0);
 	await expect(page.getByText('Pindahkan ke dompet lain')).toHaveCount(0);
 
-	await page.goto(`${BASE}/impor/cocokkan-transfer`);
+	await page.goto(`${APP_ORIGIN}/impor/cocokkan-transfer`);
 	await waitForHydration(page);
 	await page.getByRole('button', { name: 'Urungkan' }).click();
 	await expect(
 		page.getByText('Pencocokan diurungkan; kedua transaksi dikembalikan.')
 	).toBeVisible();
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await expect(page.getByText(LINKED)).toHaveCount(0);
 	await expect(page.getByText(MIXED)).toBeVisible();
@@ -132,7 +98,7 @@ test('QA cycle 3 (L2): undoing the credit import after the merged transfer was e
 		],
 		['credit.csv', '2026-07-11,income,SWITCHING CR TRF UJI,5.000.000,IDR,Transfer masuk,,,,,OCBC,']
 	] as const) {
-		await page.goto(`${BASE}/impor`);
+		await page.goto(`${APP_ORIGIN}/impor`);
 		await waitForHydration(page);
 		await page.getByLabel('Pilih berkas CSV').setInputFiles(csvOf(file, rows));
 		await expect(
@@ -143,13 +109,13 @@ test('QA cycle 3 (L2): undoing the credit import after the merged transfer was e
 			page.getByText('Diimpor 1 · Dilewati 0 · Sudah pernah diimpor 0', { exact: true }).first()
 		).toBeVisible();
 	}
-	await page.goto(`${BASE}/impor/cocokkan-transfer`);
+	await page.goto(`${APP_ORIGIN}/impor/cocokkan-transfer`);
 	await waitForHydration(page);
 	await page.getByRole('button', { name: 'Cocokkan', exact: true }).click();
 	await expect(page.getByText('Pasangan dicocokkan menjadi satu transfer.')).toBeVisible();
 
 	// the user edits the merged transfer's note
-	await page.goto(`${BASE}/riwayat?month=2026-07`);
+	await page.goto(`${APP_ORIGIN}/riwayat?month=2026-07`);
 	await page.locator('main a[href$="/edit"]').first().click();
 	await page.waitForURL(/\/riwayat\/.+\/edit$/);
 	await waitForHydration(page);
@@ -158,7 +124,7 @@ test('QA cycle 3 (L2): undoing the credit import after the merged transfer was e
 	await page.waitForURL(/\/riwayat\?/);
 
 	// undo the credit's import (the second batch: newest first)
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	const batches = page.locator('#riwayat-impor, main').locator('details.confirm');
 	await batches.first().locator('summary').click();

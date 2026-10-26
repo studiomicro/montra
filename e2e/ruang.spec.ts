@@ -1,20 +1,19 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
+	APP_ORIGIN,
 	expectNoHorizontalScroll,
+	PASSWORD,
 	SIGNED_OUT,
 	simulatedClientIp,
 	STORAGE_STATE,
-	waitForHydration,
-	APP_ORIGIN
+	tickSignUpBoxes,
+	waitForHydration
 } from './helpers';
 
 /**
  * FN-03 journeys. The owner is the shared signed-in e2e user (`page`); everyone else is a fresh account in its
  * own context with its own simulated client address (n ≥ 1), so the sign-up throttle never mixes users.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 const INVITE_LINK = new RegExp(`^${APP_ORIGIN}/ruang/undangan/[A-Za-z0-9_-]{43}$`);
 
 const unique = (tag: string, testInfo: TestInfo) =>
@@ -44,7 +43,7 @@ async function newUserAtInvite(browser: Browser, testInfo: TestInfo, n: number, 
 	const page = await context.newPage();
 	await page.goto(link);
 	const next = new URL(link).pathname;
-	await expect(page).toHaveURL(`${BASE}/masuk?next=${encodeURIComponent(next)}`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/masuk?next=${encodeURIComponent(next)}`);
 	await waitForHydration(page);
 	await page.getByRole('link', { name: 'Daftar' }).click();
 	await page.waitForURL(/\/daftar\?next=/);
@@ -63,17 +62,19 @@ async function newUserAtInvite(browser: Browser, testInfo: TestInfo, n: number, 
 
 async function join(page: Page) {
 	await page.getByRole('button', { name: 'Gabung ke ruang' }).click();
-	await page.waitForURL(`${BASE}/`);
+	await page.waitForURL(`${APP_ORIGIN}/`);
 }
 
 test('owner creates a shared space and copies the invite link; focus stays on the copy button', async ({
 	page
 }, testInfo) => {
-	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+	await page
+		.context()
+		.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: APP_ORIGIN });
 	const name = unique('Keluarga', testInfo);
 	await page.goto('/ruang');
 	await page.getByRole('link', { name: 'Buat ruang bersama' }).first().click();
-	await expect(page).toHaveURL(`${BASE}/ruang/baru`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/ruang/baru`);
 	const { spaceUrl, link } = await createSpaceWithInvite(page, name);
 	const copy = page.getByRole('button', { name: 'Salin tautan' });
 	await copy.click();
@@ -150,7 +151,7 @@ test('a member leaves; once five are in, a sixth person sees that the space is f
 	await waitForHydration(leaver);
 	await leaver.locator('summary', { hasText: 'Keluar dari ruang' }).click();
 	await leaver.getByRole('button', { name: 'Ya, keluar' }).click();
-	await expect(leaver).toHaveURL(`${BASE}/ruang`);
+	await expect(leaver).toHaveURL(`${APP_ORIGIN}/ruang`);
 	await expect(leaver.getByText('Kamu sudah keluar dari ruang.')).toBeVisible();
 
 	// The freed slot is taken by a fifth person; the sixth is refused.
@@ -228,7 +229,7 @@ test('without JavaScript: create a space, make a link, and a new user accepts it
 	await guest.getByRole('button', { name: 'Daftar' }).click();
 	await guest.waitForURL(link);
 	await guest.getByRole('button', { name: 'Gabung ke ruang' }).click();
-	await guest.waitForURL(`${BASE}/`);
+	await guest.waitForURL(`${APP_ORIGIN}/`);
 	await guest.goto('/ruang');
 	await expect(guest.getByRole('listitem').filter({ hasText: name })).toBeVisible();
 	await owner.close();

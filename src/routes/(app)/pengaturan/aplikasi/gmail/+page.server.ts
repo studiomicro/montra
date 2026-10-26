@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { overUserAttemptLimit } from '#lib/server/auth/throttle';
 import { gmailLookbackMaxDays, planOf } from '#lib/server/billing/gate';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, textField, idField } from '#lib/server/forms';
 import {
 	gmailMissing,
 	gmailOAuthConfig,
@@ -48,7 +48,6 @@ import {
 	type ConnectionWriteResult
 } from '#lib/server/gmail/repo';
 import { listSpaces } from '#lib/server/spaces/spaces';
-import { idField } from '#lib/server/subscriptions/validation';
 import { errorLabel } from '#lib/server/util';
 import { wibDateString, wibTimeString } from '#lib/shared/dates';
 import {
@@ -147,6 +146,26 @@ function checkNowWindow(now: number): string {
 	return `${wibDateString(now)}T${time.slice(0, 2)}:${bucket}`;
 }
 
+/**
+ * Enqueues the first page of the scan just opened; when the queue refuses, the scan is dropped again (so a retry
+ * may open it) and false is returned.
+ */
+async function startScan(
+	locals: App.Locals,
+	userId: string,
+	scanId: string,
+	scan: { connectionId: string; kind: 'hourly' | 'lookback'; window: string }
+): Promise<boolean> {
+	try {
+		await enqueue([{ type: 'gmail_check', ...scan, page: 0 }]);
+		return true;
+	} catch (e) {
+		console.error('pengaturan/aplikasi/gmail: enqueue failed', errorLabel(e));
+		await dropScan(locals.db, userId, scanId);
+		return false;
+	}
+}
+
 export const actions: Actions = {
 	/**
 	 * "Hubungkan" / "Hubungkan ulang": answers with the authorization URL as page data (a plain "Lanjut ke Google"
@@ -240,13 +259,10 @@ export const actions: Actions = {
 		);
 		if (opened.kind === 'exists') return fail(429, { error: GMAIL_CHECK_RECENT });
 		if (opened.kind !== 'opened') return fail(404, { error: GMAIL_NOT_CONNECTED });
-		try {
-			await enqueue([{ type: 'gmail_check', connectionId, kind: 'hourly', window, page: 0 }]);
-		} catch (e) {
-			console.error('pengaturan/aplikasi/gmail: enqueue failed', errorLabel(e));
-			await dropScan(locals.db, user.id, opened.scanId);
+		if (
+			!(await startScan(locals, user.id, opened.scanId, { connectionId, kind: 'hourly', window }))
+		)
 			return fail(503, { error: GMAIL_QUEUE_FAILED });
-		}
 		return { done: 'checking' };
 	},
 
@@ -279,13 +295,10 @@ export const actions: Actions = {
 			return fail(409, { error: GMAIL_LOOKBACK_RUNNING });
 		if (opened.kind === 'limit') return fail(429, { error: GMAIL_LOOKBACK_LIMIT });
 		if (opened.kind !== 'opened') return fail(404, { error: GMAIL_NOT_CONNECTED });
-		try {
-			await enqueue([{ type: 'gmail_check', connectionId, kind: 'lookback', window, page: 0 }]);
-		} catch (e) {
-			console.error('pengaturan/aplikasi/gmail: enqueue failed', errorLabel(e));
-			await dropScan(locals.db, user.id, opened.scanId);
+		if (
+			!(await startScan(locals, user.id, opened.scanId, { connectionId, kind: 'lookback', window }))
+		)
 			return fail(503, { error: GMAIL_QUEUE_FAILED });
-		}
 		return { done: 'scanning' };
 	},
 

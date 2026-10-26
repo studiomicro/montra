@@ -3,6 +3,7 @@ import { flagsFrom, isModule } from '#lib/shared/feature-flags';
 import { FLAGS_LOAD_FAILED, MODULE_INVALID } from '#lib/server/feature-flags/messages';
 import { getFeatureFlags, setFeatureFlag } from '#lib/server/feature-flags/repo';
 import { readFormBody, textField } from '#lib/server/forms';
+import { errorLabel } from '#lib/server/util';
 import type { Actions, PageServerLoad } from './$types';
 
 // Flags belong to the signed-in user (locals.user), never to a space and never to an id from the request:
@@ -15,7 +16,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	try {
 		return { flags: await getFeatureFlags(locals.db, user.id), loadError: null };
 	} catch (e) {
-		console.error('pengaturan/fitur: flags load failed', e);
+		console.error('pengaturan/fitur: flags load failed', errorLabel(e));
 		return { flags: flagsFrom([]), loadError: FLAGS_LOAD_FAILED };
 	}
 };

@@ -6,32 +6,19 @@ import {
 } from '#lib/server/categories/messages';
 import {
 	createCategory,
-	ensurePresetCategories,
-	listCategories,
+	listCategoriesWithPresets,
 	setCategoryHidden,
 	updateCategory
 } from '#lib/server/categories/repo';
 import { parseCategoryCreateForm, parseCategoryEditForm } from '#lib/server/categories/validation';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, ID_MAX_LENGTH, expectedUpdatedAt, idField } from '#lib/server/forms';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { TRANSACTION_CHANGED } from '#lib/server/transactions/messages';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
+import { errorLabel } from '#lib/server/util';
 import type { CategoryKind } from '#lib/shared/transactions';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
-
-function categoryId(form: FormData): string {
-	const id = textField(form, 'categoryId');
-	return id.length > ID_MAX_LENGTH ? '' : id;
-}
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
+const categoryId = (form: FormData) => idField(form, 'categoryId');
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { spaceId } = await currentSpaceScope(locals);
@@ -42,11 +29,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		edit: url.searchParams.get('ubah')?.slice(0, ID_MAX_LENGTH) ?? null
 	};
 	try {
-		await ensurePresetCategories(locals.db, spaceId);
-		const categories = await listCategories(locals.db, spaceId, { includeHidden: true });
+		const categories = await listCategoriesWithPresets(locals.db, spaceId, { includeHidden: true });
 		return { categories, open, loadError: null };
 	} catch (e) {
-		console.error('kategori: list failed', e);
+		console.error('kategori: list failed', errorLabel(e));
 		return { categories: [], open, loadError: CATEGORIES_LOAD_FAILED };
 	}
 };

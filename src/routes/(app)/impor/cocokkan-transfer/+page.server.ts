@@ -1,8 +1,7 @@
 import { fail } from '@sveltejs/kit';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, expectedUpdatedAt, idField } from '#lib/server/forms';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { TRANSACTION_CHANGED } from '#lib/server/transactions/messages';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import {
 	applyTransferMatch,
 	listTransferLinks,
@@ -23,7 +22,6 @@ import { errorLabel } from '#lib/server/util';
 import { listWallets } from '#lib/server/wallets/repo';
 import type { Actions, PageServerLoad } from './$types';
 
-const UPDATED_AT = /^\d{1,15}$/;
 /** `?sebelum=<createdAt>.<id>`: the links page below that link (QA low: older links stay reachable to undo). */
 const LINKS_CURSOR = /^(\d{1,15})\.([^.]{1,64})$/;
 
@@ -70,16 +68,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 };
 
-/** A form id: at most ID_MAX_LENGTH, else a value that matches nothing (the same answer as an unknown id). */
-const idField = (form: FormData, name: string) => {
-	const v = textField(form, name);
-	return v.length > ID_MAX_LENGTH ? '' : v;
-};
-const versionField = (form: FormData, name: string) => {
-	const v = textField(form, name);
-	return UPDATED_AT.test(v) ? Number(v) : -1;
-};
-
 export const actions: Actions = {
 	merge: async (event) => {
 		const form = await readFormBody(event.request);
@@ -93,8 +81,8 @@ export const actions: Actions = {
 			{
 				debitId,
 				creditId,
-				debitUpdatedAt: versionField(form, 'debitUpdatedAt'),
-				creditUpdatedAt: versionField(form, 'creditUpdatedAt')
+				debitUpdatedAt: expectedUpdatedAt(form, 'debitUpdatedAt'),
+				creditUpdatedAt: expectedUpdatedAt(form, 'creditUpdatedAt')
 			},
 			Date.now()
 		);

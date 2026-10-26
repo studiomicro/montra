@@ -14,7 +14,6 @@ import { buildXlsx } from '../test/helpers/xlsx';
  * FN-17 journey: a fictional user uploads a small generated .xlsx (built in memory, never committed), confirms
  * the column mapping, sees the review counts, imports, finds the rows in Riwayat, then undoes the import.
  */
-const BASE = APP_ORIGIN;
 
 const WORKBOOK = buildXlsx([
 	{
@@ -38,7 +37,7 @@ test('spreadsheet: upload, confirm mapping, review, import, see in Riwayat, undo
 		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 3) }
 	});
 	const page = await context.newPage();
-	await page.goto(`${BASE}/daftar`);
+	await page.goto(`${APP_ORIGIN}/daftar`);
 	await waitForHydration(page);
 	await page.getByLabel('Nama').fill('Pengimpor Sheet');
 	await page
@@ -47,10 +46,10 @@ test('spreadsheet: upload, confirm mapping, review, import, see in Riwayat, undo
 	await page.getByLabel('Kata sandi').fill('terang-benderang-8');
 	await tickSignUpBoxes(page);
 	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
+	await page.waitForURL(`${APP_ORIGIN}/`);
 	await addWallet(page, 'Kas Sheet');
 
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	await page
 		.getByRole('radiogroup', { name: 'Jenis berkas' })
@@ -91,18 +90,18 @@ test('spreadsheet: upload, confirm mapping, review, import, see in Riwayat, undo
 
 	// The rows are in Riwayat once the server confirmed the write.
 	await section.getByRole('link', { name: 'Lihat di Riwayat' }).click();
-	await page.goto(`${BASE}/riwayat?from=2026-10-01&to=2026-10-31`);
+	await page.goto(`${APP_ORIGIN}/riwayat?from=2026-10-01&to=2026-10-31`);
 	await expect(page.getByText('Kopi sheet fiktif')).toBeVisible();
 	await expect(page.getByText('Jajan sheet fiktif')).toBeVisible();
 
 	// Undo: every row of the batch leaves Riwayat.
-	await page.goto(`${BASE}/impor`);
+	await page.goto(`${APP_ORIGIN}/impor`);
 	await waitForHydration(page);
 	const row = page.getByRole('listitem').filter({ hasText: 'keuangan-fiktif.xlsx' });
 	await row.getByText('Urungkan', { exact: true }).click();
 	await row.getByRole('button', { name: 'Ya, urungkan' }).click();
 	await expect(page.getByText('Impor diurungkan.')).toBeVisible();
-	await page.goto(`${BASE}/riwayat?from=2026-10-01&to=2026-10-31`);
+	await page.goto(`${APP_ORIGIN}/riwayat?from=2026-10-01&to=2026-10-31`);
 	await expect(page.getByText('Kopi sheet fiktif')).toHaveCount(0);
 	await context.close();
 });

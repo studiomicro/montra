@@ -23,6 +23,7 @@
 	import AmountInput from '#lib/ui/kit/AmountInput.svelte';
 	import Button from '#lib/ui/kit/Button.svelte';
 	import Chip from '#lib/ui/kit/Chip.svelte';
+	import RadioPills from '#lib/ui/kit/RadioPills.svelte';
 
 	let {
 		action,
@@ -183,20 +184,12 @@
 
 	<fieldset aria-describedby={error('type') ? `${uid}-type-error` : undefined}>
 		<legend>{tr('Jenis')}</legend>
-		<div class="pills">
-			{#each WALLET_FORM_TYPES as option (option)}
-				<label class="pill">
-					<input
-						type="radio"
-						name="type"
-						value={option}
-						checked={values.type === option}
-						onchange={() => chooseType(option)}
-					/>
-					<span>{tr(WALLET_FORM_TYPE_LABELS[option])}</span>
-				</label>
-			{/each}
-		</div>
+		<RadioPills
+			name="type"
+			options={WALLET_FORM_TYPES.map((o) => ({ value: o, label: tr(WALLET_FORM_TYPE_LABELS[o]) }))}
+			value={values.type}
+			onchange={chooseType}
+		/>
 		{#if error('type')}<p id="{uid}-type-error" class="error">{error('type')}</p>{/if}
 	</fieldset>
 
@@ -392,39 +385,6 @@
 		flex-basis: 100%;
 		font-size: 13px;
 		color: var(--muted);
-	}
-	.pills {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-	}
-	.pill {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		padding: 0 16px;
-		border-radius: var(--r-pill);
-		background: var(--panel);
-		color: var(--ink);
-		font-size: 15px;
-		font-weight: 600;
-		cursor: pointer;
-	}
-	.pill input {
-		position: absolute;
-		inset: 0;
-		margin: 0;
-		opacity: 0;
-		cursor: pointer;
-	}
-	.pill:has(input:checked) {
-		background: var(--action);
-		color: var(--on-action);
-	}
-	.pill:has(input:focus-visible) {
-		outline: 2px solid var(--brand);
-		outline-offset: 2px;
 	}
 	select {
 		min-height: 48px;

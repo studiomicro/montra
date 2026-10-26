@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test';
 import {
-	tickSignUpBoxes,
-	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
-	waitForHydration,
 	APP_ORIGIN,
-	SITE_ORIGIN
+	expectNoHorizontalScroll,
+	PASSWORD,
+	SIGNED_OUT,
+	signUp,
+	simulatedClientIp,
+	SITE_ORIGIN,
+	tickSignUpBoxes,
+	uniqueEmail,
+	waitForHydration
 } from './helpers';
 
 // These journeys start signed out (not the shared e2e session), and each test is its own simulated client, so
@@ -19,33 +22,12 @@ test.use({
 });
 
 /** FN-01 journeys. Each test creates its own account (unique e-mail) so runs never collide. */
-function freshEmail(tag: string): string {
-	return `fn01-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
-}
-
-const PASSWORD = 'terang-benderang-8';
-
-async function signUp(
-	page: import('@playwright/test').Page,
-	email: string,
-	opts: { next?: string } = {}
-) {
-	const target = opts.next ? `/daftar?next=${encodeURIComponent(opts.next)}` : '/daftar';
-	await page.goto(target);
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Budi Santoso');
-	await page.getByLabel('E-mail').fill(email);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	// Wait for the server's redirect: a navigation started before it lands would abort the sign-up.
-	await page.waitForURL((url) => url.pathname !== '/daftar');
-}
+const freshEmail = (tag: string) => uniqueEmail(`fn01-${tag}`);
 
 test.describe('sign-up (/daftar)', () => {
 	test('signs up, lands on Beranda signed in, and a reload keeps the session', async ({ page }) => {
 		const email = freshEmail('signup');
-		await signUp(page, email);
+		await signUp(page, { email });
 		await expect(page).toHaveURL(`${APP_ORIGIN}/`);
 		await expect(page.getByRole('heading', { level: 1, name: 'Beranda' })).toBeVisible();
 
@@ -148,7 +130,7 @@ test.describe('sign-in (/masuk)', () => {
 		page
 	}) => {
 		const email = freshEmail('signin');
-		await signUp(page, email);
+		await signUp(page, { email });
 		await page.goto('/pengaturan/akun');
 		await page.getByRole('button', { name: 'Keluar dari akun' }).click();
 		await expect(page).toHaveURL(/\/masuk/);
@@ -198,7 +180,7 @@ test.describe('session middleware', () => {
 			extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) }
 		});
 		const pageA = await ctxA.newPage();
-		await signUp(pageA, email);
+		await signUp(pageA, { email });
 		await expect(pageA).toHaveURL(`${APP_ORIGIN}/`);
 
 		const ctxB = await browser.newContext({
@@ -232,7 +214,7 @@ test.describe('account page (/pengaturan/akun)', () => {
 		page
 	}) => {
 		const email = freshEmail('delete');
-		await signUp(page, email);
+		await signUp(page, { email });
 		await page.goto('/pengaturan/akun');
 		await expect(page.locator('main').getByText('Budi Santoso')).toBeVisible();
 		await expect(page.locator('main').getByText(email)).toBeVisible();
@@ -270,7 +252,7 @@ test.describe('360 px, light and dark', () => {
 				if ((page.viewportSize()?.width ?? 0) > 400) test.skip(true, 'phone project only');
 				if (signedIn) {
 					const email = freshEmail(`w${theme}${path.replace(/\W/g, '')}`);
-					await signUp(page, email);
+					await signUp(page, { email });
 				}
 				await context.addCookies([{ name: 'theme', value: theme, url: APP_ORIGIN }]);
 				await page.goto(path);

@@ -49,6 +49,19 @@ const enqueueWith = (queue: Queue) => async (messages: JobMessage[]) => {
 	if (messages.length > 0) await queue.sendBatch(messages.map((body) => ({ body })));
 };
 
+/**
+ * One bounded step of the cron tick: its counts, or `fallback` when it fails. The failure is logged by class only,
+ * and it never stops the tick's other steps.
+ */
+async function tickStep<T>(label: string, fallback: T, run: () => Promise<T>): Promise<T> {
+	try {
+		return await run();
+	} catch (e) {
+		console.warn(`jobs: ${label} failed`, errorLabel(e));
+		return fallback;
+	}
+}
+
 /** FN-19 Gmail: access tokens of this isolate (memory only, at most 50 min each; gmail/token.ts). */
 const gmailTokens: AccessTokenCache = new Map();
 
@@ -124,6 +137,7 @@ export default {
 		// other work left of D1's per-invocation cap (FN-25 red team L4).
 		const counted = countStatements(env.DB);
 		const db = getDb(counted.d1);
+		const enqueue = enqueueWith(env.JOBS_QUEUE);
 		const counts = await runCronTick(
 			{
 				spacesWithBudget: (after, limit) => spacesWithBudget(db, after, limit),
@@ -135,7 +149,7 @@ export default {
 				gmailConnectionsDue: isGmailJobConfigured(env)
 					? (after, limit) => connectionsDue(db, controller.scheduledTime, after, limit)
 					: null,
-				enqueue: enqueueWith(env.JOBS_QUEUE),
+				enqueue,
 				getCursor: (key) => getCronCursor(db, key),
 				setCursor: (key, value) => setCronCursor(db, key, value, Date.now())
 			},
@@ -144,105 +158,87 @@ export default {
 		// Retention (90 days) and removed members' rows, a bounded batch per tick.
 		await sweepNotifications(db, controller.scheduledTime);
 		// FN-30 hardening: re-claim markers older than 730 days, one bounded batch (≤ 500) per tick. Needs no key.
-		let markers = 0;
-		try {
-			markers = await sweepClaimMarkers(db, controller.scheduledTime);
-		} catch (e) {
-			console.warn('jobs: claim marker sweep failed', errorLabel(e));
-		}
+		const markers = await tickStep('claim marker sweep', 0, () =>
+			sweepClaimMarkers(db, controller.scheduledTime)
+		);
 		// FN-50: passkey sign-in events older than 90 days, one bounded batch (≤ 500) per tick.
-		let authEvents = 0;
-		try {
-			authEvents = await sweepAuthEvents(db, controller.scheduledTime);
-		} catch (e) {
-			console.warn('jobs: auth event sweep failed', errorLabel(e));
-		}
+		const authEvents = await tickStep('auth event sweep', 0, () =>
+			sweepAuthEvents(db, controller.scheduledTime)
+		);
 		// FN-23: expired Agen reports (keys to the outbox, rows deleted), stalled runs failed or re-sent. Before the
-		// file sweep, so expired report files go in this same tick. Bounded; a failure never stops the tick.
-		let agent = { expired: 0, failed: 0, requeued: 0 };
-		try {
-			const swept = await sweepAgentRuns(db, controller.scheduledTime);
-			try {
-				await enqueueWith(env.JOBS_QUEUE)(
-					swept.requeue.map((runId) => ({ type: 'agent_run', runId }))
-				);
-			} catch (e) {
-				// Red team S3: the re-send was spent before this send; give it back so the next tick retries.
-				await releaseResend(db, swept.requeue);
-				throw e;
+		// file sweep, so expired report files go in this same tick.
+		const agent = await tickStep(
+			'agent sweep',
+			{ expired: 0, failed: 0, requeued: 0 },
+			async () => {
+				const swept = await sweepAgentRuns(db, controller.scheduledTime);
+				try {
+					await enqueue(swept.requeue.map((runId) => ({ type: 'agent_run', runId })));
+				} catch (e) {
+					// Red team S3: the re-send was spent before this send; give it back so the next tick retries.
+					await releaseResend(db, swept.requeue);
+					throw e;
+				}
+				return { expired: swept.expired, failed: swept.failed, requeued: swept.requeue.length };
 			}
-			agent = { expired: swept.expired, failed: swept.failed, requeued: swept.requeue.length };
-		} catch (e) {
-			console.warn('jobs: agent sweep failed', errorLabel(e));
-		}
+		);
 		// FN-27: R2 photos whose deletion is due and was not finished inline (one bounded batch per tick; a
-		// full batch hands the rest to the queue). A failure here never stops the tick's other work.
-		let files = 0;
-		try {
-			files = await sweepFileDeletions(db, env.FILES, controller.scheduledTime);
-			if (files >= FILE_DELETE_BATCH) await env.JOBS_QUEUE.send({ type: 'file_sweep' });
-		} catch (e) {
-			console.warn('jobs: file sweep failed', errorLabel(e));
-		}
+		// full batch hands the rest to the queue).
+		const files = await tickStep('file sweep', 0, () =>
+			sweepFileDeletions(db, env.FILES, controller.scheduledTime)
+		);
+		if (files >= FILE_DELETE_BATCH)
+			await tickStep('file sweep', undefined, () => env.JOBS_QUEUE.send({ type: 'file_sweep' }));
 		// FN-19: forwarded-mail retention (24 h text, 24 h codes, 90-day ledger) and re-sends of reads whose
-		// first enqueue failed. Bounded per tick; a failure never stops the tick's other work.
-		let inbound = { expired: 0, requeued: 0, codesCleared: 0, deleted: 0 };
-		try {
-			const swept = await sweepInboundMail(db, controller.scheduledTime);
-			await enqueueWith(env.JOBS_QUEUE)(
-				swept.requeue.map((mailId) => ({ type: 'inbound_read', mailId }))
-			);
-			inbound = {
-				expired: swept.expired,
-				requeued: swept.requeue.length,
-				codesCleared: swept.codesCleared,
-				deleted: swept.deleted
-			};
-		} catch (e) {
-			console.warn('jobs: inbound sweep failed', errorLabel(e));
-		}
+		// first enqueue failed.
+		const inbound = await tickStep(
+			'inbound sweep',
+			{ expired: 0, requeued: 0, codesCleared: 0, deleted: 0 },
+			async () => {
+				const swept = await sweepInboundMail(db, controller.scheduledTime);
+				await enqueue(swept.requeue.map((mailId) => ({ type: 'inbound_read', mailId })));
+				return {
+					expired: swept.expired,
+					requeued: swept.requeue.length,
+					codesCleared: swept.codesCleared,
+					deleted: swept.deleted
+				};
+			}
+		);
 		// FN-19 Gmail: listed reads and stalled scan pages re-sent, expiry, retention, expired authorizations and
-		// paused connections. Bounded per tick; a failure never stops the tick's other work.
-		let gmailSweep = { expired: 0, requeued: 0, deleted: 0, failedScans: 0, paused: 0 };
-		try {
-			const swept = await sweepGmail(db, controller.scheduledTime);
-			await enqueueWith(env.JOBS_QUEUE)(
-				swept.requeueReads.map((mailId) => ({ type: 'gmail_read', mailId }))
-			);
-			await enqueueWith(env.JOBS_QUEUE)(
-				swept.stalledScans.map((s) => ({ type: 'gmail_check', ...s }))
-			);
-			gmailSweep = {
-				expired: swept.expired,
-				requeued: swept.requeueReads.length + swept.stalledScans.length,
-				deleted: swept.deleted,
-				failedScans: swept.failedScans,
-				paused: swept.paused
-			};
-		} catch (e) {
-			console.warn('jobs: gmail sweep failed', errorLabel(e));
-		}
+		// paused connections.
+		const gmailSweep = await tickStep(
+			'gmail sweep',
+			{ expired: 0, requeued: 0, deleted: 0, failedScans: 0, paused: 0 },
+			async () => {
+				const swept = await sweepGmail(db, controller.scheduledTime);
+				await enqueue(swept.requeueReads.map((mailId) => ({ type: 'gmail_read', mailId })));
+				await enqueue(swept.stalledScans.map((s) => ({ type: 'gmail_check', ...s })));
+				return {
+					expired: swept.expired,
+					requeued: swept.requeueReads.length + swept.stalledScans.length,
+					deleted: swept.deleted,
+					failedScans: swept.failedScans,
+					paused: swept.paused
+				};
+			}
+		);
 		// FN-19 Gmail red team L7 / N4: tokens still sealed under the previous key are re-sealed without Google,
 		// paused and needs-reconnect connections included (one bounded batch per tick).
-		let gmailResealed = 0;
-		try {
-			gmailResealed = await resealGmailTokens(db, env);
-		} catch (e) {
-			console.warn('jobs: gmail re-seal failed', errorLabel(e));
-		}
+		const gmailResealed = await tickStep('gmail re-seal', 0, () => resealGmailTokens(db, env));
 		// FN-19 Gmail red team L3/L4: grants a space purge, an account deletion or a replaced authorization left to
-		// revoke at Google, one bounded batch (≤ GMAIL_REVOKE_BATCH calls) per tick; a failure never stops the tick.
-		let gmailRevocations = { revoked: 0, dropped: 0, retried: 0 };
-		try {
-			gmailRevocations = await processGmailRevocations(
-				db,
-				env,
-				googleClient((url, init) => fetch(url, init)),
-				controller.scheduledTime
-			);
-		} catch (e) {
-			console.warn('jobs: gmail revocations failed', errorLabel(e));
-		}
+		// revoke at Google, one bounded batch (≤ GMAIL_REVOKE_BATCH calls) per tick.
+		const gmailRevocations = await tickStep(
+			'gmail revocations',
+			{ revoked: 0, dropped: 0, retried: 0 },
+			() =>
+				processGmailRevocations(
+					db,
+					env,
+					googleClient((url, init) => fetch(url, init)),
+					controller.scheduledTime
+				)
+		);
 		// Counts only: never ids or message bodies.
 		console.log('jobs: tick', {
 			cron: controller.cron,

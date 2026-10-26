@@ -1,11 +1,10 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
+	newUser,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 
@@ -13,36 +12,9 @@ import {
  * FN-10 journeys. Every test signs up its own fictional user in its own context (own simulated client address),
  * so its personal space starts with no goals and parallel tests never see each other's goals.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: {
-		javaScriptEnabled?: boolean;
-		colorScheme?: 'light' | 'dark';
-		viewport?: { width: number; height: number };
-	} = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Penabung');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn10-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn10', name: 'Penabung', ...opts });
 
 async function open(page: Page, path = '/dompet') {
 	await page.goto(path);
@@ -281,7 +253,7 @@ test('without JavaScript: refused and valid goal, a contribution and a stale-fre
 	// Playwright only scrolls to the viewport edge (a person scrolls it clear; the page has bottom padding).
 	await page.goto('/dompet');
 	await page.locator('section.goals').getByRole('link', { name: 'Tambah target' }).click();
-	await expect(page).toHaveURL(`${BASE}/dompet?target=baru`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/dompet?target=baru`);
 	const form = page.locator('section.goal-inline');
 	await form.getByLabel('Nama target').fill('Tanpa JS');
 	await form.getByLabel('Jumlah target').fill('12,50');

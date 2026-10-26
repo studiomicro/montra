@@ -72,8 +72,3 @@ export function countStreak(closedOn: readonly string[], today: string): Streak 
 	const { current, closedToday } = streakHistory(closedOn, today);
 	return { current, closedToday };
 }
-
-/** The longest run of closed WIB days in the dates given (the caller's bounded window), freezes applied. */
-export function longestStreak(closedOn: readonly string[], today: string): number {
-	return streakHistory(closedOn, today).longest;
-}

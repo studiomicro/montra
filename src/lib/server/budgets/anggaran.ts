@@ -142,27 +142,34 @@ const monthExpense = (from: string, to: string): TransactionFilter => ({
 	q: null
 });
 
-/** Everything the Anggaran page shows for `spaceId` (already admitted by the access gate) on WIB `today`. */
+/**
+ * Everything the Anggaran page shows for `spaceId` (already admitted by the access gate) on WIB `today`.
+ * `categories`: the space's categories, hidden ones included (the page passes `listCategoriesWithPresets`, which
+ * tops up missing presets in the same round trip); read here when not given. All reads go out at once.
+ */
 export async function anggaranSummary(
 	db: Db,
 	spaceId: string,
-	today: string
+	today: string,
+	categories: Promise<CategorySummary[]> = listCategories(db, spaceId, { includeHidden: true })
 ): Promise<AnggaranFigures> {
 	const { from, to } = monthRange(monthOf(today));
-	const [wallets, budget, monthTotals, spending, categories, categoryBudgets] = await Promise.all([
-		listWallets(db, spaceId),
-		getActiveBudget(db, spaceId),
-		periodTotals(db, spaceId, monthExpense(from, to)),
-		categoryTotals(db, spaceId, monthExpense(from, to)),
-		listCategories(db, spaceId, { includeHidden: true }),
-		listCategoryBudgets(db, spaceId)
-	]);
+	const [wallets, budget, monthTotals, spending, categoryList, categoryBudgets] = await Promise.all(
+		[
+			listWallets(db, spaceId),
+			getActiveBudget(db, spaceId),
+			periodTotals(db, spaceId, monthExpense(from, to)),
+			categoryTotals(db, spaceId, monthExpense(from, to)),
+			categories,
+			listCategoryBudgets(db, spaceId)
+		]
+	);
 	return anggaranFigures({
 		today,
 		currency: wallets.find((w) => w.isFavourite)?.currency ?? 'IDR',
 		budget,
 		monthTotals,
-		categories,
+		categories: categoryList,
 		spending,
 		categoryBudgets
 	});

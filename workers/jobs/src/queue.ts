@@ -67,6 +67,78 @@ async function pushNew(deps: JobDeps, made: Made[], attempts: number): Promise<v
 		await deps.enqueue(ids.map((notificationId) => ({ type: 'send_push', notificationId })));
 }
 
+/** Runs one parsed job; throws for a queue retry (RetryLaterError: after its delay). */
+async function runJob(deps: JobDeps, job: JobMessage, attempts: number): Promise<void> {
+	switch (job.type) {
+		case 'ping':
+			await deps.recordPing(job.id);
+			break;
+		case 'budget_check':
+			await pushNew(deps, await deps.budgetCheck(job.spaceId), attempts);
+			break;
+		case 'bill_check':
+			await pushNew(deps, await deps.billCheck(job.spaceId), attempts);
+			break;
+		case 'daily_nudge':
+			// A nudge processed on a later day (long retry) is stale: dropped, never sent for the wrong day.
+			if (job.date === deps.today())
+				await pushNew(deps, await deps.dailyNudge(job.userId, job.date), attempts);
+			break;
+		case 'close_reminder':
+			// Like the nudge: a reminder processed on a later WIB day is stale and dropped.
+			if (job.date === deps.today())
+				await pushNew(deps, await deps.closeReminder(job.userId, job.date), attempts);
+			break;
+		case 'budget_streak_snapshot':
+			// Only yesterday's verdict, judged with the budget live this morning: a message delayed past the
+			// next WIB day is dropped (the day is then a skip, never a break), and a date that is not over yet
+			// is never judged.
+			if (job.date === addDays(deps.today(), -1))
+				await deps.budgetStreakSnapshot(job.spaceId, job.date);
+			break;
+		case 'weekly_summary':
+			await pushNew(deps, await deps.weeklySummary(job.userId, job.weekStart), attempts);
+			break;
+		case 'send_push':
+			await deps.sendPush(job.notificationId);
+			break;
+		case 'recurring_check': {
+			// The tick's WIB date, never a later one: a delayed message never creates tomorrow's rows early
+			// (a date after today, never sent by the cron, is clamped to today).
+			const today = deps.today();
+			const date = job.date < today ? job.date : today;
+			// Left over (budget spent by this batch, or the per-message cap): a fresh message continues, so
+			// this one is acked and never counts toward the DLQ.
+			if (await deps.recurringCheck(job.spaceId, date))
+				await deps.enqueue([{ type: 'recurring_check', spaceId: job.spaceId, date }]);
+			break;
+		}
+		case 'file_sweep':
+			// A full batch means more may be due: one follow-up message (the cron catches the rest).
+			if (await deps.fileSweep()) await deps.enqueue([{ type: 'file_sweep' }]);
+			break;
+		case 'inbound_read':
+			await deps.inboundRead(job.mailId, attempts);
+			break;
+		case 'gmail_check':
+			await deps.gmailCheck(
+				{ connectionId: job.connectionId, kind: job.kind, window: job.window, page: job.page },
+				attempts
+			);
+			break;
+		case 'gmail_read':
+			await deps.gmailRead(job.mailId, attempts);
+			break;
+		case 'agent_run':
+			await deps.agentRun(job.runId, attempts);
+			break;
+		default: {
+			const unhandled: never = job;
+			throw new Error(`unhandled job type: ${String((unhandled as JobMessage).type)}`);
+		}
+	}
+}
+
 /**
  * Ack what succeeds; retry what fails. After max_retries the queue moves a message to the DLQ. Never logs bodies.
  * `recurring_check` messages run after every other message of the batch, so their D1 use (bounded by the budget
@@ -89,74 +161,7 @@ export async function handleBatch(
 	const last = (j: JobMessage) => (j.type === 'recurring_check' ? 1 : 0);
 	for (const { m, job } of jobs.sort((a, b) => last(a.job) - last(b.job))) {
 		try {
-			switch (job.type) {
-				case 'ping':
-					await deps.recordPing(job.id);
-					break;
-				case 'budget_check':
-					await pushNew(deps, await deps.budgetCheck(job.spaceId), m.attempts);
-					break;
-				case 'bill_check':
-					await pushNew(deps, await deps.billCheck(job.spaceId), m.attempts);
-					break;
-				case 'daily_nudge':
-					// A nudge processed on a later day (long retry) is stale: dropped, never sent for the wrong day.
-					if (job.date === deps.today())
-						await pushNew(deps, await deps.dailyNudge(job.userId, job.date), m.attempts);
-					break;
-				case 'close_reminder':
-					// Like the nudge: a reminder processed on a later WIB day is stale and dropped.
-					if (job.date === deps.today())
-						await pushNew(deps, await deps.closeReminder(job.userId, job.date), m.attempts);
-					break;
-				case 'budget_streak_snapshot':
-					// Only yesterday's verdict, judged with the budget live this morning: a message delayed past the
-					// next WIB day is dropped (the day is then a skip, never a break), and a date that is not over yet
-					// is never judged.
-					if (job.date === addDays(deps.today(), -1))
-						await deps.budgetStreakSnapshot(job.spaceId, job.date);
-					break;
-				case 'weekly_summary':
-					await pushNew(deps, await deps.weeklySummary(job.userId, job.weekStart), m.attempts);
-					break;
-				case 'send_push':
-					await deps.sendPush(job.notificationId);
-					break;
-				case 'recurring_check': {
-					// The tick's WIB date, never a later one: a delayed message never creates tomorrow's rows early
-					// (a date after today, never sent by the cron, is clamped to today).
-					const today = deps.today();
-					const date = job.date < today ? job.date : today;
-					// Left over (budget spent by this batch, or the per-message cap): a fresh message continues, so
-					// this one is acked and never counts toward the DLQ.
-					if (await deps.recurringCheck(job.spaceId, date))
-						await deps.enqueue([{ type: 'recurring_check', spaceId: job.spaceId, date }]);
-					break;
-				}
-				case 'file_sweep':
-					// A full batch means more may be due: one follow-up message (the cron catches the rest).
-					if (await deps.fileSweep()) await deps.enqueue([{ type: 'file_sweep' }]);
-					break;
-				case 'inbound_read':
-					await deps.inboundRead(job.mailId, m.attempts);
-					break;
-				case 'gmail_check':
-					await deps.gmailCheck(
-						{ connectionId: job.connectionId, kind: job.kind, window: job.window, page: job.page },
-						m.attempts
-					);
-					break;
-				case 'gmail_read':
-					await deps.gmailRead(job.mailId, m.attempts);
-					break;
-				case 'agent_run':
-					await deps.agentRun(job.runId, m.attempts);
-					break;
-				default: {
-					const unhandled: never = job;
-					throw new Error(`unhandled job type: ${String((unhandled as JobMessage).type)}`);
-				}
-			}
+			await runJob(deps, job, m.attempts);
 			m.ack();
 		} catch (e) {
 			console.warn('jobs: handler failed', { type: job.type, attempts: m.attempts });

@@ -1,5 +1,5 @@
 import type { Locale } from './i18n';
-import { currencyExponent, SEPARATORS } from './money-format';
+import { currencyExponent, groupThousands, SEPARATORS } from './money-format';
 
 const MAX_DIGITS = 13;
 
@@ -9,7 +9,7 @@ export function amountDigits(text: string): string {
 }
 
 export function groupDigits(digits: string): string {
-	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+	return groupThousands(digits, '.');
 }
 
 /** Whole-unit digits for a stored amount; sen are truncated. Zero and null show as an empty field. */
@@ -87,7 +87,7 @@ export function formatAmountText(
 	locale: Locale
 ): string {
 	const { group, decimal } = amountSeparators(currency, locale);
-	const whole = parts.whole.replace(/\B(?=(\d{3})+(?!\d))/g, group);
+	const whole = groupThousands(parts.whole, group);
 	if (parts.frac === null || decimal === null) return whole;
 	return `${whole === '' ? '0' : whole}${decimal}${parts.frac}`;
 }

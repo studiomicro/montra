@@ -6,14 +6,7 @@ import {
 	type Page,
 	type TestInfo
 } from '@playwright/test';
-import {
-	APP_ORIGIN,
-	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
-	tickSignUpBoxes,
-	waitForHydration
-} from './helpers';
+import { APP_ORIGIN, expectNoHorizontalScroll, newUser, waitForHydration } from './helpers';
 import { addWallet } from './ledger';
 import {
 	canvasImage,
@@ -36,7 +29,6 @@ import {
  */
 test.skip(({ isMobile }) => isMobile, 'runs once: every test makes its own context');
 
-const BASE = APP_ORIGIN;
 const PHONE: BrowserContextOptions = {
 	viewport: { width: 360, height: 800 },
 	hasTouch: true,
@@ -46,25 +38,8 @@ const DESKTOP: BrowserContextOptions = { viewport: { width: 1280, height: 800 } 
 const HEIF_MESSAGE =
 	'Foto HEIC/HEIF belum bisa dipakai. Ambil foto lewat tombol Kamera, atau ubah format kamera ke JPEG';
 
-async function signUp(browser: Browser, testInfo: TestInfo, options: BrowserContextOptions) {
-	const context = await browser.newContext({
-		...options,
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) }
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (options.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemotret');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn45-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill('terang-benderang-8');
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const signUp = (browser: Browser, testInfo: TestInfo, options: BrowserContextOptions) =>
+	newUser(browser, testInfo, { prefix: 'fn45', name: 'Pemotret', ...options });
 
 async function openStruk(page: Page) {
 	await addWallet(page, 'Tunai Foto');
@@ -88,7 +63,7 @@ async function openAddItem(page: Page) {
 async function savedPhoto(page: Page, name: string): Promise<{ type: string; body: Buffer }> {
 	const row = page.getByRole('listitem').filter({ hasText: name });
 	const src = (await row.locator('img').getAttribute('src'))!;
-	const served = await page.request.get(`${BASE}${src}`);
+	const served = await page.request.get(`${APP_ORIGIN}${src}`);
 	expect(served.status()).toBe(200);
 	return { type: served.headers()['content-type']!, body: await served.body() };
 }
@@ -168,7 +143,7 @@ test('phone: Kamera and Galeri side by side, 44 px, capture only on the camera i
 	await expect(cameraInput(page)).toHaveValue('');
 
 	// English labels for an English-speaking user.
-	await context.addCookies([{ name: 'lang', value: 'en', url: BASE }]);
+	await context.addCookies([{ name: 'lang', value: 'en', url: APP_ORIGIN }]);
 	await page.reload();
 	await waitForHydration(page);
 	await expect(page.getByRole('button', { name: 'Take a photo with the camera' })).toHaveText(

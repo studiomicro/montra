@@ -1,11 +1,9 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
-	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
+	newUser,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 
@@ -14,26 +12,9 @@ import {
  * No price source is reached here: the e2e server's KV starts empty (the cron never runs), so a priced item
  * shows "Belum ada harga" — the cold-cache state — and its figure is never invented.
  */
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(browser: Browser, testInfo: TestInfo) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) }
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik Aset');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn25-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${APP_ORIGIN}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn25', name: 'Pemilik Aset', ...opts });
 
 async function addItem(
 	page: Page,

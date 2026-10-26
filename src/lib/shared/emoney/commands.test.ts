@@ -8,7 +8,6 @@ import {
 	READ_ONLY_FELICA,
 	READ_ONLY_INS,
 	recordExchange,
-	statusWord,
 	type CardTech,
 	type Exchange
 } from './commands';
@@ -64,10 +63,6 @@ describe('hex', () => {
 });
 
 describe('responses', () => {
-	it('reads the status word', () => {
-		expect(statusWord('6F10849000')).toBe('9000');
-		expect(statusWord('90')).toBeNull();
-	});
 	it('masks long digit runs to the last 4', () => {
 		expect(maskLongDigitRuns('5A086032987654321234')).toBe('5A' + '•'.repeat(14) + '1234');
 		expect(maskLongDigitRuns('6A82')).toBe('6A82');

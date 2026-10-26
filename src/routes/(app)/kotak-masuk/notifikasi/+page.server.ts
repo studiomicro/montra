@@ -1,12 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { readFormBody, textField } from '#lib/server/forms';
+import { idField, readFormBody } from '#lib/server/forms';
 import { NOTIFICATION_GONE, NOTIFICATIONS_LOAD_FAILED } from '#lib/server/notifications/messages';
 import { changeNotification, findOwned, listNotifications } from '#lib/server/notifications/repo';
 import { safeReturnTo } from '#lib/server/return-to';
 import { requireSpaceAccess, setSpaceCookie } from '#lib/server/spaces/access';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { createTranslator } from '#lib/shared/i18n';
 import { notificationText, notificationUrl, parseParams } from '#lib/shared/notifications';
+import { errorLabel } from '#lib/server/util';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
 // The signed-in user's own notifications (FN-24). User-level rows are scoped `user_id = locals.user.id`; a
@@ -37,7 +37,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		});
 		return { items, loadError: null };
 	} catch (e) {
-		console.error('kotak-masuk/notifikasi: load failed', e);
+		console.error('kotak-masuk/notifikasi: load failed', errorLabel(e));
 		return { items: [], loadError: NOTIFICATIONS_LOAD_FAILED };
 	}
 };
@@ -48,8 +48,7 @@ async function owned(event: RequestEvent) {
 	const { locals } = event;
 	const user = locals.user;
 	if (!user) redirect(303, '/masuk');
-	const raw = textField(form, 'id');
-	const id = raw.length > ID_MAX_LENGTH ? '' : raw;
+	const id = idField(form, 'id');
 	const row = await findOwned(locals.db, user.id, id);
 	if (!row) error(404, 'Not found');
 	if (row.table === 'space') await requireSpaceAccess(locals.db, user.id, row.spaceId);

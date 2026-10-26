@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { collectCspViolations, expectNoHorizontalScroll, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense } from './ledger';
+import {
+	APP_ORIGIN,
+	collectCspViolations,
+	expectNoHorizontalScroll,
+	waitForHydration
+} from './helpers';
+import { addWallet, freshUser, ids, postExpense } from './ledger';
 
 /**
  * FN-23 Agen (beta) journeys on `wrangler dev` (app + jobs Worker, so the local queue runs the steps). No AI
@@ -66,7 +71,7 @@ test('locked off the Agent plan; on it a monthly report runs its steps to two do
 	await expect(csv).toBeVisible();
 	await expect(html).toBeVisible();
 	await expect(list.getByText(/Tanpa ringkasan AI: tidak diminta/)).toBeVisible();
-	const res = await page.request.get(`${BASE}${await csv.getAttribute('href')}`);
+	const res = await page.request.get(`${APP_ORIGIN}${await csv.getAttribute('href')}`);
 	expect(res.status()).toBe(200);
 	expect(res.headers()['content-disposition']).toMatch(
 		/^attachment; filename="montra-laporan-bulanan-\d{4}-\d{2}\.csv"$/
@@ -97,17 +102,17 @@ test('without JavaScript: create, the refresh advances the run, then delete; all
 
 	const noJs = await browser.newContext({ javaScriptEnabled: false, storageState: state });
 	const p = await noJs.newPage();
-	await p.goto(`${BASE}/agen`);
+	await p.goto(`${APP_ORIGIN}/agen`);
 	await p.getByRole('radio', { name: 'Laporan bulanan' }).check();
 	await p.getByRole('button', { name: 'Buat laporan' }).click();
-	await expect(p).toHaveURL(`${BASE}/agen`);
+	await expect(p).toHaveURL(`${APP_ORIGIN}/agen`);
 	const list = p.getByRole('list', { name: 'Laporanmu' });
 	await expect(list.getByText(/Laporan bulanan ·/)).toBeVisible();
 	// The <noscript> refresh (5 s) reloads until the run is ready.
 	await expect(list.getByText('Siap')).toBeVisible({ timeout: 60_000 });
 	await expect(list.getByRole('link', { name: /Unduh HTML/ })).toBeVisible();
 	await list.getByRole('button', { name: 'Hapus' }).click();
-	await expect(p).toHaveURL(`${BASE}/agen`);
+	await expect(p).toHaveURL(`${APP_ORIGIN}/agen`);
 	await expect(p.getByText('Belum ada laporan. Laporan siap disimpan 30 hari.')).toBeVisible();
 	await noJs.close();
 });

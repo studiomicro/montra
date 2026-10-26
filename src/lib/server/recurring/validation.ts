@@ -14,7 +14,7 @@ import { cleanText } from '#lib/shared/text';
 import { NOTE_MAX_LENGTH, TITLE_MAX_LENGTH } from '#lib/shared/transactions';
 import { getCategory } from '../categories/repo';
 import type { Db } from '../db';
-import { amountRefusal, textField } from '../forms';
+import { amountRefusal, ID_MAX_LENGTH, textField } from '../forms';
 import {
 	AMOUNT_INVALID,
 	AMOUNT_INVALID_CENTS,
@@ -25,7 +25,7 @@ import {
 	WALLET_NOT_FOUND,
 	WALLET_REQUIRED
 } from '../transactions/messages';
-import { composeAmountMinor, ID_MAX_LENGTH, MAX_AMOUNT_MINOR } from '../transactions/validation';
+import { composeAmountMinor, MAX_AMOUNT_MINOR } from '../transactions/validation';
 import { getWallet } from '../wallets/repo';
 import {
 	DAY_INVALID,
@@ -44,8 +44,6 @@ import {
 const AMOUNT_TEXT = /^[\d., ]*$/;
 /** A small whole number as a select posts it. */
 const SMALL_INT = /^\d{1,2}$/;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
 
 const id = z.string().max(ID_MAX_LENGTH);
 
@@ -224,12 +222,3 @@ export async function readRecurringForm(
 		? { ok: true, input: resolved.value }
 		: { ok: false, errors: resolved.errors, values: parsed.values };
 }
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-export function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
-
-/** An id from a route or field: '' when over-long (matches nothing). */
-export const boundedId = (value: string) => (value.length > ID_MAX_LENGTH ? '' : value);

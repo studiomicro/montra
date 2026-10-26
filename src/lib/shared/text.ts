@@ -22,8 +22,9 @@ export function cleanText(input: string, max: number): string {
 }
 
 /**
- * A name as SQLite's `lower()` compares it: only ASCII letters are folded. Find-or-create by name (FN-18) uses
- * it on both sides, so a JavaScript lookup and the SQL `not exists` agree on what "the same name" is.
+ * Lower case as SQLite's `lower()` does it: only ASCII letters are folded, so length and offsets are unchanged.
+ * Find-or-create by name (FN-18) uses it on both sides, so a JavaScript lookup and the SQL `not exists` agree on
+ * what "the same name" is; the money and voice parsers use it to read text without Unicode case folding.
  */
 export function asciiLowerKey(name: string): string {
 	return name.replace(/[A-Z]/g, (c) => c.toLowerCase());

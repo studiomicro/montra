@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
 	SERIES_PAGE,
 	waitForHydration
 } from './helpers';
-import { addWallet, BASE, freshUser, rp } from './ledger';
+import { addWallet, freshUser, rp } from './ledger';
 
 /**
  * FN-36 journeys. Every test signs up its own fictional user in its own context, so its personal space starts
@@ -51,7 +52,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		await expect(main(page).getByText('Belum ada transaksi berulang')).toBeVisible();
 		await expectNoHorizontalScroll(page);
 		await main(page).getByRole('link', { name: 'Tambah transaksi berulang' }).click();
-		await page.waitForURL(`${BASE}/riwayat/berulang/baru`);
+		await page.waitForURL(`${APP_ORIGIN}/riwayat/berulang/baru`);
 		await waitForHydration(page);
 
 		await fillSeries(page, 'Sewa kos', '1500000');

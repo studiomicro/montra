@@ -7,6 +7,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { BelongingInput } from './validation';
+import { nextUpdatedAt } from '../sync/updated-at';
 
 /** Most live belongings one space holds (Owner decision 5); also the list's row cap. */
 export const MAX_BELONGINGS_PER_SPACE = 300;
@@ -150,8 +151,6 @@ export async function belongingSpaceId(db: Db, id: string): Promise<string> {
 		.get();
 	return row?.spaceId ?? '';
 }
-
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
 
 export type CreateBelongingResult =
 	{ ok: true; id: string } | { ok: false; reason: 'limit' | 'gone' };

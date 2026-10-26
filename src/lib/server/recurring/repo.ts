@@ -19,6 +19,7 @@ import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { insertTransactions, MAX_TRANSACTIONS_PER_SPACE } from '../transactions/repo';
 import { newId } from '../util';
 import type { RecurringInput } from './validation';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 // FN-36 recurring transactions. Every page function runs only after `requireSpaceAccess` admitted
 // `scope.userId` to `scope.spaceId`; each write repeats that membership (`isLiveMember`) inside its own
@@ -196,9 +197,6 @@ function refsHold(spaceId: string, input: RecurringInput): SQL {
 const liveCount = (spaceId: string) =>
 	sql`(select count(*) from recurring_transactions x where x.space_id = ${spaceId}
 		and x.deleted_at is null)`;
-
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
 
 /**
  * Creates a series whose first instance is the first run on or after both its start date and `today` (never a
@@ -601,7 +599,7 @@ export async function attemptInstances(
 					status: sql`case when ${r.endOn} is not null and ${following} > ${r.endOn}
 						then 'stopped' else ${r.status} end`,
 					attention: null,
-					updatedAt: sql`max(${now}, ${r.updatedAt} + 1)`,
+					updatedAt: bumpedUpdatedAt(r.updatedAt, now),
 					seq: currentSpaceSeq(spaceId)
 				})
 				.where(
@@ -687,7 +685,7 @@ async function explain(
 				.update(r)
 				.set({
 					attention: reason,
-					updatedAt: sql`max(${now}, ${r.updatedAt} + 1)`,
+					updatedAt: bumpedUpdatedAt(r.updatedAt, now),
 					seq: currentSpaceSeq(spaceId)
 				})
 				.where(
@@ -732,7 +730,7 @@ export function dueRuns(s: DueRow, today: string, now: number, max: number): Due
 	while (runs.length < max && runOn <= today && (s.endOn === null || runOn <= s.endOn)) {
 		runs.push({ s, runOn, updatedAt });
 		runOn = followingRun(schedule, runOn);
-		updatedAt = Math.max(now, updatedAt + 1);
+		updatedAt = nextUpdatedAt(updatedAt, now);
 	}
 	return runs;
 }
@@ -778,7 +776,7 @@ export async function runDueSeries(
 					.update(recurringTransactions)
 					.set({
 						attention: 'limit',
-						updatedAt: sql`max(${now}, ${recurringTransactions.updatedAt} + 1)`,
+						updatedAt: bumpedUpdatedAt(recurringTransactions.updatedAt, now),
 						seq: currentSpaceSeq(spaceId)
 					})
 					.where(

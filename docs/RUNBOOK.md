@@ -591,7 +591,7 @@ Every third-party action is pinned to a full commit SHA (version in a comment); 
 
 | Workflow | When | What |
 | -------- | ---- | ---- |
-| `ci.yml` | every pull request, every push to `main` (superseded PR runs are cancelled) | `check` + `lint`; `npm run test` in 4 shards; `npm run build`; Playwright e2e; one summary check `CI ok` |
+| `ci.yml` | every pull request, every push to `main` (superseded PR runs are cancelled) | `check` + `lint`; `npm run test` in 4 shards; `npm run build`; Playwright e2e in 4 shards (`e2e (n/4)`, each with its own local D1 and `wrangler dev`); one summary check `CI ok` |
 | `codeql.yml` | pull requests, pushes to `main`, Mondays 03:23 UTC | CodeQL `javascript-typescript` (no build) |
 | `deploy-staging.yml` | a pushed tag `v*`, or by hand (Run workflow, choosing a `v*` tag) | `npm run gates`, then `npm run deploy:staging` in the `staging` environment |
 | `dependabot.yml` | weekly | npm and GitHub Actions; minor and patch grouped per ecosystem; `tesseract.js`, `tesseract.js-core`, `pdfjs-dist` excluded (pinned OCR hashes, FN-16g) |

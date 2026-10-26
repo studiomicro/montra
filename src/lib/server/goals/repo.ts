@@ -6,6 +6,7 @@ import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import { goalProgressPercent, goalSavedMinor, goalsSavedSums } from './progress';
 import { GOAL_CURRENCY, type GoalInput } from './validation';
+import { nextUpdatedAt } from '../sync/updated-at';
 
 /** Most goals one space holds, archived ones included (they stay listable); also the list's row cap. */
 export const MAX_GOALS_PER_SPACE = 50;
@@ -111,9 +112,6 @@ export async function getGoal(
 		.get();
 	return row ? summary(row, await goalSavedMinor(db, spaceId, goalId)) : null;
 }
-
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
 
 /** Why a create wrote nothing: the space's cap, or the membership went meanwhile (answered as not found). */
 export type CreateGoalResult = { ok: true; id: string } | { ok: false; reason: 'limit' | 'gone' };

@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { collectCspViolations, expectNoHorizontalScroll, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense, rp, today } from './ledger';
+import {
+	APP_ORIGIN,
+	collectCspViolations,
+	expectNoHorizontalScroll,
+	waitForHydration
+} from './helpers';
+import { addWallet, freshUser, ids, postExpense, rp, today } from './ledger';
 
 /**
  * FN-54 Part C: /kalender from the Beranda badge. The month and the day live in the URL, so every control is a
@@ -85,7 +90,7 @@ test('without JavaScript the stepper, the cells and the Riwayat link are plain l
 		storageState: await page.context().storageState()
 	});
 	const plain = await noJs.newPage();
-	await plain.goto(`${BASE}/kalender`);
+	await plain.goto(`${APP_ORIGIN}/kalender`);
 	await plain.getByRole('link', { name: 'Periode sebelumnya' }).click();
 	await expect(plain).toHaveURL(/bulan=/);
 	await plain.getByRole('link', { name: /^2 / }).first().click();
@@ -106,8 +111,8 @@ test('hidden amounts: masked on a cold load (HTML and labels) and after a client
 		amount: '25.000',
 		title: 'Kopi susu'
 	});
-	await context.addCookies([{ name: 'montra-amounts-hidden', value: '1', url: BASE }]);
-	const html = await (await page.request.get(`${BASE}/kalender`)).text();
+	await context.addCookies([{ name: 'montra-amounts-hidden', value: '1', url: APP_ORIGIN }]);
+	const html = await (await page.request.get(`${APP_ORIGIN}/kalender`)).text();
 	const body = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
 	expect(body).not.toMatch(/Rp\s?\d/);
 	expect(body).toContain('••••');

@@ -1,6 +1,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import type { z } from 'zod';
 import { ENDPOINTS, type ApiEndpoint } from '#lib/server/api/endpoints';
 import { isBearerApiRoute } from '#lib/server/csrf';
@@ -1086,7 +1087,7 @@ describe('FN-38 bodies, errors, limits (criteria 20, 21, 22)', () => {
 		const s = await setup();
 		const t = await token(s.p.id, 'read');
 		const other = await token(s.p.id, 'read');
-		const now = Date.now();
+		const now = pinThrottleWindow();
 		const windowStart = now - (now % THROTTLE_WINDOW_MS);
 		const key = await sha256Hex(`api-request:token:${t.id}`);
 		await db.run(sql`insert into auth_attempts (client_hash, window_start, count)

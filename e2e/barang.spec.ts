@@ -1,11 +1,11 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
+	newUser,
 	SIGNED_OUT,
-	simulatedClientIp,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 import { GPS_MARK, realJpegWithGps, realPng } from './photos';
@@ -15,32 +15,9 @@ import { GPS_MARK, realJpegWithGps, realPng } from './photos';
  * space starts with no belongings. Photos are made in the test: a real PNG built here, a real JPEG drawn by
  * the browser's canvas with an EXIF block (GPS included) spliced in, and files that only pretend to be images.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: { javaScriptEnabled?: boolean; n?: number } = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, opts.n ?? 1) },
-		javaScriptEnabled: opts.javaScriptEnabled
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik barang');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn27-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn27', name: 'Pemilik barang', ...opts });
 
 async function openBarang(page: Page) {
 	await page.goto('/barang');
@@ -72,7 +49,7 @@ test('add an item with a photo: estimate labelled, thumbnail via our route, GPS 
 	const csp = collectCspViolations(page);
 	const r2 = new Set<string>();
 	page.on('request', (r) => {
-		if (!r.url().startsWith(BASE) && !r.url().startsWith('data:')) r2.add(r.url());
+		if (!r.url().startsWith(APP_ORIGIN) && !r.url().startsWith('data:')) r2.add(r.url());
 	});
 	await openBarang(page);
 	await expect(page.getByText('Belum ada barang.', { exact: false })).toBeVisible();
@@ -214,6 +191,7 @@ test('the AI control is visible, disabled and sends nothing; 360 px has no horiz
 	let requests = 0;
 	page.on('request', () => requests++);
 	await ai.click({ force: true });
+	// Proves a negative: the disabled AI button sends nothing, so there is no event to await; a short grace is all there is.
 	await page.waitForTimeout(300);
 	expect(requests).toBe(0);
 	await expectNoHorizontalScroll(page);

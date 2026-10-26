@@ -1,12 +1,13 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import * as devalue from 'devalue';
 import {
+	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
 	TX_PAGE,
 	waitForHydration
 } from './helpers';
-import { addWallet, BASE, freshUser, ids, today } from './ledger';
+import { addWallet, freshUser, ids, today } from './ledger';
 import { GPS_MARK, realJpegWithGps } from './photos';
 import { readTicketFor, scopeOf } from './receipt-ticket';
 
@@ -52,7 +53,7 @@ test('not configured: Struk says why; "Lampirkan fotonya saja" keeps the photo w
 	await pickPhoto(page);
 	await expectNoHorizontalScroll(page);
 	await page.getByRole('link', { name: 'Lampirkan fotonya saja' }).click();
-	await page.waitForURL(`${BASE}/riwayat/baru?foto=1`);
+	await page.waitForURL(`${APP_ORIGIN}/riwayat/baru?foto=1`);
 	await expect(page.getByText('Foto struk akan disimpan bersama transaksi ini.')).toBeVisible();
 	await page.getByLabel('Jumlah').fill('42000');
 	await page.getByRole('radio', { name: /Makan & Minum/ }).check();
@@ -68,7 +69,7 @@ test('not configured: Struk says why; "Lampirkan fotonya saja" keeps the photo w
 		.poll(() => photo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth))
 		.toBeGreaterThan(0);
 	const href = (await page.getByRole('link', { name: /Lihat foto struk/ }).getAttribute('href'))!;
-	const res = await page.request.get(`${BASE}${href}`);
+	const res = await page.request.get(`${APP_ORIGIN}${href}`);
 	expect(res.status()).toBe(200);
 	expect(res.headers()['content-type']).toBe('image/jpeg');
 	expect((await res.body()).includes(Buffer.from(GPS_MARK, 'latin1'))).toBe(false);
@@ -171,7 +172,7 @@ test('read (mocked provider) → review → "Pisah per item" → saved rows add 
 		document.body.appendChild(a);
 	});
 	await page.click('#e2e-struk');
-	await page.waitForURL(`${BASE}/riwayat/struk`);
+	await page.waitForURL(`${APP_ORIGIN}/riwayat/struk`);
 	await pickPhoto(page);
 	await page.getByRole('button', { name: 'Baca struk' }).click();
 	// "Mengunggah…" until the browser reports the upload done, then "Membaca strukmu…" (an intercepted request
@@ -215,8 +216,8 @@ test('without JavaScript the save action answers as a page: refusal, then succes
 	const photo = await realJpegWithGps(page);
 	const readTicket = await readTicketFor(await scopeOf(page), photo);
 	const post = (o: Record<string, string>) =>
-		page.request.post(`${BASE}/riwayat/struk?/save`, {
-			headers: { origin: BASE, accept: 'text/html' },
+		page.request.post(`${APP_ORIGIN}/riwayat/struk?/save`, {
+			headers: { origin: APP_ORIGIN, accept: 'text/html' },
 			multipart: {
 				mode: 'single',
 				shop: 'Kios Tanpa Skrip',

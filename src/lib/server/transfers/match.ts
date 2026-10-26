@@ -7,6 +7,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { TOMBSTONE_CONTENT } from '../transactions/repo';
 import { errorLabel, newId } from '../util';
+import { bumpedUpdatedAt } from '../sync/updated-at';
 
 /**
  * FN-48 Part C "Cocokkan transfer": an imported statement records a transfer between two of the user's own wallets
@@ -315,7 +316,7 @@ export async function applyTransferMatch(
 					from transfer_links l where l.id = ${linkId})`,
 				categoryId: null,
 				categorySource: null,
-				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -331,7 +332,7 @@ export async function applyTransferMatch(
 			.set({
 				deletedAt: now,
 				...TOMBSTONE_CONTENT,
-				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -582,7 +583,7 @@ function debitRestore(snapshot: SQL, spaceId: string, now: number) {
 		categoryId: f('categoryId'),
 		categorySource: f('categorySource'),
 		transferToWalletId: f('transferToWalletId'),
-		updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+		updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 		seq: currentSpaceSeq(spaceId)
 	};
 }
@@ -611,7 +612,7 @@ function creditRestore(snapshot: SQL, spaceId: string, now: number) {
 		photoType: f('photoType'),
 		patunganSplitId: f('patunganSplitId'),
 		patunganEffectiveAmountMinor: f('patunganEffectiveAmountMinor'),
-		updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+		updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 		seq: currentSpaceSeq(spaceId)
 	};
 }
@@ -645,7 +646,7 @@ export async function undoTransferMatch(
 			.update(l)
 			.set({
 				undoneAt: now,
-				updatedAt: sql`max(${now}, ${l.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(l.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -784,7 +785,7 @@ export function settleTransferLinksOfBatch(
 			.update(l)
 			.set({
 				undoneAt: now,
-				updatedAt: sql`max(${now}, ${l.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(l.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { monthOf, monthRange, wibDateString, wibDayRangeUtcMs } from '#lib/shared/dates';
+import { monthOf, monthRange, wibDateString, wibDayRangeUtcMs, wibHour } from '#lib/shared/dates';
 import { createTranslator } from '#lib/shared/i18n';
 import { RetryLaterError, type JobMessage } from '#lib/shared/jobs';
 import {
@@ -17,8 +17,7 @@ import {
 	notificationUrl,
 	nudgeDataKey,
 	parseParams,
-	weeklyDataKey,
-	wibHour
+	weeklyDataKey
 } from '#lib/shared/notifications';
 import type { PushPayload } from '#lib/shared/push';
 import { amountIn, outIn } from '../budgets/math';
@@ -80,11 +79,14 @@ export async function evaluateBudget(
 	spaceId: string,
 	now: number
 ): Promise<CreateResult[]> {
-	const budget = await getActiveBudget(db, spaceId);
-	if (!budget) return [];
 	const month = monthOf(wibDateString(now));
 	const { from, to } = monthRange(month);
-	const totals = await periodTotals(db, spaceId, expenseFilter(from, to));
+	// Read side by side: the cron enqueues only spaces with a live budget, so the sum is almost never wasted.
+	const [budget, totals] = await Promise.all([
+		getActiveBudget(db, spaceId),
+		periodTotals(db, spaceId, expenseFilter(from, to))
+	]);
+	if (!budget) return [];
 	const spentMinor = outIn(totals.totals, budget.currency);
 	const threshold = budgetThreshold(spentMinor, budget.amountMinor);
 	if (threshold === null) return [];

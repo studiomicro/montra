@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AiKeyTestOutcome } from '../../shared/ai-keys.ts';
 import { isDateString, isTimeString, wibInstantUtcMs } from '../../shared/dates.ts';
+import { RetryLaterError } from '../../shared/jobs.ts';
 import { mailAmounts } from '../../shared/inbound/mail.ts';
 import { cleanText, maskAccountNumbers } from '../../shared/text.ts';
 import { TITLE_MAX_LENGTH } from '../../shared/transactions.ts';
@@ -129,6 +130,37 @@ function interpretMailAnswer(answer: string, mailText: string): MailInterpretati
 
 export type MailReadOutcome =
 	MailInterpretation | { kind: Exclude<AiKeyTestOutcome, 'ok'> } | { kind: 'not_configured' };
+
+/** Deliveries before a transient provider failure ends as `unreadable/ai_failed` (wrangler max_retries 3). */
+const AI_READ_MAX_ATTEMPTS = 3;
+/** Seconds before a transient failure is retried. */
+const AI_READ_RETRY_DELAY_S = 60;
+
+/**
+ * Why a read (forwarded mail or Gmail) that found neither a payment nor "not a payment" ends `unreadable`. A
+ * provider outage throws RetryLaterError for the queue while this delivery (`attempts`) has retries left; `what`
+ * names the job in that error.
+ */
+export function aiReadFailure(
+	outcome: Exclude<MailReadOutcome, { kind: 'ok' } | { kind: 'not_payment' }>,
+	attempts: number,
+	what: string
+): 'currency' | 'ai_invalid' | 'ai_unconfigured' | 'ai_failed' {
+	switch (outcome.kind) {
+		case 'currency':
+			return 'currency';
+		case 'invalid':
+			return 'ai_invalid';
+		case 'not_configured':
+			return 'ai_unconfigured';
+		case 'network':
+			if (attempts >= AI_READ_MAX_ATTEMPTS) return 'ai_failed';
+			throw new RetryLaterError(`${what}: provider unavailable`, AI_READ_RETRY_DELAY_S);
+		default:
+			// Invalid key, quota, model unavailable: retrying will not help; the user fixes it, then reads again.
+			return 'ai_failed';
+	}
+}
 
 /** Reads one cleaned mail text with `apiKey`. Never throws. */
 export async function readMailText(
