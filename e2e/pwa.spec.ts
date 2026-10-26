@@ -676,7 +676,8 @@ test.describe('automatic update checks (FN-42b)', () => {
 		// AC11: no tap on "Periksa pembaruan": the automatic check on becoming visible finds the newer build.
 		await page.clock.fastForward('10:01');
 		await setVisibility(page, 'visible');
-		await expect(page.getByText(BANNER)).toBeVisible();
+		// The check fetches and installs the newer service worker first, which takes seconds on a CI runner.
+		await expect(page.getByText(BANNER)).toBeVisible({ timeout: 30_000 });
 		expect(await updates(page)).toBe(1);
 		expect(await loads(page)).toBe(before);
 		expect(await queueSize(page)).toBe(1);

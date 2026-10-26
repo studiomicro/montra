@@ -6,9 +6,21 @@ const PERSIST = `.wrangler/e2e-state-${E2E_PORT}`;
 
 /**
  * Runs SQL against the e2e server's own local D1 with wrangler (never a remote) and returns its `--json` output.
- * A failure throws with wrangler's own output, so the error says why, not only "Command failed".
+ * A failure throws with wrangler's own output, so the error says why, not only "Command failed". The running
+ * `wrangler dev` holds the same SQLite file, so a busy database (SQLITE_BUSY) is tried again a few times.
  */
 export function d1(sql: string): string {
+	for (let attempt = 1; ; attempt++) {
+		try {
+			return run(sql);
+		} catch (e) {
+			if (attempt >= 5 || !/SQLITE_BUSY|database is locked/.test((e as Error).message)) throw e;
+			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250 * attempt);
+		}
+	}
+}
+
+function run(sql: string): string {
 	try {
 		return execFileSync(
 			'npx',
