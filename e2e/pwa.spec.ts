@@ -20,6 +20,11 @@ import { PUSH, queueOneBlocked, queueSize } from './offline-queue';
 /** FN-13: manifest, service worker (offline shell only), sign-out cache hygiene, install guide, push state. */
 
 const PASSWORD = 'terang-benderang-8';
+/**
+ * How long a wait for the update banner may take: it follows a service worker install, which precaches the app shell
+ * and takes seconds on a CI runner. A wait for an event that does arrive, not a timing claim.
+ */
+const SW_INSTALL = { timeout: 30_000 };
 
 /** Waits until the service worker is active and controls this page; returns its script URL. */
 async function serviceWorkerReady(page: Page): Promise<string> {
@@ -402,7 +407,7 @@ test.describe('updates (FN-42, /pengaturan/tentang)', () => {
 		await page.evaluate(() =>
 			navigator.serviceWorker.register('/service-worker.js?build=old', { type: 'module' })
 		);
-		await expect(page.getByText(BANNER)).toBeVisible();
+		await expect(page.getByText(BANNER)).toBeVisible(SW_INSTALL);
 		expect(await workers(page)).toEqual({
 			active: 'service-worker.js',
 			waiting: 'service-worker.js?build=old'
@@ -423,7 +428,7 @@ test.describe('updates (FN-42, /pengaturan/tentang)', () => {
 		// The next page load registers the current build: it installs and waits while the old one runs (AC9).
 		await page.goto('/pengaturan/tentang');
 		await waitForHydration(page);
-		await expect(page.getByText(BANNER)).toBeVisible();
+		await expect(page.getByText(BANNER)).toBeVisible(SW_INSTALL);
 		expect(await workers(page)).toEqual({
 			active: 'service-worker.js?build=old',
 			waiting: 'service-worker.js'
@@ -676,8 +681,8 @@ test.describe('automatic update checks (FN-42b)', () => {
 		// AC11: no tap on "Periksa pembaruan": the automatic check on becoming visible finds the newer build.
 		await page.clock.fastForward('10:01');
 		await setVisibility(page, 'visible');
-		// The check fetches and installs the newer service worker first, which takes seconds on a CI runner.
-		await expect(page.getByText(BANNER)).toBeVisible({ timeout: 30_000 });
+		// The check fetches and installs the newer service worker first.
+		await expect(page.getByText(BANNER)).toBeVisible(SW_INSTALL);
 		expect(await updates(page)).toBe(1);
 		expect(await loads(page)).toBe(before);
 		expect(await queueSize(page)).toBe(1);
