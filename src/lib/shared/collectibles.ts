@@ -1,3 +1,5 @@
+import { groupThousands } from './money-format.ts';
+
 /** Longest collectible name (FN-28), in code points after cleaning. */
 export const COLLECTIBLE_NAME_MAX_LENGTH = 80;
 /** Longest note on a collectible, in code points after cleaning. */
@@ -32,9 +34,7 @@ export function gainPermille(gainMinor: number, purchasePriceMinor: number): num
 export function formatPermille(permille: number): string {
 	const sign = permille > 0 ? '+' : permille < 0 ? '−' : '';
 	const abs = Math.abs(permille);
-	const whole = Math.trunc(abs / 10)
-		.toString()
-		.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+	const whole = groupThousands(Math.trunc(abs / 10).toString(), '.');
 	const tenth = abs % 10;
 	return `${sign}${whole}${tenth === 0 ? '' : `,${tenth}`}%`;
 }

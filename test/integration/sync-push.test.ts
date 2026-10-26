@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import { signUp } from '#lib/server/auth/accounts';
 import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
 import { getDb, type Db } from '#lib/server/db';
@@ -867,7 +868,7 @@ describe('cycle 2: red team L4 — per-user rate limit', () => {
 		const { SYNC_PUSH_MAX_PER_WINDOW } = await import('#lib/server/sync/push');
 		const { sha256Hex } = await import('#lib/server/util');
 		const { THROTTLE_WINDOW_MS } = await import('#lib/server/auth/throttle');
-		const now = Date.now();
+		const now = pinThrottleWindow();
 		await d1
 			.prepare('insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)')
 			.bind(

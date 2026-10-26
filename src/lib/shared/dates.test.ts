@@ -20,6 +20,7 @@ import {
 	wibDateString,
 	wibDayRangeUtcMs,
 	wibInstantUtcMs,
+	wibHour,
 	wibIsoString,
 	wibTimeString,
 	wibTodayString,
@@ -106,6 +107,14 @@ describe('WIB calendar dates (occurred_on)', () => {
 		expect(wibDateString(startMs)).toBe('2026-11-01');
 		expect(wibDateString(endMs - 1)).toBe('2026-11-01');
 		expect(wibDateString(endMs)).toBe('2026-11-02');
+	});
+
+	it('reads the WIB hour, not the UTC one', () => {
+		const at = (iso: string) => Date.parse(iso);
+		expect(wibHour(at('2026-10-07T23:00:00Z'))).toBe(6);
+		expect(wibHour(at('2026-10-08T16:59:00Z'))).toBe(23);
+		expect(wibHour(at('2026-10-08T17:00:00Z'))).toBe(0);
+		expect(wibHour(-1)).toBe(6);
 	});
 
 	it('turns a WIB date and time into the UTC instant and back', () => {

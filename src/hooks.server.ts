@@ -10,13 +10,13 @@ import {
 	TURNSTILE_ROUTE_IDS,
 	withTurnstileCsp
 } from '#lib/server/auth/turnstile';
-import { planOf } from '#lib/server/billing/gate';
+import { planFrom, planOf, planStateQuery } from '#lib/server/billing/gate';
 import { getDb } from '#lib/server/db';
 import { getEnv } from '#lib/server/env';
 import { resolveTheme, themeColors } from '#lib/server/prefs';
 import { crossSiteRefusal, isBearerApiRoute, isCrossSiteForm } from '#lib/server/csrf';
 import { securityHeaders } from '#lib/server/security-headers';
-import { resolveCurrentSpace, spaceCookieName } from '#lib/server/spaces/access';
+import { currentSpaceQuery, resolveCurrentSpace, spaceCookieName } from '#lib/server/spaces/access';
 import { carriesInviteToken, redactedPath } from '#lib/server/spaces/invites';
 import { errorLabel } from '#lib/server/util';
 import type { Plan } from '#lib/shared/billing/plans';
@@ -59,6 +59,30 @@ async function planForLook(locals: App.Locals): Promise<Plan> {
 	} catch (e) {
 		console.error('hooks: plan read failed', errorLabel(e));
 		return 'gratis';
+	}
+}
+
+/**
+ * The plan (`planForLook`) and the default space of a signed-in (app) page (`resolveCurrentSpace`) in one D1
+ * round trip: both reads go out as one `db.batch`. If the batch fails, each is read again on its own, so a failed
+ * plan read still shows the Gratis look and a failed space read still fails the request, exactly as before.
+ */
+async function planAndSpace(
+	locals: App.Locals,
+	user: NonNullable<App.Locals['user']>,
+	spaceCookie: string | undefined
+): Promise<{ plan: Plan; space: App.Locals['space'] }> {
+	const db = locals.db;
+	try {
+		const [plan, space] = await db.batch([
+			planStateQuery(db, user.id),
+			currentSpaceQuery(db, user.id, spaceCookie)
+		]);
+		return { plan: planFrom(plan, Date.now()), space: space[0] ?? null };
+	} catch (e) {
+		console.error('hooks: plan and space batch failed', errorLabel(e));
+		const plan = await planForLook(locals);
+		return { plan, space: await resolveCurrentSpace(db, user.id, spaceCookie) };
 	}
 }
 
@@ -106,20 +130,24 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 	// FN-46: the Pro look follows the stored plan, never the cookie. A Pro theme from an account without a paid
 	// plan in force (never paid, lapsed, signed out, or edited by hand) is shown as `system` on this very response;
 	// transformPageChunk reads `locals` live, so <html data-theme>, theme-color and the touch icon all follow.
-	event.locals.plan = await planForLook(event.locals);
-	event.locals.theme = allowedTheme(event.locals.theme, event.locals.plan);
-
 	// The default space of an (app) page: the `space` cookie when still a live membership, else the personal
 	// space (FN-03). Routes that name a space themselves check it with requireSpaceAccess instead. Public (app)
-	// pages (the install guide) resolve it too when signed in, so the sidebar keeps its space card.
-	event.locals.space =
-		event.locals.user && isAppRoute(event.route.id)
-			? await resolveCurrentSpace(
-					event.locals.db,
-					event.locals.user.id,
-					event.cookies.get(spaceCookieName(secure))
-				)
-			: null;
+	// pages (the install guide) resolve it too when signed in, so the sidebar keeps its space card. Both reads of
+	// a signed-in (app) page share one D1 round trip (`planAndSpace`).
+	const user = event.locals.user;
+	if (user && isAppRoute(event.route.id)) {
+		const { plan, space } = await planAndSpace(
+			event.locals,
+			user,
+			event.cookies.get(spaceCookieName(secure))
+		);
+		event.locals.plan = plan;
+		event.locals.space = space;
+	} else {
+		event.locals.plan = await planForLook(event.locals);
+		event.locals.space = null;
+	}
+	event.locals.theme = allowedTheme(event.locals.theme, event.locals.plan);
 
 	const response = await resolve(event, { transformPageChunk: transformPageChunk(event.locals) });
 	// The app host is the signed-in product: never indexed by search engines (the site host is, FN-32).

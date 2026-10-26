@@ -1,4 +1,4 @@
-import { isDateString } from '../dates.ts';
+import { isDateString, pad } from '../dates.ts';
 import { parseMoneyAmount } from '../money-parse.ts';
 import { statementRow, type StatementPeriod } from './rows.ts';
 import type { MappedRow, StatementDocument, StatementParse, StatementParser } from './types.ts';
@@ -93,8 +93,6 @@ const MONTH_ABBR: Readonly<Record<string, number>> = {
 	des: 12,
 	dec: 12
 };
-
-const pad = (n: number) => String(n).padStart(2, '0');
 
 /** A page's text as trimmed, single-spaced, non-empty lines. */
 const linesOf = (page: string) =>

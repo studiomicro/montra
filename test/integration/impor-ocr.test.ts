@@ -2,6 +2,7 @@ import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
 import { existsSync, readdirSync } from 'node:fs';
 import { inspect } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import { signUp } from '#lib/server/auth/accounts';
 import { THROTTLE_WINDOW_MS } from '#lib/server/auth/throttle';
 import { getDb, type Db } from '#lib/server/db';
@@ -425,7 +426,7 @@ describe('/impor OCR access, throttle and concurrency (criteria 31, 34)', () => 
 
 	it('an OCR import counts as one creating action and is refused with 429 at the per-user limit', async () => {
 		const a = await account();
-		const now = Date.now();
+		const now = pinThrottleWindow();
 		await d1
 			.prepare(
 				`insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)

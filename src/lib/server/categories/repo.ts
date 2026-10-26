@@ -77,20 +77,63 @@ export async function ensurePresetCategories(
 	spaceId: string,
 	now: number = Date.now()
 ): Promise<void> {
-	const [state] = await db.all<{ total: number; presets: number; slots: string }>(
-		sql`select count(*) as total, coalesce(sum(is_preset), 0) as presets,
-			coalesce(json_group_array(tile_key || ':' || kind) filter (where is_preset = 1), '[]') as slots
-		from categories where space_id = ${spaceId}`
-	);
+	const [state] = await presetStateQuery(db, spaceId);
+	await completePresets(db, spaceId, state, now);
+}
+
+/**
+ * `ensurePresetCategories` followed by `listCategories`, in one round trip when the space already has every
+ * preset (the usual case): the preset state and the list are read in one `db.batch`. Only when a preset was
+ * seeded or topped up is the list read again.
+ */
+export async function listCategoriesWithPresets(
+	db: Db,
+	spaceId: string,
+	opts: { includeHidden?: boolean } = {},
+	now: number = Date.now()
+): Promise<CategorySummary[]> {
+	const [[state], list] = await db.batch([
+		presetStateQuery(db, spaceId),
+		listCategoriesQuery(db, spaceId, opts)
+	]);
+	return (await completePresets(db, spaceId, state, now))
+		? listCategories(db, spaceId, opts)
+		: list;
+}
+
+/** What `ensurePresetCategories` decides on: every category row of the space, live or not, and its presets. */
+function presetStateQuery(db: Db, spaceId: string) {
+	return db
+		.select({
+			total: sql<number>`count(*)`,
+			presets: sql<number>`coalesce(sum(${categories.isPreset}), 0)`,
+			slots: sql<string>`coalesce(json_group_array(${categories.tileKey} || ':' || ${categories.kind})
+				filter (where ${categories.isPreset} = 1), '[]')`
+		})
+		.from(categories)
+		.where(eq(categories.spaceId, spaceId));
+}
+
+/**
+ * The write half of `ensurePresetCategories` for the state `presetStateQuery` read. True when it sent a write
+ * (a first seed or a top-up), false when the space already had every preset its generation needs.
+ */
+async function completePresets(
+	db: Db,
+	spaceId: string,
+	state: { total: number; presets: number; slots: string } | undefined,
+	now: number
+): Promise<boolean> {
 	if (state && state.total > 0) {
-		if (state.presets >= PRESET_CATEGORIES.length) return;
+		if (state.presets >= PRESET_CATEGORIES.length) return false;
 		const slots = new Set(JSON.parse(state.slots) as string[]);
 		const groups = LATER_PRESETS.map((g) => ({
 			upTo: g.upTo,
 			missing: g.presets.filter((p) => !slots.has(presetSlot(p)))
 		})).filter((g) => g.missing.length > 0);
-		if (groups.length > 0) await topUpPresets(db, spaceId, groups, now);
-		return;
+		if (groups.length === 0) return false;
+		await topUpPresets(db, spaceId, groups, now);
+		return true;
 	}
 	const rows = PRESET_CATEGORIES.map((p, i) => ({
 		id: newId(),
@@ -110,6 +153,7 @@ export async function ensurePresetCategories(
 				and exists (select 1 from spaces s where s.id = ${spaceId} and s.deleted_at is null)`
 		)
 	]);
+	return true;
 }
 
 /**
@@ -157,6 +201,11 @@ export async function listCategories(
 	spaceId: string,
 	opts: { includeHidden?: boolean } = {}
 ): Promise<CategorySummary[]> {
+	return listCategoriesQuery(db, spaceId, opts);
+}
+
+/** The one statement of `listCategories`, also batched by `listCategoriesWithPresets`. */
+function listCategoriesQuery(db: Db, spaceId: string, opts: { includeHidden?: boolean }) {
 	return db
 		.select(columns)
 		.from(categories)

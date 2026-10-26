@@ -1,4 +1,4 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { BELONGING_CHANGED } from '#lib/server/belongings/messages';
 import {
 	COLLECTIBLE_DEMO_READONLY,
@@ -20,7 +20,7 @@ import { readFormBody, textField } from '#lib/server/forms';
 import { PHOTO_TOO_LARGE, PHOTO_UPLOAD_FAILED } from '#lib/server/photos/messages';
 import { cleanUpFiles, type PhotoChange } from '#lib/server/photos/store';
 import { readPhotoField, readPhotoForm, uploadPhoto } from '#lib/server/photos/upload';
-import { requireSpaceAccess, type SpaceScope } from '#lib/server/spaces/access';
+import { currentSpaceAccess } from '#lib/server/spaces/current';
 import { errorLabel } from '#lib/server/util';
 import { wibTodayString } from '#lib/shared/dates';
 import type { Actions, PageServerLoad } from './$types';
@@ -35,15 +35,6 @@ import type { Actions, PageServerLoad } from './$types';
 const ID_MAX_LENGTH = 64;
 /** An `updated_at` (epoch ms) as the form carries it. */
 const UPDATED_AT = /^\d{1,15}$/;
-
-async function collectibleScope(locals: App.Locals) {
-	const user = locals.user;
-	if (!user) redirect(303, '/masuk');
-	if (!locals.space) error(404, 'Not found');
-	const access = await requireSpaceAccess(locals.db, user.id, locals.space.id);
-	const scope: SpaceScope = { spaceId: access.space.id, userId: user.id };
-	return { scope, space: access.space };
-}
 
 const idField = (form: FormData) => {
 	const id = textField(form, 'collectibleId');
@@ -64,7 +55,7 @@ function refused(result: Exclude<CollectibleWriteResult, 'ok'>) {
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const { scope, space } = await collectibleScope(locals);
+	const { scope, space } = await currentSpaceAccess(locals);
 	const spaceLabel = { kind: space.kind, name: space.kind === 'shared' ? space.name : '' };
 	// `?tambah=1` / `?ubah=<id>` open the form without JavaScript (the sheet does it with JavaScript).
 	const editId = url.searchParams.get('ubah')?.slice(0, ID_MAX_LENGTH) ?? null;
@@ -95,7 +86,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 /** Access first (before an 8 MB body is read), then the body within the photo bounds (photos/upload.ts). */
 async function guardedUpload(event: Parameters<Actions[string]>[0], action: 'create' | 'update') {
-	const { scope } = await collectibleScope(event.locals);
+	const { scope } = await currentSpaceAccess(event.locals);
 	const form = await readPhotoForm(event.request);
 	if (!form)
 		return {
@@ -195,7 +186,7 @@ export const actions: Actions = {
 
 	archive: async (event) => {
 		// Access first: a non-member's body is never read (red team FN-28 L1).
-		const { scope } = await collectibleScope(event.locals);
+		const { scope } = await currentSpaceAccess(event.locals);
 		const form = await readFormBody(event.request);
 		const now = Date.now();
 		const { result, released } = await archiveCollectible(

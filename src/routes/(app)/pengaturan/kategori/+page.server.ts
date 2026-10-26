@@ -6,8 +6,7 @@ import {
 } from '#lib/server/categories/messages';
 import {
 	createCategory,
-	ensurePresetCategories,
-	listCategories,
+	listCategoriesWithPresets,
 	setCategoryHidden,
 	updateCategory
 } from '#lib/server/categories/repo';
@@ -42,8 +41,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		edit: url.searchParams.get('ubah')?.slice(0, ID_MAX_LENGTH) ?? null
 	};
 	try {
-		await ensurePresetCategories(locals.db, spaceId);
-		const categories = await listCategories(locals.db, spaceId, { includeHidden: true });
+		const categories = await listCategoriesWithPresets(locals.db, spaceId, { includeHidden: true });
 		return { categories, open, loadError: null };
 	} catch (e) {
 		console.error('kategori: list failed', e);

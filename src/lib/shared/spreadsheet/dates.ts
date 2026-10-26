@@ -1,5 +1,5 @@
 import { parseCsvDate } from '../csv.ts';
-import { isDateString, isMonthString } from '../dates.ts';
+import { DAY_MS, isDateString, isMonthString } from '../dates.ts';
 
 /**
  * Dates of a spreadsheet import (FN-17). An Excel serial is a local wall-clock date: it becomes the WIB
@@ -10,7 +10,6 @@ import { isDateString, isMonthString } from '../dates.ts';
 const SERIAL_MIN = 32_874;
 const SERIAL_MAX = 73_051;
 
-const DAY_MS = 86_400_000;
 const pad = (n: number, width = 2) => String(n).padStart(width, '0');
 
 function utcDate(ms: number): string {

@@ -18,13 +18,21 @@ export interface PlanState {
 	currentPeriodEnd: number | null;
 }
 
-/** The account's plan state; an account without a row (never expected after sign-up) is on Gratis. */
-export async function planStateOf(db: Db, userId: string, now: number): Promise<PlanState> {
-	const row = await db
+/**
+ * The one primary-key read of the account's stored plan, as a statement a caller may also put into a `db.batch`
+ * (hooks.server.ts reads it beside the current space); `planFrom` turns its rows into the plan in force.
+ */
+export function planStateQuery(db: Db, userId: string) {
+	return db
 		.select({ plan: userPlanState.plan, currentPeriodEnd: userPlanState.currentPeriodEnd })
 		.from(userPlanState)
 		.where(eq(userPlanState.userId, userId))
-		.get();
+		.limit(1);
+}
+
+type PlanStateRow = { plan: Plan; currentPeriodEnd: number | null };
+
+function planStateFrom(row: PlanStateRow | undefined, now: number): PlanState {
 	return {
 		plan: effectivePlan(row ?? null, now),
 		storedPlan: row?.plan ?? 'gratis',
@@ -32,9 +40,19 @@ export async function planStateOf(db: Db, userId: string, now: number): Promise<
 	};
 }
 
+/** The plan in force at `now` from the rows of `planStateQuery`. */
+export function planFrom(rows: readonly PlanStateRow[], now: number): Plan {
+	return planStateFrom(rows[0], now).plan;
+}
+
+/** The account's plan state; an account without a row (never expected after sign-up) is on Gratis. */
+export async function planStateOf(db: Db, userId: string, now: number): Promise<PlanState> {
+	return planStateFrom((await planStateQuery(db, userId))[0], now);
+}
+
 /** The plan in force for `userId` at `now`. */
 export async function planOf(db: Db, userId: string, now: number): Promise<Plan> {
-	return (await planStateOf(db, userId, now)).plan;
+	return planFrom(await planStateQuery(db, userId), now);
 }
 
 /**

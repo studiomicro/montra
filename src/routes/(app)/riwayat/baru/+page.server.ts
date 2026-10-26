@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { latestCardStatements } from '#lib/server/cards/statements';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { ensurePresetCategories, listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { getEnv } from '#lib/server/env';
 import { readFormBody, textField } from '#lib/server/forms';
 import { PHOTO_TOO_LARGE, PHOTO_UPLOAD_FAILED } from '#lib/server/photos/messages';
@@ -35,9 +35,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const type = url.searchParams.get('type');
 	const adjustment = type === 'adjustment';
 	try {
-		await ensurePresetCategories(locals.db, spaceId);
 		const [categories, wallets, sums] = await Promise.all([
-			adjustment ? [] : listCategories(locals.db, spaceId),
+			adjustment
+				? ensurePresetCategories(locals.db, spaceId).then(() => [])
+				: listCategoriesWithPresets(locals.db, spaceId),
 			listWallets(locals.db, spaceId),
 			// Only a hint next to "Saldo baru": the action reads the balance again when the form is sent.
 			adjustment ? walletTransactionsSums(locals.db, spaceId) : null

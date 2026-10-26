@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	isStaleItem,
-	parsePushRequest,
-	parseQueueItem,
 	pushBody,
 	PUSH_PAYLOAD_MAX_FIELDS,
 	QUEUE_KINDS,
@@ -10,6 +8,7 @@ import {
 	queueTarget,
 	type QueueItem
 } from './offline-queue';
+import { parsePushRequest, parseQueueItem } from './offline-queue-schema';
 
 const CLIENT = '0b9c5b8e-3f4a-4d6b-9a51-2f1c7e0d8a11';
 const SPACE = '6a1f0c2e-8b3d-4e5f-9a0b-1c2d3e4f5a6b';

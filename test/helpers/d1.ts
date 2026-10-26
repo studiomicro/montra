@@ -1,13 +1,16 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { getPlatformProxy } from 'wrangler';
 
-/** Runs one migration file statement by statement, as `openLocalD1` does for every file. */
+/**
+ * Runs one migration file as `openLocalD1` does for every file: its statements in one `db.batch` (one round trip
+ * to workerd and one transaction, instead of one per statement; schema and rows come out identical).
+ */
 export async function applyMigration(db: D1Database, file: string): Promise<void> {
 	const statements = readFileSync(`migrations/${file}`, 'utf8')
 		.split('--> statement-breakpoint')
 		.map((s) => s.trim())
 		.filter(Boolean);
-	for (const statement of statements) await db.prepare(statement).run();
+	if (statements.length > 0) await db.batch(statements.map((statement) => db.prepare(statement)));
 }
 
 /**

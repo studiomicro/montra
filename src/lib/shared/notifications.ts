@@ -1,4 +1,4 @@
-import { addDays, formatShortDay, wibDateParts, wibDateString } from './dates.ts';
+import { addDays, formatShortDay, wibDateParts, wibDateString, wibHour } from './dates.ts';
 import { msg, type Translator } from './i18n.ts';
 import { formatMoney } from './money-format.ts';
 
@@ -383,13 +383,6 @@ export const closeReminderDataKey = (date: string) => `close:${date}`;
 export const weeklyDataKey = (weekStart: string) => `weekly:${weekStart}`;
 
 // ---- WIB schedule ----
-
-const HOUR_MS = 60 * 60 * 1000;
-
-/** The WIB hour (0–23) of a UTC instant. */
-export function wibHour(utcMs: number): number {
-	return new Date(utcMs + 7 * HOUR_MS).getUTCHours();
-}
 
 /** First and last WIB hour anything is sent (the jobs cron window, 06:00–23:59 WIB). */
 const SEND_FROM_HOUR = 6;

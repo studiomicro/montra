@@ -1,3 +1,4 @@
+import { wibHour } from './dates.ts';
 import { msg } from './i18n.ts';
 
 /**
@@ -6,14 +7,6 @@ import { msg } from './i18n.ts';
  * page never recomputes it from the device clock, so hydration cannot disagree with the server render.
  */
 export type GreetingPeriod = 'pagi' | 'siang' | 'sore' | 'malam';
-
-const WIB_OFFSET_HOURS = 7;
-
-/** The WIB hour (0–23) of a UTC instant, from the epoch arithmetic only (never `getHours()`, the device's zone). */
-export function wibHour(utcMs: number): number {
-	const hours = Math.floor(utcMs / 3_600_000) + WIB_OFFSET_HOURS;
-	return ((hours % 24) + 24) % 24;
-}
 
 export function greetingPeriod(utcMs: number): GreetingPeriod {
 	const hour = wibHour(utcMs);

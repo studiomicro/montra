@@ -1,8 +1,8 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { listCardStatements } from '#lib/server/cards/statements';
 import { cardSummaries } from '#lib/server/cards/summary';
 import { CARD_LOAD_FAILED } from '#lib/server/cards/messages';
-import { requireSpaceAccess } from '#lib/server/spaces/access';
+import { currentSpaceScope } from '#lib/server/spaces/current';
 import { safeMinor } from '#lib/server/transactions/aggregate';
 import { readWalletBalance } from '#lib/server/transactions/wallet-sum';
 import { errorLabel } from '#lib/server/util';
@@ -19,11 +19,7 @@ import type { PageServerLoad } from './$types';
 const ID_MAX_LENGTH = 64;
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	const user = locals.user;
-	if (!user) redirect(303, '/masuk');
-	if (!locals.space) error(404, 'Not found');
-	const access = await requireSpaceAccess(locals.db, user.id, locals.space.id);
-	const spaceId = access.space.id;
+	const { spaceId } = await currentSpaceScope(locals);
 	const id = params.id.length > ID_MAX_LENGTH ? '' : params.id;
 	const wallet = await getWallet(locals.db, spaceId, id);
 	if (!wallet || wallet.type !== 'kartu_kredit') error(404, 'Not found');

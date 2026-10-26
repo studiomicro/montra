@@ -25,6 +25,7 @@ import {
 } from '#lib/shared/account-key-fields';
 import { base64urlEncode } from '#lib/shared/base64url';
 import { openLocalD1 } from '../helpers/d1';
+import { pinThrottleWindow } from '../helpers/clock';
 import { fakeEvent } from '../helpers/event';
 
 // Kit 3: bindings come from getEnv() (cloudflare:workers), which Node cannot load; tests hand it the local D1.
@@ -915,6 +916,8 @@ describe('password-proving account actions are throttled (red team L3)', () => {
 	};
 
 	it('per client: the 21st attempt in the window answers 429 without deriving', async () => {
+		// 21 password derivations take seconds; a window boundary in between would reset the counter.
+		pinThrottleWindow();
 		const results = [];
 		for (let i = 0; i < 21; i++) results.push(await material(await makeUser(null), '203.0.113.77'));
 		expect(results.slice(0, 20).every((r) => r.kind === 'ok')).toBe(true);
@@ -926,6 +929,8 @@ describe('password-proving account actions are throttled (red team L3)', () => {
 	});
 
 	it('per user: the 21st attempt from rotating addresses answers 429', async () => {
+		// 21 password derivations take seconds; a window boundary in between would reset the counter.
+		pinThrottleWindow();
 		const user = await makeUser(null);
 		const results = [];
 		for (let i = 0; i < 21; i++) results.push(await material(user, `203.0.113.${100 + i}`));

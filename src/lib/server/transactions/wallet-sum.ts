@@ -26,19 +26,23 @@ export async function walletTransactionsSums(
 	upTo?: string
 ): Promise<Map<string, number | null>> {
 	const until = upTo === undefined ? sql`` : sql` and t.occurred_on <= ${upTo}`;
-	const rows = await db.all<{ wallet_id: string; total: string }>(sql`select m.wallet_id,
-			cast(sum(m.delta) as text) as total
+	// Summed per (wallet, currency) first, then joined to the wallets: the join sees a handful of groups instead
+	// of every row (one wallet keeps at most its own currency's group, so each wallet still yields one row).
+	const rows = await db.all<{ wallet_id: string; total: string }>(sql`select g.wallet_id, g.total
 		from (
-			select t.wallet_id as wallet_id, t.currency as currency, ${OWN_WALLET_DELTA} as delta
-			from transactions t
-			where t.space_id = ${spaceId} and t.deleted_at is null and t.is_demo = 0${until}
-			union all
-			select t.transfer_to_wallet_id, t.currency, t.amount_minor
-			from transactions t
-			where t.space_id = ${spaceId} and t.deleted_at is null and t.is_demo = 0 and t.type = 'transfer'${until}
-		) m
-		join wallets w on w.id = m.wallet_id and w.space_id = ${spaceId} and w.currency = m.currency
-		group by m.wallet_id`);
+			select m.wallet_id as wallet_id, m.currency as currency, cast(sum(m.delta) as text) as total
+			from (
+				select t.wallet_id as wallet_id, t.currency as currency, ${OWN_WALLET_DELTA} as delta
+				from transactions t
+				where t.space_id = ${spaceId} and t.deleted_at is null and t.is_demo = 0${until}
+				union all
+				select t.transfer_to_wallet_id, t.currency, t.amount_minor
+				from transactions t
+				where t.space_id = ${spaceId} and t.deleted_at is null and t.is_demo = 0 and t.type = 'transfer'${until}
+			) m
+			group by m.wallet_id, m.currency
+		) g
+		join wallets w on w.id = g.wallet_id and w.space_id = ${spaceId} and w.currency = g.currency`);
 	const sums = new Map<string, number | null>();
 	for (const r of rows) sums.set(r.wallet_id, safeMinor(BigInt(r.total)));
 	return sums;

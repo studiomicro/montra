@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { listCategories, listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { readFormBody, textField } from '#lib/server/forms';
 import { readSplitForm, type SplitFormErrors } from '#lib/server/patungan/form';
 import { BILL_UNAVAILABLE, SPLIT_LIMIT, SPLITS_LOAD_FAILED } from '#lib/server/patungan/messages';
@@ -41,13 +41,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const today = wibTodayString();
 	const asked = bounded(url.searchParams.get('dariTransaksi'));
 	try {
-		await ensurePresetCategories(db, spaceId);
 		const [bill, candidates, members, wallets, categories] = await Promise.all([
 			asked ? billCandidate(db, spaceId, asked) : null,
 			billCandidates(db, spaceId),
 			spaceMemberNames(db, spaceId),
 			listWallets(db, spaceId),
-			listCategories(db, spaceId)
+			listCategoriesWithPresets(db, spaceId)
 		]);
 		const values: PatunganFormValues = {
 			title: bill?.title ?? '',

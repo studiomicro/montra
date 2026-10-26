@@ -1,4 +1,4 @@
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { listTransactionsByDay, periodTotals, PAGE_SIZE } from '#lib/server/transactions/aggregate';
 import { TRANSACTIONS_LOAD_FAILED } from '#lib/server/transactions/messages';
@@ -22,14 +22,14 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const pick = pickParam === 'kategori' || pickParam === 'dompet' ? pickParam : null;
 	try {
 		const db = locals.db;
-		await ensurePresetCategories(db, spaceId);
-		// The header's figure and the chips' counts come from the same aggregate the list uses (one filter).
+		// The header's figure and the chips' counts come from the same aggregate the list uses (one filter). The
+		// presets are checked (and topped up when missing) with the category list, beside the other reads.
 		const [totals, chipTotals, page, any, categories, wallets] = await Promise.all([
 			periodTotals(db, spaceId, filter),
 			filter.type ? periodTotals(db, spaceId, { ...filter, type: null }) : null,
 			listTransactionsByDay(db, spaceId, filter, { cursor, limit: PAGE_SIZE }),
 			hasTransactions(db, spaceId),
-			listCategories(db, spaceId, { includeHidden: true }),
+			listCategoriesWithPresets(db, spaceId, { includeHidden: true }),
 			listWallets(db, spaceId, { includeArchived: true })
 		]);
 		return {

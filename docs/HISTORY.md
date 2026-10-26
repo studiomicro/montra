@@ -6,6 +6,17 @@ Open work: `docs/TASKS.md`. What is verified and how: `docs/ACCEPTANCE.md`.
 
 ## Completed work
 
+- **Optimisation and refactor pass (2026-10-26)** — owner request ("run optimization and refactor"), three agents.
+  Client: the English phrase table loads only for English users (`src/lib/ui/client-i18n.ts`, root `+layout.ts`),
+  about 68 kB gzip less JS on every route (`/` 215 → 147 kB, `/masuk` 143 → 75 kB); zod leaves the (app) layout's
+  static closure (offline-queue constants split from `offline-queue-schema.ts`, about 25 kB gzip). Server: sequential
+  D1 depth per request cut (Beranda 3 → 2, Riwayat 4 → 2, Dompet 5 → 3, Kekayaan 8 → 3, hook 3 → 2) with `db.batch` and
+  parallel reads, one-statement `listTransactionsByDay`, `listCategoriesWithPresets`, a per-wallet grouped
+  `walletTransactionsSums` (53 → 34 ms on 40k rows), shared current-space helpers; `test/integration/round-trips.test.ts`
+  holds the round-trip ceilings. No migration (a covering index was measured and declined). Shared/tests: duplicated date,
+  money and text helpers merged, dead exports removed, migrations applied as one batch per file in tests, throttle tests
+  pin the window, e2e sharded 4 ways in CI. Checks: check, lint, 396 files / 6702 tests, build; full local e2e 716 passed
+  with 4 failures that pass alone or also fail on main (`impor-ocr` cancel race, 3/8 on main).
 - **FN-58 pass 2 groundwork: Android app, read-only NFC bridge, KMT reader (2026-10-26)** — owner decisions 2026-10-26:
   Android first, command formats from public sources checked against the owner's real-card logs. `native/android-app`:
   Capacitor 8.5.3 shell (app id `id.montra.app`) loading the web app from `MONTRA_APP_URL`, and `MontraNfcPlugin.java`,

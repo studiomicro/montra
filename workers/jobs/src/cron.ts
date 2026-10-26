@@ -1,7 +1,7 @@
 import { SCHEDULE_PAGE_SIZE } from '#lib/server/notifications/schedule';
-import { addDays } from '#lib/shared/dates';
+import { addDays, wibHour } from '#lib/shared/dates';
 import type { JobMessage } from '#lib/shared/jobs';
-import { tickPlan, wibHour, type NotificationKind } from '#lib/shared/notifications';
+import { tickPlan, type NotificationKind } from '#lib/shared/notifications';
 
 /** Hourly 06:00–23:00 WIB (UTC+7). Cron Triggers run in UTC. Keep in sync with workers/jobs/wrangler.jsonc. */
 export const JOBS_CRON = '0 23,0-16 * * *';

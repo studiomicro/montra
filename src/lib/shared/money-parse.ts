@@ -1,5 +1,5 @@
 import { currencyExponent } from './money-format.ts';
-import { cleanText } from './text.ts';
+import { asciiLowerKey, cleanText } from './text.ts';
 
 /**
  * The one shared money parser (FN-14a): typed, spoken and statement amounts → integer IDR minor units.
@@ -300,11 +300,6 @@ function isAmbiguous(lower: string, token: Token): boolean {
 	return token.direction === undefined && AMBIGUOUS_AFTER_DIGIT.test(after);
 }
 
-/** ASCII-only lower case: same length and offsets as the input, no Unicode case folding. */
-function asciiLower(text: string): string {
-	return text.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
-}
-
 type Prepared = { clean: string; truncated: boolean };
 
 /**
@@ -325,7 +320,7 @@ function prepare(text: string): Prepared {
 }
 
 function tokenize({ clean, truncated }: Prepared, whole: boolean): Token[] {
-	const lower = asciiLower(clean);
+	const lower = asciiLowerKey(clean);
 	const tokens: Token[] = [];
 	for (const m of lower.matchAll(TOKEN)) {
 		const token = readToken(m, whole);

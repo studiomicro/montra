@@ -10,6 +10,7 @@ import {
 	MAX_CATEGORIES_PER_SPACE,
 	getCategory,
 	listCategories,
+	listCategoriesWithPresets,
 	setCategoryHidden,
 	updateCategory
 } from '#lib/server/categories/repo';
@@ -238,6 +239,30 @@ describe('ensurePresetCategories: FN-39 and FN-48 top-up of a space seeded with 
 			.run();
 		return who;
 	}
+
+	it('listCategoriesWithPresets seeds, tops up and lists exactly as ensurePresetCategories + listCategories', async () => {
+		// A fresh space: seeded on the first read, the list already holds the 24 presets.
+		const fresh = await account();
+		const seeded = await listCategoriesWithPresets(db, fresh.scope.spaceId, {}, NOW);
+		expect(seeded).toHaveLength(24);
+		expect(seeded).toEqual(await listCategories(db, fresh.scope.spaceId));
+		// An old space: the nine later presets are topped up and listed in the same call.
+		const old = await oldSpace();
+		const topped = await listCategoriesWithPresets(
+			db,
+			old.scope.spaceId,
+			{ includeHidden: true },
+			NOW + 1
+		);
+		expect(topped).toHaveLength(24);
+		expect(topped).toEqual(await listCategories(db, old.scope.spaceId, { includeHidden: true }));
+		// A complete space: nothing written (seq unchanged), the same list.
+		const seq = await spaceSeq(old.scope.spaceId);
+		expect(await listCategoriesWithPresets(db, old.scope.spaceId, {}, NOW + 2)).toEqual(
+			await listCategories(db, old.scope.spaceId)
+		);
+		expect(await spaceSeq(old.scope.spaceId)).toBe(seq);
+	});
 
 	it('adds exactly the nine missing presets at the end, once, leaving every other row unchanged', async () => {
 		const { scope } = await oldSpace();

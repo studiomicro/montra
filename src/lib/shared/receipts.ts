@@ -1,5 +1,5 @@
 import { tileFromWords } from './merchants/dictionary.ts';
-import { wibDateParts } from './dates.ts';
+import { pad, wibDateParts } from './dates.ts';
 import type { TileKey } from './transactions.ts';
 import { walletHintFromText } from './voice-parse.ts';
 import type { WalletType } from './wallets.ts';
@@ -157,8 +157,7 @@ export type ReceiptDateCheck = 'ok' | 'future' | 'old';
 export function receiptDateCheck(date: string, today: string): ReceiptDateCheck {
 	if (date > today) return 'future';
 	const { year, month, day } = wibDateParts(today);
-	const pad = (n: number) => String(n).padStart(2, '0');
-	const floor = `${String(year - RECEIPT_DATE_PAST_YEARS).padStart(4, '0')}-${pad(month)}-${pad(day)}`;
+	const floor = `${pad(year - RECEIPT_DATE_PAST_YEARS, 4)}-${pad(month)}-${pad(day)}`;
 	return date < floor ? 'old' : 'ok';
 }
 
