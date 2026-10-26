@@ -8,7 +8,6 @@ import {
 import { isMonthString } from '#lib/shared/dates';
 import { cleanText, maskAccountNumbers } from '#lib/shared/text';
 import { FILENAME_MAX_LENGTH } from '../imports/validation';
-import { ID_MAX_LENGTH } from '../transactions/validation';
 import {
 	SHEET_CSV_HERE,
 	SHEET_FIELDS_INVALID,
@@ -20,6 +19,7 @@ import {
 	SHEET_WALLET_REQUIRED
 } from './messages';
 import { SHEET_MAX_COLUMNS, SHEET_MAX_TABS, XLSX_MAX_BYTES } from './xlsx-read';
+import { ID_MAX_LENGTH } from '../forms';
 
 /** Largest body the spreadsheet actions read: the 5 MB file plus multipart framing and the mapping fields. */
 export const SHEET_BODY_MAX_BYTES = XLSX_MAX_BYTES + 128 * 1024;

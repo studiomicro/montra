@@ -1,11 +1,5 @@
 import { expect, test as setup } from '@playwright/test';
-import {
-	tickSignUpBoxes,
-	simulatedClientIp,
-	STORAGE_STATE,
-	waitForHydration,
-	APP_ORIGIN
-} from './helpers';
+import { APP_ORIGIN, signUp, simulatedClientIp, STORAGE_STATE, uniqueEmail } from './helpers';
 
 /**
  * Signs up one fictional user per run through the real /daftar form and saves its session for the phone and
@@ -16,14 +10,7 @@ setup('sign up the shared e2e user', async ({ browser }, testInfo) => {
 		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo) }
 	});
 	const page = await context.newPage();
-	const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-	await page.goto(`${APP_ORIGIN}/daftar`);
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pengguna Uji');
-	await page.getByLabel('E-mail').fill(`e2e-${runId}@example.test`);
-	await page.getByLabel('Kata sandi').fill('terang-benderang-8');
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
+	await signUp(page, { email: uniqueEmail('e2e'), name: 'Pengguna Uji' });
 	await expect(page).toHaveURL(`${APP_ORIGIN}/`);
 	// FN-54: the once-a-day greeting sheet is switched off for the shared user (a device cookie, as Pengaturan ›
 	// Tampilan sets it), so journeys that open Beranda are not covered by it; e2e/sapaan.spec.ts tests the sheet.

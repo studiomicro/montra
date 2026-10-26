@@ -13,6 +13,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { TransactionInput } from './validation';
+import { nextUpdatedAt } from '../sync/updated-at';
 
 /** One live transaction as the edit page needs it. */
 export interface TransactionDetail {
@@ -182,6 +183,17 @@ export async function walletHasTransactions(
 
 /** Most live transactions one space holds (with MAX_AMOUNT_MINOR, every SQL sum stays a 64-bit integer). */
 export const MAX_TRANSACTIONS_PER_SPACE = 100_000;
+
+/**
+ * Whether `adding` more live rows would take the space past MAX_TRANSACTIONS_PER_SPACE: one count, read after a
+ * refused write to tell "the space is full" from "something went meanwhile".
+ */
+export async function transactionCapReached(db: Db, spaceId: string, adding = 1): Promise<boolean> {
+	const [live] = await db.all<{ n: number }>(
+		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
+	);
+	return (live?.n ?? 0) + adding > MAX_TRANSACTIONS_PER_SPACE;
+}
 
 /** The values `refsHold` checks: bound parameters, or SQL expressions (a row of a multi-row insert). */
 type RefValues = Record<
@@ -437,10 +449,7 @@ export async function createTransaction(
 			])
 		: await db.batch([bumpSpaceSeq(db, spaceId), insert]);
 	if (inserted.length === 1) return { ok: true, id };
-	const [count] = await db.all<{ n: number }>(
-		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-	);
-	return { ok: false, reason: (count?.n ?? 0) >= MAX_TRANSACTIONS_PER_SPACE ? 'limit' : 'gone' };
+	return { ok: false, reason: (await transactionCapReached(db, spaceId)) ? 'limit' : 'gone' };
 }
 
 /**
@@ -470,9 +479,6 @@ export const TOMBSTONE_CONTENT = {
 	patunganSplitId: null,
 	patunganEffectiveAmountMinor: null
 } as const;
-
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
 
 /** `id` is a deleted row (a tombstone) of this space: a resent delete has nothing left to do (FN-02). */
 export async function isTombstoneInSpace(db: Db, spaceId: string, id: string): Promise<boolean> {

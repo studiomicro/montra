@@ -7,6 +7,7 @@ import { takeSavedNotice } from '#lib/server/transactions/saved-notice';
 import { listWallets } from '#lib/server/wallets/repo';
 import { wibTodayString } from '#lib/shared/dates';
 import { parseRiwayatQuery, viewFilter } from '#lib/shared/riwayat-query';
+import { errorLabel } from '#lib/server/util';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url, cookies }) => {
@@ -54,7 +55,7 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 			loadError: null
 		};
 	} catch (e) {
-		console.error('riwayat: list failed', e);
+		console.error('riwayat: list failed', errorLabel(e));
 		return {
 			today,
 			view,

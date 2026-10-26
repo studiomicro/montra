@@ -14,7 +14,7 @@ import {
 	REMINDER_INVALID,
 	WEEKDAY_INVALID
 } from './messages';
-import { expectedUpdatedAt, idField, parsePayForm, parseSubscriptionForm } from './validation';
+import { parsePayForm, parseSubscriptionForm } from './validation';
 
 function form(fields: Record<string, string>): FormData {
 	const f = new FormData();
@@ -209,19 +209,6 @@ describe('parseSubscriptionForm', () => {
 		expect(
 			parseSubscriptionForm(form({ ...base, currency: 'IDR', amount: '15,99' }), 'id')
 		).toMatchObject({ ok: false, errors: { amountMinor: AMOUNT_INVALID } });
-	});
-});
-
-describe('form ids and updated_at', () => {
-	it('reads an updated_at or -1 (matches nothing)', () => {
-		expect(expectedUpdatedAt(form({ updatedAt: '1791413561226' }))).toBe(1791413561226);
-		for (const updatedAt of ['', '1e3', '-1', '9'.repeat(16)])
-			expect(expectedUpdatedAt(form({ updatedAt }))).toBe(-1);
-	});
-
-	it('drops over-long ids', () => {
-		expect(idField(form({ id: 'a'.repeat(64) }), 'id')).toBe('a'.repeat(64));
-		expect(idField(form({ id: 'a'.repeat(65) }), 'id')).toBe('');
 	});
 });
 

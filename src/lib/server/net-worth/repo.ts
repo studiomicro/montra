@@ -6,6 +6,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { NetWorthInput } from './validation';
+import { nextUpdatedAt } from '../sync/updated-at';
 
 /** Most live items one space holds (owner decision 4); also the list's row cap. Deleted items do not count. */
 export const MAX_ITEMS_PER_SPACE = 200;
@@ -73,9 +74,6 @@ export async function listNetWorthItems(db: Db, spaceId: string): Promise<NetWor
 		createdAt: r.createdAt as number
 	}));
 }
-
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
 
 /** Creates an item. Refused past MAX_ITEMS_PER_SPACE live items in one guarded insert (concurrency-safe). */
 export async function createNetWorthItem(

@@ -16,10 +16,17 @@ import {
 } from '#lib/server/collectibles/repo';
 import { collectibleFormValues, parseCollectibleForm } from '#lib/server/collectibles/validation';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
-import { PHOTO_TOO_LARGE, PHOTO_UPLOAD_FAILED } from '#lib/server/photos/messages';
+import {
+	readFormBody,
+	textField,
+	expectedUpdatedAt,
+	ID_MAX_LENGTH,
+	idField
+} from '#lib/server/forms';
+import { PHOTO_UPLOAD_FAILED } from '#lib/server/photos/messages';
 import { cleanUpFiles, type PhotoChange } from '#lib/server/photos/store';
-import { readPhotoField, readPhotoForm, uploadPhoto } from '#lib/server/photos/upload';
+import { guardedPhotoForm } from '#lib/server/photos/guard';
+import { readPhotoField, uploadPhoto } from '#lib/server/photos/upload';
 import { currentSpaceAccess } from '#lib/server/spaces/current';
 import { errorLabel } from '#lib/server/util';
 import { wibTodayString } from '#lib/shared/dates';
@@ -31,21 +38,7 @@ import type { Actions, PageServerLoad } from './$types';
 // same answer. Photos go through FN-27's shared module (photos/) and are read only through ./[id]/foto.
 // Values are the user's own: nothing here (or anywhere in this feature) calls an external price source.
 
-/** Longest collectible id read from a form or URL; ids are UUIDs, anything longer cannot match. */
-const ID_MAX_LENGTH = 64;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
-
-const idField = (form: FormData) => {
-	const id = textField(form, 'collectibleId');
-	return id.length > ID_MAX_LENGTH ? '' : id;
-};
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
+const collectibleId = (form: FormData) => idField(form, 'collectibleId');
 
 function refused(result: Exclude<CollectibleWriteResult, 'ok'>) {
 	if (result === 'demo') return fail(400, { error: COLLECTIBLE_DEMO_READONLY });
@@ -84,20 +77,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 };
 
-/** Access first (before an 8 MB body is read), then the body within the photo bounds (photos/upload.ts). */
-async function guardedUpload(event: Parameters<Actions[string]>[0], action: 'create' | 'update') {
-	const { scope } = await currentSpaceAccess(event.locals);
-	const form = await readPhotoForm(event.request);
-	if (!form)
-		return {
-			refusal: fail(413, { action, error: PHOTO_TOO_LARGE, errors: {}, values: null })
-		} as const;
-	return { form, scope, db: event.locals.db } as const;
-}
-
 export const actions: Actions = {
 	create: async (event) => {
-		const guarded = await guardedUpload(event, 'create');
+		const guarded = await guardedPhotoForm(event, 'create');
 		if ('refusal' in guarded) return guarded.refusal;
 		const { form, scope, db } = guarded;
 		const now = Date.now();
@@ -133,11 +115,11 @@ export const actions: Actions = {
 	},
 
 	update: async (event) => {
-		const guarded = await guardedUpload(event, 'update');
+		const guarded = await guardedPhotoForm(event, 'update');
 		if ('refusal' in guarded) return guarded.refusal;
 		const { form, scope, db } = guarded;
 		const now = Date.now();
-		const id = idField(form);
+		const id = collectibleId(form);
 		const parsed = parseCollectibleForm(form, wibTodayString(now));
 		if (!parsed.ok)
 			return fail(400, {
@@ -192,7 +174,7 @@ export const actions: Actions = {
 		const { result, released } = await archiveCollectible(
 			event.locals.db,
 			scope,
-			idField(form),
+			collectibleId(form),
 			expectedUpdatedAt(form),
 			now
 		);

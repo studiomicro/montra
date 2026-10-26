@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { E2E_AI_KEYS_KEY, E2E_PORT, STORAGE_STATE } from './e2e/helpers';
+import { APP_ORIGIN, E2E_AI_KEYS_KEY, E2E_PORT, STORAGE_STATE } from './e2e/helpers';
 
 // Parallel runs: E2E_PORT=<port> npm run test:e2e (own server and own persist dir per port).
 const PORT = Number(E2E_PORT);
@@ -24,7 +24,7 @@ export default defineConfig({
 	// never completes. The row itself is static and clickable (a real tap mid-fade navigates, with and without
 	// JavaScript); nothing in the app animates forever. e2e/motion.spec.ts opts back in to test the motion.
 	use: {
-		baseURL: `http://localhost:${PORT}`,
+		baseURL: APP_ORIGIN,
 		locale: 'id-ID',
 		reducedMotion: 'reduce',
 		trace: 'retain-on-failure'
@@ -37,7 +37,7 @@ export default defineConfig({
 			`FIN_PERSIST_TO=${PERSIST} node scripts/migrate-local.ts`,
 			`npx wrangler dev -c wrangler.jsonc -c workers/jobs/wrangler.jsonc -c workers/inbound/wrangler.jsonc --persist-to ${PERSIST} --port ${PORT} --inspector-port ${PORT + 1000} --var DEV_ROUTES:1 --var BILLING_MOCK_ENABLED:1 --var MOCK_PAYMENT_WEBHOOK_SECRET:${MOCK_SECRET} --var AI_KEYS_ENCRYPTION_KEY:${AI_KEYS_KEY} --var CLAIM_HASH_KEY:${CLAIM_KEY}`
 		].join(' && '),
-		url: `http://localhost:${PORT}/api/v1/health`,
+		url: `${APP_ORIGIN}/api/v1/health`,
 		reuseExistingServer: !process.env.CI,
 		env: { E2E_PORT: String(PORT) },
 		timeout: 240_000

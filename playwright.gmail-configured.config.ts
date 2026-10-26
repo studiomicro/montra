@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 import base from './playwright.config';
-import { E2E_AI_KEYS_KEY, E2E_PORT } from './e2e/helpers';
+import { APP_ORIGIN, E2E_AI_KEYS_KEY, E2E_PORT } from './e2e/helpers';
 
 // QA cycle 1 (FN-19 Gmail): the same e2e server as playwright.config.ts, but with a fake Google OAuth client, so the
 // configured pages can be driven in a browser. The id and secret are fictional and never leave the machine: the
@@ -14,7 +14,7 @@ const vars = [
 	`CONNECTED_APPS_ENCRYPTION_KEY:${E2E_AI_KEYS_KEY}`,
 	'GOOGLE_OAUTH_CLIENT_ID:qa-fake-client.apps.googleusercontent.com',
 	'GOOGLE_OAUTH_CLIENT_SECRET:qa-fake-secret-not-real',
-	`GOOGLE_OAUTH_REDIRECT_ORIGIN:http://localhost:${PORT}`
+	`GOOGLE_OAUTH_REDIRECT_ORIGIN:${APP_ORIGIN}`
 ]
 	.map((v) => `--var ${v}`)
 	.join(' ');
@@ -28,7 +28,7 @@ export default defineConfig({
 			`FIN_PERSIST_TO=${PERSIST} node scripts/migrate-local.ts`,
 			`npx wrangler dev -c wrangler.jsonc -c workers/jobs/wrangler.jsonc -c workers/inbound/wrangler.jsonc --persist-to ${PERSIST} --port ${PORT} --inspector-port ${PORT + 1000} ${vars}`
 		].join(' && '),
-		url: `http://localhost:${PORT}/api/v1/health`,
+		url: `${APP_ORIGIN}/api/v1/health`,
 		reuseExistingServer: false,
 		env: { E2E_PORT: String(PORT) },
 		timeout: 240_000

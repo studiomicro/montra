@@ -27,6 +27,7 @@ import { amountFractionDigits, minorToAmountText } from '#lib/shared/amount-inpu
 import { currencyExponent } from '#lib/shared/money-format';
 import { wibTodayString } from '#lib/shared/dates';
 import { isClientId } from '#lib/shared/offline-queue';
+import { errorLabel } from '#lib/server/util';
 import type { AdjustmentFormValues, TransactionFormValues } from '#lib/shared/transactions';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -102,7 +103,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			loadError: null
 		};
 	} catch (e) {
-		console.error('riwayat/baru: load failed', e);
+		console.error('riwayat/baru: load failed', errorLabel(e));
 		return {
 			values: null,
 			adjustmentValues: null,

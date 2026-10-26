@@ -11,10 +11,11 @@ import type { Db } from '../db';
 import { spaceNotifications, spaces, subscriptions, transactions } from '../db/schema';
 import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
-import { insertTransactions, MAX_TRANSACTIONS_PER_SPACE } from '../transactions/repo';
+import { insertTransactions, transactionCapReached } from '../transactions/repo';
 import type { TransactionInput } from '../transactions/validation';
 import { newId } from '../util';
 import type { SubscriptionInput } from './validation';
+import { nextUpdatedAt } from '../sync/updated-at';
 
 /** Most live subscriptions one space holds (owner decision 5); also the list's row cap. */
 export const MAX_SUBSCRIPTIONS_PER_SPACE = 100;
@@ -178,9 +179,6 @@ function walletHolds(
 	return sql`exists (select 1 from wallets w where w.id = ${walletId} and w.space_id = ${spaceId}
 		and w.currency = ${currency} and (w.deleted_at is null or w.id = ${keep ?? ''}))`;
 }
-
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
 
 const liveCount = (spaceId: string) =>
 	sql`(select count(*) from subscriptions x where x.space_id = ${spaceId} and x.deleted_at is null)`;
@@ -489,13 +487,7 @@ export async function markPaidWithNew(
 	if (why === 'missing') return { ok: false, reason: 'missing' };
 	const [s] = await db.all<{ ok: number }>(sql`select ${stillAsLoaded} as ok`);
 	if (!s?.ok) return { ok: false, reason: 'stale' };
-	const [count] = await db.all<{ n: number }>(
-		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-	);
-	return {
-		ok: false,
-		reason: (count?.n ?? 0) >= MAX_TRANSACTIONS_PER_SPACE ? 'limit' : 'gone'
-	};
+	return { ok: false, reason: (await transactionCapReached(db, spaceId)) ? 'limit' : 'gone' };
 }
 
 export interface PayableExpense {

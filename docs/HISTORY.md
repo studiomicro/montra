@@ -6,6 +6,16 @@ Open work: `docs/TASKS.md`. What is verified and how: `docs/ACCEPTANCE.md`.
 
 ## Completed work
 
+- **Cleanup and refactor pass 2 (2026-10-26)** — owner request, three agents, behaviour unchanged. UI: `HeroFigure`
+  and `RadioPills` kit components replace copied markup and CSS (langganan, koleksi, barang; WalletForm,
+  NetWorthItemForm); three dead kit props and 33 unused English phrases removed. Server and Workers: shared form id and
+  `updated_at` readers (`server/forms.ts`, 17 routes), `transactionCapReached`, `bumpSpaceSeqsWhere`, `sync/updated-at.ts`,
+  `sectionOr`, `tickStep` in the jobs cron, `guardedPhotoForm`; long functions split (agent report renderers,
+  `importRows`, `moveImportBatch`, receipt saving); loaders log `errorLabel(e)` instead of the raw error (no query
+  values in logs); dead constants removed. e2e: one set of sign-up, fresh-user, wallet and expense helpers instead of
+  about 20 copies (about 390 lines fewer), sleeps used as synchronisation replaced, the `impor-ocr` cancel made
+  deterministic (8/8 repeats). Checks: check, lint, 397 files / 6704 tests, build; full local e2e 720 passed, 2 failed
+  under full parallel load (pass alone); the period-report snapshot test now has 90 s.
 - **Optimisation and refactor pass (2026-10-26)** — owner request ("run optimization and refactor"), three agents.
   Client: the English phrase table loads only for English users (`src/lib/ui/client-i18n.ts`, root `+layout.ts`),
   about 68 kB gzip less JS on every route (`/` 215 → 147 kB, `/masuk` 143 → 75 kB); zod leaves the (app) layout's

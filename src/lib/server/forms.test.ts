@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	amountMinorFromText,
 	BodyBudgetExceeded,
+	boundedId,
+	expectedUpdatedAt,
 	FORM_BODY_MAX_BYTES,
+	idField,
 	readFormBody,
 	textField,
 	wholeAmountMinor
@@ -283,5 +286,27 @@ describe('amountMinorFromText (FN-47: the one server rule for typed amounts)', (
 		}
 		expect(amountMinorFromText('25,50', 'IDR', 'id')).toBeNull();
 		expect(amountMinorFromText('1.500', 'JPY', 'en')).toBe(1500);
+	});
+});
+
+describe('form ids and updated_at', () => {
+	const form = (fields: Record<string, string>) => {
+		const f = new FormData();
+		for (const [k, v] of Object.entries(fields)) f.set(k, v);
+		return f;
+	};
+
+	it('reads an updated_at or -1 (matches nothing)', () => {
+		expect(expectedUpdatedAt(form({ updatedAt: '1791413561226' }))).toBe(1791413561226);
+		expect(expectedUpdatedAt(form({ debitUpdatedAt: '42' }), 'debitUpdatedAt')).toBe(42);
+		for (const updatedAt of ['', '1e3', '-1', '9'.repeat(16)])
+			expect(expectedUpdatedAt(form({ updatedAt }))).toBe(-1);
+	});
+
+	it('drops over-long ids', () => {
+		expect(idField(form({ id: 'a'.repeat(64) }), 'id')).toBe('a'.repeat(64));
+		expect(idField(form({ id: 'a'.repeat(65) }), 'id')).toBe('');
+		expect(idField(form({}), 'id')).toBe('');
+		expect(boundedId('b'.repeat(65))).toBe('');
 	});
 });

@@ -7,6 +7,7 @@ import { newId } from '../util';
 import { savedSumSql } from './progress';
 import type { GoalScope } from './repo';
 import type { ContributionInput } from './validation';
+import { bumpedUpdatedAt } from '../sync/updated-at';
 
 /** Contributions shown per page of a goal's history (newest first). */
 const CONTRIBUTIONS_PAGE_SIZE = 50;
@@ -130,7 +131,7 @@ export async function deleteContribution(
 				note: null,
 				createdByUserId: null,
 				createdAt: null,
-				updatedAt: sql`max(${now}, ${goalContributions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(goalContributions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(

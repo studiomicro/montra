@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { overUserAttemptLimit } from '#lib/server/auth/throttle';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, textField, idField } from '#lib/server/forms';
 import {
 	ADDRESS_CHANGED_MEANWHILE,
 	ADDRESS_EXISTS,
@@ -23,7 +23,6 @@ import {
 	type AddressWriteResult
 } from '#lib/server/inbound/repo';
 import { listSpaces } from '#lib/server/spaces/spaces';
-import { idField } from '#lib/server/subscriptions/validation';
 import { errorLabel } from '#lib/server/util';
 import { formatAddress, inboundDomain } from '#lib/shared/inbound/address';
 import type { Actions, PageServerLoad } from './$types';

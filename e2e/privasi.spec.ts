@@ -4,9 +4,8 @@ import {
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
-	tickSignUpBoxes,
+	newUser,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 
@@ -14,32 +13,9 @@ import {
  * FN-31 journeys: the privacy page at 360 px, the statistics switch persisting, and the account export as a
  * real browser download (fetch → blob → save under the strict CSP). Each test signs up its own user.
  */
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: { javaScriptEnabled?: boolean } = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		acceptDownloads: true,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik Privasi');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn31-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${APP_ORIGIN}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn31', name: 'Pemilik Privasi', ...opts });
 
 test('privacy page: consent shown, statistics switch persists, export downloads a ZIP', async ({
 	browser

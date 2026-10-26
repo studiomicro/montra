@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { BASE, addWallet, freshUser, today } from './ledger';
-import { waitForHydration } from './helpers';
+import { addWallet, freshUser, today } from './ledger';
+import { APP_ORIGIN, waitForHydration } from './helpers';
 
 /**
  * FN-54 Part D: the once-a-day greeting sheet. Only this spec keeps it on (`freshUser(…, { sapaan: true })`); every
@@ -9,7 +9,7 @@ import { waitForHydration } from './helpers';
 
 const story = (page: Page) => page.getByRole('dialog', { name: 'Sapaan harian' });
 const seen = async (page: Page) =>
-	(await page.context().cookies(BASE)).find((c) => c.name === 'montra-sapaan-seen')?.value;
+	(await page.context().cookies(APP_ORIGIN)).find((c) => c.name === 'montra-sapaan-seen')?.value;
 
 test('opens once after hydration, steps only on Berikutnya, Escape closes, the WIB date is remembered', async ({
 	browser
@@ -28,7 +28,7 @@ test('opens once after hydration, steps only on Berikutnya, Escape closes, the W
 	await expect(story(page).getByText('Tidak ada pengeluaran tercatat kemarin.')).toBeVisible();
 	await expect(story(page).locator('.progress li')).toHaveCount(1);
 	await expect(story(page).getByRole('button', { name: 'Selesai' })).toBeVisible();
-	// Nothing advances by itself.
+	// Nothing advances by itself: a negative, so a fixed wait is the only way to look.
 	await page.waitForTimeout(1500);
 	await expect(story(page).getByRole('heading', { name: 'Kemarin' })).toBeVisible();
 	await page.keyboard.press('Escape');
@@ -82,16 +82,18 @@ test('without JavaScript the Tampilan switch saves and the sheet never opens', a
 		storageState: await context.storageState()
 	});
 	const plain = await noJs.newPage();
-	await plain.goto(`${BASE}/`);
+	await plain.goto(`${APP_ORIGIN}/`);
 	await expect(story(plain)).toBeHidden();
-	await plain.goto(`${BASE}/pengaturan/tampilan`);
+	await plain.goto(`${APP_ORIGIN}/pengaturan/tampilan`);
 	const toggle = plain.getByRole('switch', { name: /Sapaan harian/ });
 	await expect(toggle).toBeChecked();
 	await toggle.uncheck();
 	await plain.locator('form.sapaan').getByRole('button', { name: 'Simpan' }).click();
 	await expect(plain.getByText('Perubahan disimpan.')).toBeVisible();
 	await expect(plain.getByRole('switch', { name: /Sapaan harian/ })).not.toBeChecked();
-	expect((await noJs.cookies(BASE)).find((c) => c.name === 'montra-sapaan-off')?.value).toBe('1');
+	expect((await noJs.cookies(APP_ORIGIN)).find((c) => c.name === 'montra-sapaan-off')?.value).toBe(
+		'1'
+	);
 	await noJs.close();
 	await context.close();
 });
@@ -113,9 +115,9 @@ test('the per-day figure is printed as Beranda prints it (compact, no sen)', asy
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo, 'fn54s', { sapaan: true });
 	await addWallet(page, 'BCA', '1.000.000');
-	await page.request.post(`${BASE}/?/setBudget`, {
+	await page.request.post(`${APP_ORIGIN}/?/setBudget`, {
 		form: { amount: '3.000.001', currency: 'IDR', updatedAt: '' },
-		headers: { origin: BASE }
+		headers: { origin: APP_ORIGIN }
 	});
 	await page.goto('/');
 	await waitForHydration(page);

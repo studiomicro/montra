@@ -1,12 +1,12 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
 	isPhone,
+	newUser,
 	SIGNED_OUT,
-	simulatedClientIp,
+	type UserOptions,
 	waitForHydration
 } from './helpers';
 
@@ -15,34 +15,11 @@ import {
  * flags are per user, so parallel tests never see each other's choices and the shared e2e user keeps the
  * default nav that shell.spec.ts counts.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 const MODULES = ['Kekayaan', 'Langganan', 'Barang', 'Koleksi', 'Ruang bersama'];
 const NO_NAV = 'Belum ada menu untuk disembunyikan';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: { javaScriptEnabled?: boolean } = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik Fitur');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn12-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn12', name: 'Pemilik Fitur', ...opts });
 
 const nav = (page: Page) =>
 	page.getByRole('navigation', { name: 'Navigasi utama' }).filter({ visible: true });
@@ -80,7 +57,7 @@ test('defaults on; hiding Kekayaan removes it from the nav without a gap, surviv
 	const csp = collectCspViolations(page);
 	await page.goto('/pengaturan');
 	await page.locator('main').getByRole('link', { name: 'Fitur' }).click();
-	await expect(page).toHaveURL(`${BASE}/pengaturan/fitur`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/pengaturan/fitur`);
 	await waitForHydration(page);
 	await expect(page.getByRole('heading', { level: 1, name: 'Fitur' })).toBeVisible();
 
@@ -121,7 +98,7 @@ test('defaults on; hiding Kekayaan removes it from the nav without a gap, surviv
 		page.getByText('Kekayaan disembunyikan dari menu. Angkanya tetap dihitung.')
 	).toBeVisible();
 	await page.getByRole('link', { name: 'Tampilkan lagi di menu' }).click();
-	await expect(page).toHaveURL(`${BASE}/pengaturan/fitur`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/pengaturan/fitur`);
 	await waitForHydration(page);
 
 	await page.getByRole('switch', { name: 'Kekayaan' }).click();
@@ -200,7 +177,7 @@ test('works without JavaScript: the row form posts and the nav follows', async (
 
 test('English labels and the signed-out redirect', async ({ browser }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
-	await context.addCookies([{ name: 'lang', value: 'en', url: BASE }]);
+	await context.addCookies([{ name: 'lang', value: 'en', url: APP_ORIGIN }]);
 	await page.goto('/pengaturan/fitur');
 	await expect(page.getByRole('heading', { level: 1, name: 'Features' })).toBeVisible();
 	await expect(page.getByRole('switch', { name: 'Net worth' })).toBeChecked();
@@ -212,7 +189,7 @@ test('English labels and the signed-out redirect', async ({ browser }, testInfo)
 	const anon = await browser.newContext({ storageState: SIGNED_OUT });
 	const p = await anon.newPage();
 	await p.goto('/pengaturan/fitur');
-	await expect(p).toHaveURL(`${BASE}/masuk?next=%2Fpengaturan%2Ffitur`);
+	await expect(p).toHaveURL(`${APP_ORIGIN}/masuk?next=%2Fpengaturan%2Ffitur`);
 	await anon.close();
 });
 
@@ -229,7 +206,7 @@ test('the Fitur sheet (Jelajahi fitur) switches a module, the nav follows, and i
 	await opener.click();
 	const sheet = page.getByRole('dialog', { name: 'Fitur' });
 	await expect(sheet).toBeVisible();
-	await expect(page).toHaveURL(`${BASE}/`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/`);
 	for (const name of ['Kekayaan bersih', 'Barang', 'Langganan', 'Koleksi'])
 		await expect(sheet.getByRole('switch', { name })).toBeChecked();
 	await expect(sheet.getByRole('switch', { name: 'Ruang bersama' })).toHaveCount(0);

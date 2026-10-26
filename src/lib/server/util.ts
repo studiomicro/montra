@@ -40,3 +40,20 @@ export function errorLabel(e: unknown): string {
 		...(typeof code === 'string' || typeof code === 'number' ? [String(code).slice(0, 40)] : [])
 	].join(' / ');
 }
+
+/**
+ * A page section's data, or `fallback` when `load` fails: the failure is logged by class only (errorLabel), so
+ * the section shows its own error state and the rest of the page loads as usual.
+ */
+export async function sectionOr<T, F>(
+	label: string,
+	load: Promise<T>,
+	fallback: F
+): Promise<T | F> {
+	try {
+		return await load;
+	} catch (e) {
+		console.error(label, errorLabel(e));
+		return fallback;
+	}
+}

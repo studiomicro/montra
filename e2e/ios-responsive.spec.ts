@@ -1,12 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+	APP_ORIGIN,
 	expectNoHorizontalScroll,
 	SIGNED_OUT,
+	signUp,
 	simulatedClientIp,
-	tickSignUpBoxes,
+	uniqueEmail,
 	waitForHydration
 } from './helpers';
-import { addWallet, BASE, ids, PASSWORD, postExpense } from './ledger';
+import { addWallet, ids, postExpense } from './ledger';
 
 /**
  * ios-responsive guard (owner request 2026-10-10): the key screens on WebKit (the closest engine to iOS Safari) at
@@ -122,18 +124,10 @@ test.describe('iPhone and Galaxy Z Fold layout', () => {
 		await page.context().setExtraHTTPHeaders({ 'cf-connecting-ip': simulatedClientIp(testInfo) });
 
 		// A fresh user with a long wallet name, a long merchant name and a very long rupiah amount.
-		await page.goto('/daftar');
-		await waitForHydration(page);
-		await page.getByLabel('Nama').fill('Pencatat Panjang Sekali Namanya');
-		await page
-			.getByLabel('E-mail')
-			.fill(`ios-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-		await page.getByLabel('Kata sandi').fill(PASSWORD);
-		await tickSignUpBoxes(page);
-		await page.getByRole('button', { name: 'Daftar' }).click();
-		await page.waitForURL(`${BASE}/`);
+		await signUp(page, { email: uniqueEmail('ios'), name: 'Pencatat Panjang Sekali Namanya' });
+		await page.waitForURL(`${APP_ORIGIN}/`);
 		// FN-54: the once-a-day greeting sheet would cover Beranda (e2e/sapaan.spec.ts tests it).
-		await page.context().addCookies([{ name: 'montra-sapaan-off', value: '1', url: BASE }]);
+		await page.context().addCookies([{ name: 'montra-sapaan-off', value: '1', url: APP_ORIGIN }]);
 		await addWallet(page, LONG_WALLET, '1.264.000.000');
 		await addWallet(page, 'Tunai', '250.000');
 		const { wallet, category } = await ids(page);
@@ -181,7 +175,9 @@ test.describe('iPhone and Galaxy Z Fold layout', () => {
 				expect(fab.width).toBeGreaterThanOrEqual(44);
 
 				await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-				await page.waitForTimeout(150);
+				await page.waitForFunction(
+					() => window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1
+				);
 				const c = await coverage(page);
 				expect(c.barBottomGap, `${path} bars above the home indicator`).toBeGreaterThanOrEqual(
 					insets.bottom

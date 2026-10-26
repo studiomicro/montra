@@ -13,6 +13,7 @@ import {
 	moveCardStatementsOfBatch,
 	tombstoneCardStatementsOfBatch
 } from '../cards/statements';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 /** Most batches the history lists (newest first). */
 const IMPORT_LIST_MAX = 50;
@@ -138,7 +139,7 @@ export async function undoImportBatch(
 			.update(importBatches)
 			.set({
 				undoneAt: now,
-				updatedAt: Math.max(now, expectedUpdatedAt + 1),
+				updatedAt: nextUpdatedAt(expectedUpdatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -158,7 +159,7 @@ export async function undoImportBatch(
 			.set({
 				deletedAt: now,
 				...TOMBSTONE_CONTENT,
-				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -297,26 +298,31 @@ export type MoveResult =
 				| MoveBlocked;
 	  };
 
+type MoveRefusal = Extract<MoveResult, { ok: false }>['reason'];
+
+/** SQL condition: the batch is live in the space and the user still a live member of it. */
+const visibleBatch = (scope: SpaceScope, batchId: string) =>
+	and(
+		eq(importBatches.id, batchId),
+		eq(importBatches.spaceId, scope.spaceId),
+		isNull(importBatches.deletedAt),
+		isLiveMember(scope.spaceId, scope.userId)
+	);
+
 /**
- * "Pindahkan ke dompet lain" (FN-16j): every live transaction of the batch moves from the one wallet they all sit
- * in to `targetWalletId` (a transfer only on that side; a transfer whose other side is the target is skipped), and
- * a statement batch's continuity wallet follows, in one `db.batch`. The batch row is changed first, guarded by
- * the page's version, membership, every live row still on the source wallet, no live transfer link on its rows and a
- * live same-currency target;
- * the rows and the audit event follow only when that statement changed the batch in this very batch (its `seq`),
- * so a refusal writes nothing. Amounts, currencies and dates are never touched.
+ * A move's checks, read before its write (the write repeats each one as a guard): the batch as the page showed it,
+ * every live row on one source wallet with no transfer link, a live target of the same currency, and FN-55b's card
+ * rules. The refusal, or the source wallet, the target and the batch's card statement (null for none).
  */
-export async function moveImportBatch(
+async function checkMove(
 	db: Db,
 	scope: SpaceScope,
 	batchId: string,
 	targetWalletId: string,
-	expectedUpdatedAt: number,
-	now: number
-): Promise<MoveResult> {
-	const { spaceId, userId } = scope;
-	const refuse = (reason: Extract<MoveResult, { ok: false }>['reason']) =>
-		({ ok: false, reason }) as const;
+	expectedUpdatedAt: number
+) {
+	const { spaceId } = scope;
+	const refuse = (reason: MoveRefusal) => ({ ok: false, reason }) as const;
 	const batch = await db
 		.select({
 			undoneAt: importBatches.undoneAt,
@@ -324,14 +330,7 @@ export async function moveImportBatch(
 			source: importBatches.source
 		})
 		.from(importBatches)
-		.where(
-			and(
-				eq(importBatches.id, batchId),
-				eq(importBatches.spaceId, spaceId),
-				isNull(importBatches.deletedAt),
-				isLiveMember(spaceId, userId)
-			)
-		)
+		.where(visibleBatch(scope, batchId))
 		.get();
 	if (!batch) return refuse('missing');
 	if (batch.undoneAt !== null) return refuse('already');
@@ -356,6 +355,56 @@ export async function moveImportBatch(
 	if (card && target.type !== 'kartu_kredit') return refuse('card_wallet_required');
 	if (!card && batch.source === 'statement' && target.type === 'kartu_kredit')
 		return refuse('bank_statement_to_card');
+	return { ok: true, source, target, card } as const;
+}
+
+/**
+ * Why a move's guarded write changed nothing. A member removed while the move ran gets `missing`, as before it
+ * (FN-16j red team L1).
+ */
+async function whyNotMoved(
+	db: Db,
+	scope: SpaceScope,
+	batchId: string,
+	targetId: string,
+	card: { statementDate: string } | null
+): Promise<MoveRefusal> {
+	const row = await db
+		.select({ undoneAt: importBatches.undoneAt })
+		.from(importBatches)
+		.where(visibleBatch(scope, batchId))
+		.get();
+	if (!row) return 'missing';
+	if (row.undoneAt === null && card) {
+		const taken = await db.get<{ n: number }>(sql`select count(*) as n from card_statements
+			where space_id = ${scope.spaceId} and wallet_id = ${targetId} and deleted_at is null
+				and statement_date = ${card.statementDate}`);
+		if ((taken?.n ?? 0) > 0) return 'card_statement_exists';
+	}
+	return row.undoneAt !== null ? 'already' : 'stale';
+}
+
+/**
+ * "Pindahkan ke dompet lain" (FN-16j): every live transaction of the batch moves from the one wallet they all sit
+ * in to `targetWalletId` (a transfer only on that side; a transfer whose other side is the target is skipped), and
+ * a statement batch's continuity wallet follows, in one `db.batch`. The batch row is changed first, guarded by
+ * the page's version, membership, every live row still on the source wallet, no live transfer link on its rows and a
+ * live same-currency target;
+ * the rows and the audit event follow only when that statement changed the batch in this very batch (its `seq`),
+ * so a refusal writes nothing. Amounts, currencies and dates are never touched.
+ */
+export async function moveImportBatch(
+	db: Db,
+	scope: SpaceScope,
+	batchId: string,
+	targetWalletId: string,
+	expectedUpdatedAt: number,
+	now: number
+): Promise<MoveResult> {
+	const { spaceId, userId } = scope;
+	const checked = await checkMove(db, scope, batchId, targetWalletId, expectedUpdatedAt);
+	if (!checked.ok) return checked;
+	const { source, target } = checked;
 	const targetIsCard = sql`exists (select 1 from wallets w where w.id = ${target.id}
 		and w.space_id = ${spaceId} and w.deleted_at is null and w.type = 'kartu_kredit')`;
 	const bankGuard = sql`not (${targetIsCard} and exists (select 1 from import_batches b
@@ -380,7 +429,7 @@ export async function moveImportBatch(
 	const moved = sql`exists (select 1 from import_batches b where b.id = ${batchId}
 		and b.space_id = ${spaceId} and b.seq = ${currentSpaceSeq(spaceId)})`;
 	const stamp = {
-		updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+		updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 		seq: currentSpaceSeq(spaceId)
 	};
 	const isTransfer = eq(transactions.type, 'transfer');
@@ -390,7 +439,7 @@ export async function moveImportBatch(
 			.update(importBatches)
 			.set({
 				walletId: sql`case when ${importBatches.walletId} is null then null else ${target.id} end`,
-				updatedAt: Math.max(now, expectedUpdatedAt + 1),
+				updatedAt: nextUpdatedAt(expectedUpdatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -468,29 +517,8 @@ export async function moveImportBatch(
 		),
 		moveCardStatementsOfBatch(db, spaceId, batchId, target.id, now, moved)
 	]);
-	if (changed.length !== 1) {
-		// A member removed while the move ran gets `missing`, as before it (FN-16j red team L1).
-		const row = await db
-			.select({ undoneAt: importBatches.undoneAt })
-			.from(importBatches)
-			.where(
-				and(
-					eq(importBatches.id, batchId),
-					eq(importBatches.spaceId, spaceId),
-					isNull(importBatches.deletedAt),
-					isLiveMember(spaceId, userId)
-				)
-			)
-			.get();
-		if (!row) return refuse('missing');
-		if (row.undoneAt === null && card) {
-			const taken = await db.get<{ n: number }>(sql`select count(*) as n from card_statements
-				where space_id = ${spaceId} and wallet_id = ${target.id} and deleted_at is null
-					and statement_date = ${card.statementDate}`);
-			if ((taken?.n ?? 0) > 0) return refuse('card_statement_exists');
-		}
-		return refuse(row.undoneAt !== null ? 'already' : 'stale');
-	}
+	if (changed.length !== 1)
+		return { ok: false, reason: await whyNotMoved(db, scope, batchId, target.id, checked.card) };
 	return {
 		ok: true,
 		moved: plain.length + fromSide.length + toSide.length,

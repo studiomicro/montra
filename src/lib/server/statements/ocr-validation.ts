@@ -9,7 +9,7 @@ import {
 	OCR_PAYLOAD_INVALID,
 	STATEMENT_SECTION_INVALID
 } from '../imports/messages';
-import { ID_MAX_LENGTH } from '../transactions/validation';
+import { ID_MAX_LENGTH } from '../forms';
 
 /**
  * The on-device OCR actions' input (FN-16g, PRD Scope 4): the recognised words only (never an image), checked

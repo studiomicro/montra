@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoHorizontalScroll, simulatedClientIp, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense, rp } from './ledger';
+import {
+	APP_ORIGIN,
+	expectNoHorizontalScroll,
+	simulatedClientIp,
+	waitForHydration
+} from './helpers';
+import { addWallet, freshUser, ids, postExpense, rp } from './ledger';
 
 /**
  * Laporan (FN-09, layout parity wave B): tapping a heatmap day opens that day's transactions, and the
@@ -58,7 +63,7 @@ test('the Bulanan/Tahunan switch changes the view and back; no horizontal scroll
 
 	const year = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 4);
 	await page.getByRole('radio', { name: 'Tahunan' }).check();
-	await page.waitForURL(`${BASE}/laporan?y=${year}`);
+	await page.waitForURL(`${APP_ORIGIN}/laporan?y=${year}`);
 	await expect(page.getByRole('heading', { name: 'Tren bulanan' })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Kategori dari waktu ke waktu' })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Tren harian' })).toHaveCount(0);
@@ -66,7 +71,7 @@ test('the Bulanan/Tahunan switch changes the view and back; no horizontal scroll
 	await expectNoHorizontalScroll(page);
 
 	await page.getByRole('radio', { name: 'Bulanan' }).check();
-	await page.waitForURL(`${BASE}/laporan`);
+	await page.waitForURL(`${APP_ORIGIN}/laporan`);
 	await expect(page.getByRole('heading', { name: 'Tren harian' })).toBeVisible();
 	await context.close();
 });

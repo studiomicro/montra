@@ -37,7 +37,7 @@ import type { SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq } from '../sync/seq';
 import {
 	insertTransactions,
-	MAX_TRANSACTIONS_PER_SPACE,
+	transactionCapReached,
 	type NewTransaction
 } from '../transactions/repo';
 import { resolveMerchants, type ResolveRequestItem } from '../merchants/resolve';
@@ -519,15 +519,264 @@ async function resolvedCategoryNames(
 	return names;
 }
 
+/** A ready row of the file: its index (the dedupe key's suffix) and its mapped values. */
+type ReadyRow = Classified['fresh'][number];
+
+/** The rows one attempt writes, with the new wallets and categories they use (created only with them). */
+interface ImportPlan {
+	rows: NewTransaction[];
+	newWallets: Map<string, { id: string; name: string }>;
+	newCategories: Map<string, { id: string; kind: CategoryKind; name: string }>;
+	/** Rows FN-05's validator refused, or that would pass the wallet or category cap. */
+	skipped: number;
+}
+
+/** What an attempt plans against: the space's wallets and categories as just read, and the batch's id. */
+interface ImportTargets {
+	wallets: Awaited<ReturnType<typeof listWallets>>;
+	categories: CategorySummary[];
+	/** FN-20's category names by `rowKey` (resolvedCategoryNames). */
+	resolvedNames: ReadonlyMap<string, string>;
+	batchId: string;
+}
+
 /**
- * Imports rows the server prepared from a file (FN-18 CSV, FN-16a statements). Each ready
- * row's wallet (its name, else its payment method, else `defaultWalletId`) and category (`categoryNameOf`) are
- * looked up in the space or planned as new ones, then the row is checked by FN-05's
- * validator for captured rows (`capturedTransactionInput`). Only rows that pass are written, through FN-05's one
- * insert path with source `csv` and the dedupe key `csv:<file hash>:<record index>`; only the new wallets and
- * categories those rows use are created. Rows already imported from this file are counted, never written again.
- * New wallets and categories, the batch row and every transaction are one `db.batch` that asserts every row was
- * written (all or nothing: nothing is created when nothing is imported). A concurrent import that won a race is
+ * FN-17 (`createMissing: false`): the row in the chosen wallet and a visible category, or none; never a new
+ * wallet or category. Null when FN-05's validator refuses it.
+ */
+function rowInPlace(
+	{ index, value }: ReadyRow,
+	prepared: PreparedRows,
+	fallbackWallet: WalletRef | null,
+	categoryId: string | null,
+	batchId: string
+): NewTransaction | null {
+	const checked = capturedTransactionInput(
+		{
+			type: value.type,
+			amountMinor: value.amountMinor,
+			currency: value.currency,
+			walletId: fallbackWallet?.id ?? null,
+			categoryId,
+			title: value.title,
+			note: value.notes,
+			occurredOn: value.date
+		},
+		{
+			wallet: fallbackWallet,
+			toWallet: null,
+			category: categoryId ? { id: categoryId, kind: value.type } : null
+		},
+		{ allowNoCategory: true }
+	);
+	if (!checked.ok) return null;
+	return {
+		id: newId(),
+		input: checked.value,
+		origin: {
+			source: prepared.source,
+			dedupeKey: dedupeKey(prepared.keyPrefix, index),
+			occurredAt: wibInstantUtcMs(value.date, IMPORTED_TIME),
+			categorySource: categorySourceOf(value)
+		},
+		importBatchId: batchId,
+		extras: { paymentMethod: null, recurrence: null, tag: null, reference: null },
+		allowNoCategory: categoryId === null
+	};
+}
+
+/**
+ * One attempt's rows: each ready row's wallet (its name, else its payment method, else `fallbackWallet`) and
+ * category (`categoryNameOf`) looked up in the space or planned as new, then checked by FN-05's validator for
+ * captured rows. New names get an id once; they are created only when a row that passed uses them, and only
+ * within the space's wallet and category caps.
+ */
+function planImport(
+	prepared: PreparedRows,
+	input: ImportRowsOptions,
+	wanted: readonly ReadyRow[],
+	targets: ImportTargets
+): ImportPlan {
+	const { fallbackWallet } = input;
+	const createMissing = input.createMissing ?? true;
+	const { wallets: allWallets, categories: allCategories, batchId } = targets;
+	const liveWallets = new Map<string, WalletRef>();
+	for (const w of allWallets) {
+		const key = asciiLowerKey(w.name);
+		if (!w.archived && !liveWallets.has(key))
+			liveWallets.set(key, { id: w.id, currency: w.currency });
+	}
+	const categoryIndex = visibleCategoryIndex(allCategories);
+	const visibleCategories = categoryIndex.byName;
+	const resolvedName = (row: Pick<RawCsvTransaction, 'title' | 'type'>) =>
+		targets.resolvedNames.get(rowKey(row));
+	/** FN-55b: a card row's preset tile, as the space's visible preset of that tile and the row's kind. */
+	const tiledPreset = (index: number, kind: CategoryKind) => {
+		const tile = prepared.tiles?.get(index);
+		return tile === undefined
+			? undefined
+			: allCategories.find(
+					(c) => c.isPreset && !c.isHidden && c.tileKey === tile && c.kind === kind
+				);
+	};
+	const categoryOf = (index: number, r: RawCsvTransaction) =>
+		tiledPreset(index, r.type)?.name ?? categoryNameOf(r, categoryIndex.presetOf, resolvedName);
+	const planned = new Map<string, string>();
+	const plannedId = (key: string) => planned.get(key) ?? planned.set(key, newId()).get(key)!;
+	const plan: ImportPlan = {
+		rows: [],
+		newWallets: new Map(),
+		newCategories: new Map(),
+		skipped: 0
+	};
+	const { newWallets, newCategories } = plan;
+	let walletRoom = MAX_WALLETS_PER_SPACE - allWallets.length;
+	let categoryRoom = MAX_CATEGORIES_PER_SPACE - allCategories.length;
+
+	for (const row of wanted) {
+		const { index, value } = row;
+		if (!createMissing) {
+			const categoryId = matchVisibleCategory(value, categoryIndex, resolvedName);
+			const placed = rowInPlace(row, prepared, fallbackWallet, categoryId, batchId);
+			if (placed) plan.rows.push(placed);
+			else plan.skipped++;
+			continue;
+		}
+		const name = maskAccountNumbers(cleanText(value.walletName, WALLET_NAME_MAX_LENGTH));
+		const walletKey = asciiLowerKey(name);
+		const existingWallet = name ? (liveWallets.get(walletKey) ?? null) : fallbackWallet;
+		const wallet = existingWallet ?? { id: plannedId(`w:${walletKey}`), currency: 'IDR' };
+		const categoryName = categoryOf(index, value);
+		const categoryKey = categoryNameKey(value.type, categoryName);
+		const categoryId = visibleCategories.get(categoryKey) ?? plannedId(`c:${categoryKey}`);
+		const checked = capturedTransactionInput(
+			{
+				type: value.type,
+				amountMinor: value.amountMinor,
+				currency: value.currency,
+				walletId: name || existingWallet ? wallet.id : null,
+				categoryId,
+				title: value.title,
+				note: value.notes,
+				occurredOn: value.date
+			},
+			{
+				wallet: name || existingWallet ? wallet : null,
+				toWallet: null,
+				category: { id: categoryId, kind: value.type }
+			}
+		);
+		const needsWallet = !existingWallet && !newWallets.has(walletKey);
+		const needsCategory = !visibleCategories.has(categoryKey) && !newCategories.has(categoryKey);
+		if (!checked.ok || (needsWallet && walletRoom < 1) || (needsCategory && categoryRoom < 1)) {
+			plan.skipped++;
+			continue;
+		}
+		if (needsWallet) {
+			newWallets.set(walletKey, { id: wallet.id, name });
+			walletRoom--;
+		}
+		if (needsCategory) {
+			newCategories.set(categoryKey, { id: categoryId, kind: value.type, name: categoryName });
+			categoryRoom--;
+		}
+		plan.rows.push({
+			id: newId(),
+			input: checked.value,
+			origin: {
+				source: prepared.source,
+				dedupeKey: prepared.keys?.get(index) ?? dedupeKey(prepared.keyPrefix, index),
+				occurredAt: wibInstantUtcMs(value.date, IMPORTED_TIME),
+				categorySource: categorySourceOf(value)
+			},
+			importBatchId: batchId,
+			extras: {
+				paymentMethod: optional(value.paymentMethod, EXTRA_MAX_LENGTH),
+				recurrence: optional(value.recurrence, EXTRA_MAX_LENGTH),
+				tag: optional(value.tag, EXTRA_MAX_LENGTH),
+				reference: optional(value.reference, EXTRA_MAX_LENGTH)
+			}
+		});
+	}
+	return plan;
+}
+
+/**
+ * Writes a planned import as one `db.batch`: the new wallets and categories, the batch row, every transaction
+ * (in INSERT_CHUNK chunks, each only while the batch row exists), an assertion that every row was written, and a
+ * card statement's record with its own assertion. Throws when a guard refused (nothing is written).
+ */
+async function writeImport(
+	db: Db,
+	scope: SpaceScope,
+	prepared: PreparedRows,
+	input: ImportRowsOptions,
+	plan: ImportPlan,
+	batchId: string,
+	counts: CsvCounts,
+	now: number
+): Promise<void> {
+	const { spaceId } = scope;
+	const { fallbackWallet } = input;
+	const { rows, newWallets, newCategories } = plan;
+	const chunks: NewTransaction[][] = [];
+	for (let i = 0; i < rows.length; i += INSERT_CHUNK) chunks.push(rows.slice(i, i + INSERT_CHUNK));
+	const batchExists = () => sql`exists (select 1 from import_batches b where b.id = ${batchId})`;
+	await db.batch([
+		bumpSpaceSeq(db, spaceId),
+		...(newWallets.size > 0 ? insertImportedWallets(db, scope, [...newWallets.values()], now) : []),
+		...(newCategories.size > 0
+			? [insertImportedCategories(db, scope, [...newCategories.values()], now)]
+			: []),
+		createImportBatch(
+			db,
+			scope,
+			{
+				id: batchId,
+				source: prepared.source,
+				format: prepared.format,
+				filename: input.filename,
+				rowCount: counts.rows,
+				importedCount: counts.imported,
+				skippedCount: counts.skipped + counts.foreignCurrency,
+				alreadyImportedCount: counts.already,
+				statement:
+					input.statement && fallbackWallet
+						? { walletId: fallbackWallet.id, ...input.statement }
+						: null
+			},
+			now
+		),
+		...chunks.map((chunk) => insertTransactions(db, scope, chunk, now, batchExists)),
+		batchAssert(
+			db,
+			sql`(select count(*) from transactions t where t.space_id = ${spaceId}
+				and t.import_batch_id = ${batchId}) = ${rows.length}`
+		),
+		...(input.card && fallbackWallet
+			? [
+					insertCardStatement(
+						db,
+						scope,
+						{
+							batchId,
+							walletId: fallbackWallet.id,
+							card: input.card,
+							currency: fallbackWallet.currency
+						},
+						now
+					),
+					batchAssert(db, batchHasCardStatement(spaceId, batchId))
+				]
+			: [])
+	]);
+}
+
+/**
+ * Imports rows the server prepared from a file (FN-18 CSV, FN-16a statements): planned by `planImport`, written
+ * by `writeImport` through FN-05's one insert path with source `csv` and the dedupe key
+ * `csv:<file hash>:<record index>`. Rows already imported from this file are counted, never written again. The
+ * write is all or nothing (nothing is created when nothing is imported). A concurrent import that won a race is
  * answered by planning again.
  */
 export async function importRows(
@@ -538,12 +787,6 @@ export async function importRows(
 	now: number
 ): Promise<ImportRowsResult> {
 	const { spaceId } = scope;
-	const { fallbackWallet } = input;
-	const createMissing = input.createMissing ?? true;
-	const { source, format, keyPrefix, keys } = prepared;
-	const walletNameOf = (r: RawCsvTransaction) =>
-		maskAccountNumbers(cleanText(r.walletName, WALLET_NAME_MAX_LENGTH));
-
 	let resolvedNames: Map<string, string> | null = null;
 	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 		const { counts, fresh, flagged } = await classify(db, spaceId, prepared);
@@ -552,215 +795,38 @@ export async function importRows(
 		if (wanted.length === 0) return { ok: true, batchId: null, counts };
 
 		await ensurePresetCategories(db, spaceId, now);
-		const [allWallets, allCategories] = await Promise.all([
+		const [wallets, categories] = await Promise.all([
 			listWallets(db, spaceId, { includeArchived: true }),
 			listCategories(db, spaceId, { includeHidden: true })
 		]);
-		const liveWallets = new Map<string, WalletRef>();
-		for (const w of allWallets) {
-			const key = asciiLowerKey(w.name);
-			if (!w.archived && !liveWallets.has(key))
-				liveWallets.set(key, { id: w.id, currency: w.currency });
-		}
-		const categoryIndex = visibleCategoryIndex(allCategories);
-		const visibleCategories = categoryIndex.byName;
 		// Resolved once per import (a retried attempt reuses it: no second AI call).
 		resolvedNames ??= await resolvedCategoryNames(
 			db,
 			scope,
 			wanted.filter((r) => !prepared.tiles?.has(r.index)),
-			allCategories.filter((c) => !c.isHidden),
+			categories.filter((c) => !c.isHidden),
 			input.merchantEnv,
 			now
 		);
-		const names = resolvedNames;
-		const resolvedName = (row: Pick<RawCsvTransaction, 'title' | 'type'>) => names.get(rowKey(row));
-		/** FN-55b: a card row's preset tile, as the space's visible preset of that tile and the row's kind. */
-		const tiledPreset = (index: number, kind: CategoryKind) => {
-			const tile = prepared.tiles?.get(index);
-			return tile === undefined
-				? undefined
-				: allCategories.find(
-						(c) => c.isPreset && !c.isHidden && c.tileKey === tile && c.kind === kind
-					);
-		};
-		const categoryOf = (index: number, r: RawCsvTransaction) =>
-			tiledPreset(index, r.type)?.name ?? categoryNameOf(r, categoryIndex.presetOf, resolvedName);
-		// New names get an id once; they are created only when a row that passed the validator uses them.
-		const planned = new Map<string, string>();
-		const plannedId = (key: string) => planned.get(key) ?? planned.set(key, newId()).get(key)!;
-		const newWallets = new Map<string, { id: string; name: string }>();
-		const newCategories = new Map<string, { id: string; kind: CategoryKind; name: string }>();
-		let walletRoom = MAX_WALLETS_PER_SPACE - allWallets.length;
-		let categoryRoom = MAX_CATEGORIES_PER_SPACE - allCategories.length;
-
 		const batchId = newId();
-		const rows: NewTransaction[] = [];
-		for (const { index, value } of wanted) {
-			if (!createMissing) {
-				// FN-17: the chosen wallet and a visible category, or none; never a new wallet or category.
-				const categoryId = matchVisibleCategory(value, categoryIndex, resolvedName);
-				const checked = capturedTransactionInput(
-					{
-						type: value.type,
-						amountMinor: value.amountMinor,
-						currency: value.currency,
-						walletId: fallbackWallet?.id ?? null,
-						categoryId,
-						title: value.title,
-						note: value.notes,
-						occurredOn: value.date
-					},
-					{
-						wallet: fallbackWallet,
-						toWallet: null,
-						category: categoryId ? { id: categoryId, kind: value.type } : null
-					},
-					{ allowNoCategory: true }
-				);
-				if (!checked.ok) {
-					counts.skipped++;
-					continue;
-				}
-				rows.push({
-					id: newId(),
-					input: checked.value,
-					origin: {
-						source,
-						dedupeKey: dedupeKey(keyPrefix, index),
-						occurredAt: wibInstantUtcMs(value.date, IMPORTED_TIME),
-						categorySource: categorySourceOf(value)
-					},
-					importBatchId: batchId,
-					extras: { paymentMethod: null, recurrence: null, tag: null, reference: null },
-					allowNoCategory: categoryId === null
-				});
-				continue;
-			}
-			const name = walletNameOf(value);
-			const walletKey = asciiLowerKey(name);
-			const existingWallet = name ? (liveWallets.get(walletKey) ?? null) : fallbackWallet;
-			const wallet = existingWallet ?? { id: plannedId(`w:${walletKey}`), currency: 'IDR' };
-			const categoryName = categoryOf(index, value);
-			const categoryKey = categoryNameKey(value.type, categoryName);
-			const categoryId = visibleCategories.get(categoryKey) ?? plannedId(`c:${categoryKey}`);
-			const checked = capturedTransactionInput(
-				{
-					type: value.type,
-					amountMinor: value.amountMinor,
-					currency: value.currency,
-					walletId: name || existingWallet ? wallet.id : null,
-					categoryId,
-					title: value.title,
-					note: value.notes,
-					occurredOn: value.date
-				},
-				{
-					wallet: name || existingWallet ? wallet : null,
-					toWallet: null,
-					category: { id: categoryId, kind: value.type }
-				}
-			);
-			const needsWallet = !existingWallet && !newWallets.has(walletKey);
-			const needsCategory = !visibleCategories.has(categoryKey) && !newCategories.has(categoryKey);
-			if (!checked.ok || (needsWallet && walletRoom < 1) || (needsCategory && categoryRoom < 1)) {
-				counts.skipped++;
-				continue;
-			}
-			if (needsWallet) {
-				newWallets.set(walletKey, { id: wallet.id, name });
-				walletRoom--;
-			}
-			if (needsCategory) {
-				newCategories.set(categoryKey, { id: categoryId, kind: value.type, name: categoryName });
-				categoryRoom--;
-			}
-			rows.push({
-				id: newId(),
-				input: checked.value,
-				origin: {
-					source,
-					dedupeKey: keys?.get(index) ?? dedupeKey(keyPrefix, index),
-					occurredAt: wibInstantUtcMs(value.date, IMPORTED_TIME),
-					categorySource: categorySourceOf(value)
-				},
-				importBatchId: batchId,
-				extras: {
-					paymentMethod: optional(value.paymentMethod, EXTRA_MAX_LENGTH),
-					recurrence: optional(value.recurrence, EXTRA_MAX_LENGTH),
-					tag: optional(value.tag, EXTRA_MAX_LENGTH),
-					reference: optional(value.reference, EXTRA_MAX_LENGTH)
-				}
-			});
-		}
-		counts.imported = rows.length;
-		if (rows.length === 0) return { ok: true, batchId: null, counts };
-
-		const chunks: NewTransaction[][] = [];
-		for (let i = 0; i < rows.length; i += INSERT_CHUNK)
-			chunks.push(rows.slice(i, i + INSERT_CHUNK));
-		const batchExists = () => sql`exists (select 1 from import_batches b where b.id = ${batchId})`;
+		const plan = planImport(prepared, input, wanted, {
+			wallets,
+			categories,
+			resolvedNames,
+			batchId
+		});
+		counts.skipped += plan.skipped;
+		counts.imported = plan.rows.length;
+		if (plan.rows.length === 0) return { ok: true, batchId: null, counts };
 		try {
-			await db.batch([
-				bumpSpaceSeq(db, spaceId),
-				...(newWallets.size > 0
-					? insertImportedWallets(db, scope, [...newWallets.values()], now)
-					: []),
-				...(newCategories.size > 0
-					? [insertImportedCategories(db, scope, [...newCategories.values()], now)]
-					: []),
-				createImportBatch(
-					db,
-					scope,
-					{
-						id: batchId,
-						source,
-						format,
-						filename: input.filename,
-						rowCount: counts.rows,
-						importedCount: counts.imported,
-						skippedCount: counts.skipped + counts.foreignCurrency,
-						alreadyImportedCount: counts.already,
-						statement:
-							input.statement && fallbackWallet
-								? { walletId: fallbackWallet.id, ...input.statement }
-								: null
-					},
-					now
-				),
-				...chunks.map((chunk) => insertTransactions(db, scope, chunk, now, batchExists)),
-				batchAssert(
-					db,
-					sql`(select count(*) from transactions t where t.space_id = ${spaceId}
-						and t.import_batch_id = ${batchId}) = ${rows.length}`
-				),
-				...(input.card && fallbackWallet
-					? [
-							insertCardStatement(
-								db,
-								scope,
-								{
-									batchId,
-									walletId: fallbackWallet.id,
-									card: input.card,
-									currency: fallbackWallet.currency
-								},
-								now
-							),
-							batchAssert(db, batchHasCardStatement(spaceId, batchId))
-						]
-					: [])
-			]);
+			await writeImport(db, scope, prepared, input, plan, batchId, counts, now);
 			return { ok: true, batchId, counts };
 		} catch (e) {
 			// Another request imported (some of) this file first: count again, write only what is left.
 			if (isUniqueViolation(e)) continue;
 			if (!isBatchAssertFailure(e)) throw e;
 		}
-		const [live] = await db.all<{ n: number }>(
-			sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-		);
-		if ((live?.n ?? 0) + rows.length > MAX_TRANSACTIONS_PER_SPACE)
+		if (await transactionCapReached(db, spaceId, plan.rows.length))
 			return { ok: false, error: 'limit' };
 		// A wallet or category of the same name may have been created meanwhile: plan again, then give up.
 		if (attempt === MAX_ATTEMPTS - 1) return { ok: false, error: 'gone' };

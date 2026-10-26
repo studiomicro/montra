@@ -15,6 +15,7 @@
 	import { useI18n } from '#lib/ui/i18n-context';
 	import AmountInput from '#lib/ui/kit/AmountInput.svelte';
 	import Button from '#lib/ui/kit/Button.svelte';
+	import RadioPills from '#lib/ui/kit/RadioPills.svelte';
 
 	let {
 		action,
@@ -75,14 +76,11 @@
 
 	<fieldset aria-describedby={error('kind') ? `${uid}-kind-error` : undefined}>
 		<legend>{tr('Jenis')}</legend>
-		<div class="pills">
-			{#each NET_WORTH_KINDS as k (k)}
-				<label class="pill">
-					<input type="radio" name="kind" value={k} bind:group={kind} />
-					<span>{tr(NET_WORTH_KIND_LABELS[k])}</span>
-				</label>
-			{/each}
-		</div>
+		<RadioPills
+			name="kind"
+			options={NET_WORTH_KINDS.map((k) => ({ value: k, label: tr(NET_WORTH_KIND_LABELS[k]) }))}
+			bind:value={kind}
+		/>
 		{#if error('kind')}<p id="{uid}-kind-error" class="error">{error('kind')}</p>{/if}
 	</fieldset>
 
@@ -237,39 +235,6 @@
 	.field {
 		display: grid;
 		gap: 6px;
-	}
-	.pills {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-	}
-	.pill {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		padding: 0 16px;
-		border-radius: var(--r-pill);
-		background: var(--panel);
-		color: var(--ink);
-		font-size: 15px;
-		font-weight: 600;
-		cursor: pointer;
-	}
-	.pill input {
-		position: absolute;
-		inset: 0;
-		margin: 0;
-		opacity: 0;
-		cursor: pointer;
-	}
-	.pill:has(input:checked) {
-		background: var(--action);
-		color: var(--on-action);
-	}
-	.pill:has(input:focus-visible) {
-		outline: 2px solid var(--brand);
-		outline-offset: 2px;
 	}
 	select,
 	input[type='date'] {

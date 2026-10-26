@@ -27,6 +27,7 @@
 	import GroupList from '#lib/ui/kit/GroupList.svelte';
 	import GroupRow from '#lib/ui/kit/GroupRow.svelte';
 	import BrandBadge from '#lib/ui/kit/BrandBadge.svelte';
+	import HeroFigure from '#lib/ui/kit/HeroFigure.svelte';
 	import Skeleton from '#lib/ui/kit/Skeleton.svelte';
 	import StatusTag from '#lib/ui/kit/StatusTag.svelte';
 	import EmptyState from '#lib/ui/shell/EmptyState.svelte';
@@ -388,7 +389,7 @@
 	{#if main}
 		<section class="hero" aria-labelledby="total-label">
 			<p id="total-label" class="label">{tr('Perkiraan biaya per bulan')}</p>
-			<p class="figure num">{totalText(main)}</p>
+			<HeroFigure>{totalText(main)}</HeroFigure>
 			{#if others.length > 0}
 				<p class="other num">
 					{trf('Ditambah {jumlah} dalam mata uang lain', {
@@ -494,19 +495,6 @@
 	.hero .note {
 		max-width: 52ch;
 		font-size: 13px;
-	}
-	.figure {
-		margin: 0;
-		font-size: 44px;
-		font-weight: 700;
-		line-height: 1.05;
-		letter-spacing: -0.04em;
-		overflow-wrap: anywhere;
-	}
-	@media (min-width: 1024px) {
-		.figure {
-			font-size: 52px;
-		}
 	}
 	.open {
 		display: flex;

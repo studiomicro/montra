@@ -1,69 +1,24 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
 import {
-	tickSignUpBoxes,
+	APP_ORIGIN,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
-	waitForHydration,
-	APP_ORIGIN
+	newUser,
+	type UserOptions,
+	waitForHydration
 } from './helpers';
+import { addWalletInSheet } from './ledger';
 
 /**
  * FN-04 journeys. Every test signs up its own fictional user in its own context (own simulated client address),
  * so its personal space starts with no wallets and parallel tests never see each other's wallets.
  */
-const BASE = APP_ORIGIN;
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(
-	browser: Browser,
-	testInfo: TestInfo,
-	opts: {
-		javaScriptEnabled?: boolean;
-		colorScheme?: 'light' | 'dark';
-		viewport?: { width: number; height: number };
-	} = {}
-) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) },
-		...opts
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik Dompet');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn04-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'fn04', name: 'Pemilik Dompet', ...opts });
 
 async function openDompet(page: Page) {
 	await page.goto('/dompet');
 	await waitForHydration(page);
-}
-
-/** Adds a wallet through the sheet; resolves once the server-confirmed row is listed. */
-async function addWallet(
-	page: Page,
-	w: { name: string; type?: string; balance?: string; lastFour?: string; favourite?: boolean }
-) {
-	await page.getByRole('link', { name: 'Tambah dompet' }).first().click();
-	const sheet = page.getByRole('dialog', { name: 'Tambah dompet' });
-	await expect(sheet).toBeVisible();
-	await sheet.getByLabel('Nama dompet').fill(w.name);
-	await sheet.getByRole('radio', { name: w.type ?? 'Bank' }).check();
-	if (w.balance) await sheet.getByLabel('Saldo awal').fill(w.balance);
-	if (w.lastFour) await sheet.getByLabel('4 angka terakhir (opsional)').fill(w.lastFour);
-	if (w.favourite) await sheet.getByLabel('Jadikan favorit').check();
-	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
-	await expect(sheet).toBeHidden();
-	await expect(page.getByText('Dompet ditambahkan.')).toBeVisible();
 }
 
 const row = (page: Page, name: string) =>
@@ -148,7 +103,7 @@ test('FN-58 pass 1: add an e-money card (issuer required), see "Kartu e-money ·
 test('focus returns to the opener when the sheet closes', async ({ browser }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await openDompet(page);
-	await addWallet(page, { name: 'Dompet harian', type: 'Tunai', balance: '50000' });
+	await addWalletInSheet(page, { name: 'Dompet harian', type: 'Tunai', balance: '50000' });
 	const add = page.getByRole('link', { name: 'Tambah dompet' });
 	await add.focus();
 	await page.keyboard.press('Enter');
@@ -166,7 +121,7 @@ test('edit a card’s debt (card wording); a second tab’s stale save is refuse
 	await openDompet(page);
 	// FN-55a: a card is set up and edited in card wording (the debt typed as owed); its row opens the card page,
 	// whose "Ubah kartu" opens the edit form (`/dompet?ubah=<id>`).
-	await addWallet(page, { name: 'Kartu Kredit', type: 'Kartu kredit' });
+	await addWalletInSheet(page, { name: 'Kartu Kredit', type: 'Kartu kredit' });
 	const href = await row(page, 'Kartu Kredit').getByRole('link').first().getAttribute('href');
 	const editUrl = `/dompet?ubah=${href!.split('/').pop()}`;
 
@@ -201,9 +156,9 @@ test('star moves the favourite; archiving the favourite passes it on; restore fr
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await openDompet(page);
-	await addWallet(page, { name: 'Satu' });
-	await addWallet(page, { name: 'Dua' });
-	await addWallet(page, { name: 'Tiga' });
+	await addWalletInSheet(page, { name: 'Satu' });
+	await addWalletInSheet(page, { name: 'Dua' });
+	await addWalletInSheet(page, { name: 'Tiga' });
 	await expect(row(page, 'Satu').getByText('Favorit')).toBeAttached();
 
 	await row(page, 'Tiga').getByRole('button', { name: 'Jadikan Tiga favorit' }).click();
@@ -282,12 +237,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
 			viewport: { width: 360, height: 780 }
 		});
 		await openDompet(page);
-		await addWallet(page, {
+		await addWalletInSheet(page, {
 			name: 'Nama dompet yang panjang sekali untuk diuji',
 			balance: '1234567890123',
 			lastFour: '9876'
 		});
-		await addWallet(page, { name: 'GoPay', type: 'E-wallet' });
+		await addWalletInSheet(page, { name: 'GoPay', type: 'E-wallet' });
 		await expectNoHorizontalScroll(page);
 		for (const target of [
 			page.getByRole('button', { name: /Jadikan .* favorit/ }).first(),
@@ -310,7 +265,7 @@ test('without JavaScript: a refused add shows the error, a valid add is listed',
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
 	await page.goto('/dompet');
 	await page.getByRole('link', { name: 'Tambah dompet' }).first().click();
-	await expect(page).toHaveURL(`${BASE}/dompet?tambah=1`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/dompet?tambah=1`);
 	const form = page.locator('section.inline-form');
 	await form.getByLabel('Nama dompet').fill('Tanpa JS');
 	await form.getByRole('radio', { name: 'Tunai' }).check();
@@ -354,7 +309,7 @@ test('FN-39 quick picks fill the name and E-wallet in place; the name stays edit
 		await expect(sheet.getByRole('radio', { name: 'E-wallet' })).toBeChecked();
 	}
 	// No navigation: still the sheet on /dompet.
-	await expect(page).toHaveURL(`${BASE}/dompet`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/dompet`);
 	await sheet.getByLabel('Nama dompet').fill('GoPay Pribadi');
 	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
 	await expect(sheet).toBeHidden();
@@ -368,7 +323,7 @@ test('FN-39 quick picks without JavaScript: the link reloads a prefilled form th
 	const { context, page } = await freshUser(browser, testInfo, { javaScriptEnabled: false });
 	await page.goto('/dompet?tambah=1');
 	await page.locator('section.inline-form').getByRole('link', { name: 'OVO', exact: true }).click();
-	await expect(page).toHaveURL(`${BASE}/dompet?tambah=1&dompet=ovo`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/dompet?tambah=1&dompet=ovo`);
 	const form = page.locator('section.inline-form');
 	await expect(form.getByLabel('Nama dompet')).toHaveValue('OVO');
 	await expect(form.getByRole('radio', { name: 'E-wallet' })).toBeChecked();

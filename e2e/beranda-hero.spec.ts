@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
 	isPhone,
 	waitForHydration
 } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense } from './ledger';
+import { addWallet, freshUser, ids, postExpense } from './ledger';
 
 /**
  * FN-54 Part B: Beranda's greeting hero, the date badge and the header placement, at 360 px (phone project) and
@@ -59,9 +60,9 @@ test('a transaction today: the line counts it; the budget chip shows the same fi
 		amount: '25.000',
 		title: 'Kopi'
 	});
-	await page.request.post(`${BASE}/?/setBudget`, {
+	await page.request.post(`${APP_ORIGIN}/?/setBudget`, {
 		form: { amount: '3.000.000', currency: 'IDR', updatedAt: '' },
-		headers: { origin: BASE }
+		headers: { origin: APP_ORIGIN }
 	});
 	await page.goto('/');
 	await waitForHydration(page);
@@ -157,7 +158,7 @@ test('the hero card keeps its height from first paint to hydration (no layout sh
 		storageState: await page.context().storageState()
 	});
 	const plain = await noJs.newPage();
-	await plain.goto(`${BASE}/`);
+	await plain.goto(`${APP_ORIGIN}/`);
 	const before = (await plain.locator('section.greeting').boundingBox())!.height;
 	await page.goto('/');
 	await waitForHydration(page);
@@ -175,12 +176,14 @@ test('without JavaScript: the hero, the badge link and the ask form’s target a
 		storageState: await page.context().storageState()
 	});
 	const plain = await noJs.newPage();
-	await plain.goto(`${BASE}/`);
+	await plain.goto(`${APP_ORIGIN}/`);
 	await expect(plain.getByText(/^Selamat (pagi|siang|sore|malam)\.$/)).toBeVisible();
 	await plain.getByRole('link', { name: /^Kalender, / }).click();
 	await expect(plain).toHaveURL(/\/kalender$/);
 	// The GET form's target: Tanya opens with the question in its composer and sends nothing.
-	await plain.goto(`${BASE}/tanya?q=${encodeURIComponent('Bulan lalu habis berapa buat kopi?')}`);
+	await plain.goto(
+		`${APP_ORIGIN}/tanya?q=${encodeURIComponent('Bulan lalu habis berapa buat kopi?')}`
+	);
 	await expect(plain.getByRole('textbox', { name: 'Pertanyaanmu' })).toHaveValue(
 		'Bulan lalu habis berapa buat kopi?'
 	);

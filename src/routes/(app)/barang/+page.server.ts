@@ -18,10 +18,17 @@ import { belongingFormValues, parseBelongingForm } from '#lib/server/belongings/
 import { COLLECTIBLE_DEMO_READONLY as DEMO_READONLY } from '#lib/server/collectibles/messages';
 import { getEnv } from '#lib/server/env';
 import { errorLabel } from '#lib/server/util';
-import { readFormBody, textField } from '#lib/server/forms';
-import { PHOTO_TOO_LARGE, PHOTO_UPLOAD_FAILED } from '#lib/server/photos/messages';
+import {
+	readFormBody,
+	textField,
+	expectedUpdatedAt,
+	ID_MAX_LENGTH,
+	idField
+} from '#lib/server/forms';
+import { PHOTO_UPLOAD_FAILED } from '#lib/server/photos/messages';
 import { cleanUpFiles, type PhotoChange } from '#lib/server/photos/store';
-import { readPhotoField, readPhotoForm, uploadPhoto } from '#lib/server/photos/upload';
+import { guardedPhotoForm } from '#lib/server/photos/guard';
+import { readPhotoField, uploadPhoto } from '#lib/server/photos/upload';
 import { currentSpaceAccess } from '#lib/server/spaces/current';
 import { belongingValue } from '#lib/shared/belongings';
 import { wibTodayString } from '#lib/shared/dates';
@@ -32,21 +39,7 @@ import type { Actions, PageServerLoad } from './$types';
 // from the form is only ever looked up inside that space, so another space's id and an unknown id get the
 // same answer. Photos are read only through ./[id]/foto (the same check), never from a public R2 URL.
 
-/** Longest belonging id read from a form or URL; ids are UUIDs, anything longer cannot match. */
-const ID_MAX_LENGTH = 64;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
-
-const idField = (form: FormData) => {
-	const id = textField(form, 'belongingId');
-	return id.length > ID_MAX_LENGTH ? '' : id;
-};
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
+const belongingId = (form: FormData) => idField(form, 'belongingId');
 
 function refused(result: Exclude<BelongingWriteResult, 'ok'>) {
 	if (result === 'demo') return fail(400, { error: DEMO_READONLY });
@@ -87,23 +80,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 };
 
-/**
- * Access first (before an 8 MB body is read), then the body within the photo bounds. A body announced past the
- * cap is refused with a clear message without reading it.
- */
-async function guardedUpload(event: Parameters<Actions[string]>[0], action: 'create' | 'update') {
-	const { scope } = await currentSpaceAccess(event.locals);
-	const form = await readPhotoForm(event.request);
-	if (!form)
-		return {
-			refusal: fail(413, { action, error: PHOTO_TOO_LARGE, errors: {}, values: null })
-		} as const;
-	return { form, scope, db: event.locals.db } as const;
-}
-
 export const actions: Actions = {
 	create: async (event) => {
-		const guarded = await guardedUpload(event, 'create');
+		const guarded = await guardedPhotoForm(event, 'create');
 		if ('refusal' in guarded) return guarded.refusal;
 		const { form, scope, db } = guarded;
 		const now = Date.now();
@@ -139,11 +118,11 @@ export const actions: Actions = {
 	},
 
 	update: async (event) => {
-		const guarded = await guardedUpload(event, 'update');
+		const guarded = await guardedPhotoForm(event, 'update');
 		if ('refusal' in guarded) return guarded.refusal;
 		const { form, scope, db } = guarded;
 		const now = Date.now();
-		const id = idField(form);
+		const id = belongingId(form);
 		const parsed = parseBelongingForm(form, wibTodayString(now));
 		if (!parsed.ok)
 			return fail(400, {
@@ -198,7 +177,7 @@ export const actions: Actions = {
 		const { result, released } = await archiveBelonging(
 			event.locals.db,
 			scope,
-			idField(form),
+			belongingId(form),
 			expectedUpdatedAt(form),
 			now
 		);

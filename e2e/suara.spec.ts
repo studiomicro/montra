@@ -1,12 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
 	isPhone,
 	simulatedClientIp,
 	waitForHydration
 } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense, rp } from './ledger';
+import { addWallet, freshUser, ids, postExpense, rp } from './ledger';
 
 /**
  * FN-14 journeys. Playwright has no real microphone: the typed path is tested in full, and the voice path with
@@ -123,7 +124,7 @@ test('typed sentence (no speech recogniser): wallet → "kopi 25rb dan parkir go
 		.getByRole('dialog', { name: 'Tambah transaksi' })
 		.getByRole('link', { name: /Suara/ })
 		.click();
-	await page.waitForURL(`${BASE}/riwayat/suara`);
+	await page.waitForURL(`${APP_ORIGIN}/riwayat/suara`);
 	await waitForHydration(page);
 	await expect(page.getByText('Pengenalan suara tidak tersedia di browser ini')).toHaveCount(1);
 	await expect(page.getByRole('button', { name: 'Mulai merekam' })).toHaveCount(0);
@@ -151,7 +152,7 @@ test('voice (fake recogniser): Beranda Suara pill records at once in id-ID, amou
 	await waitForHydration(page);
 	await expect(main(page).getByRole('button', { name: 'Struk' })).toBeDisabled();
 	await main(page).getByRole('link', { name: 'Suara' }).click();
-	await page.waitForURL(`${BASE}/riwayat/suara`);
+	await page.waitForURL(`${APP_ORIGIN}/riwayat/suara`);
 	await expectJourneyRows(page);
 	expect(await page.evaluate(() => (window as unknown as { __langs: string[] }).__langs)).toEqual([
 		'id-ID'
@@ -202,9 +203,10 @@ test('a full page load of ?mulai=1 (e.g. a link from another site) never starts 
 	await addWallet(page, 'BCA');
 	await page.goto('/riwayat/suara?mulai=1', { referer: 'https://elsewhere.example/' });
 	await waitForHydration(page);
-	await page.waitForURL(`${BASE}/riwayat/suara`);
+	await page.waitForURL(`${APP_ORIGIN}/riwayat/suara`);
 	const mic = page.getByRole('button', { name: 'Mulai merekam' });
 	await expect(mic).toHaveAttribute('aria-pressed', 'false');
+	// Proves a negative: the microphone must not start by itself, so there is no event to await.
 	await page.waitForTimeout(600);
 	expect(await page.evaluate(() => (window as unknown as { __langs: string[] }).__langs)).toEqual(
 		[]

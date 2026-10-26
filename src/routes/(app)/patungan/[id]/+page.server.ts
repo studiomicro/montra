@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, expectedUpdatedAt, boundedId, idField } from '#lib/server/forms';
 import {
 	ALREADY_LINKED,
 	BILL_UNAVAILABLE,
@@ -17,7 +17,6 @@ import {
 	setParticipantPaid,
 	unlinkSplit
 } from '#lib/server/patungan/repo';
-import { expectedUpdatedAt } from '#lib/server/recurring/validation';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { overTransactionCreateLimit } from '#lib/server/transactions/create-limit';
 import {
@@ -32,12 +31,8 @@ import {
 	takeSplitSavedNotice,
 	type SplitSavedKind
 } from '#lib/server/transactions/saved-notice';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { getWallet, listWallets } from '#lib/server/wallets/repo';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
-
-/** An id from the route or a field: '' when over-long (matches nothing). */
-const bounded = (value: string) => (value.length > ID_MAX_LENGTH ? '' : value);
 
 // FN-49: one split. Any live member of the space can see it (FN-03: space data is shared); only its payer
 // (`created_by_user_id`) can settle, link or unlink, record their share, edit or delete it — each repo write
@@ -46,7 +41,7 @@ export const load: PageServerLoad = async ({ locals, params, url, cookies }) => 
 	const scope = await currentSpaceScope(locals);
 	const { spaceId, userId } = scope;
 	const db = locals.db;
-	const split = await getSplit(db, spaceId, bounded(params.id));
+	const split = await getSplit(db, spaceId, boundedId(params.id));
 	// Unknown, deleted and other-space ids get the one same answer.
 	if (!split) error(404, 'Not found');
 	const saved = takeSplitSavedNotice(cookies, locals.secure, url.searchParams.get('saved'));
@@ -84,7 +79,7 @@ export const load: PageServerLoad = async ({ locals, params, url, cookies }) => 
 async function guarded(event: RequestEvent) {
 	const form = await readFormBody(event.request);
 	const scope = await currentSpaceScope(event.locals);
-	return { form, scope, db: event.locals.db, id: bounded(event.params.id) };
+	return { form, scope, db: event.locals.db, id: boundedId(event.params.id) };
 }
 
 /** A confirmed write: the one-shot notice first, then the redirect that carries `?saved=`. */
@@ -109,7 +104,7 @@ function refused(
 
 async function paid(event: RequestEvent, value: boolean) {
 	const { form, scope, db, id } = await guarded(event);
-	const participant = bounded(textField(form, 'participant'));
+	const participant = idField(form, 'participant');
 	const result = await setParticipantPaid(db, scope, id, participant, value, Date.now());
 	if (result !== 'ok') return refused(result);
 	saved(event, value ? 'settled' : 'unsettled');
@@ -133,7 +128,7 @@ export const actions: Actions = {
 	/** "Tautkan transaksi": an existing expense of exactly the split's total and currency. */
 	link: async (event) => {
 		const { form, scope, db, id } = await guarded(event);
-		const transactionId = bounded(textField(form, 'transaction'));
+		const transactionId = idField(form, 'transaction');
 		const result = await linkSplit(db, scope, id, transactionId, Date.now());
 		if (result !== 'ok') return refused(result);
 		saved(event, 'linked');
@@ -146,8 +141,8 @@ export const actions: Actions = {
 		// A Data demo split is never written (red team L1): the same answer as a missing one.
 		if (!split || split.isDemo) return fail(404, { error: SPLIT_NOT_FOUND });
 		if (split.createdByUserId !== scope.userId) return fail(403, { error: PAYER_ONLY });
-		const walletId = bounded(textField(form, 'walletId'));
-		const categoryId = bounded(textField(form, 'categoryId'));
+		const walletId = idField(form, 'walletId');
+		const categoryId = idField(form, 'categoryId');
 		const [wallet, categories] = await Promise.all([
 			walletId ? getWallet(db, scope.spaceId, walletId) : null,
 			listCategories(db, scope.spaceId)

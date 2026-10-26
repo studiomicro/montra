@@ -3,11 +3,11 @@ import {
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
+	newUser,
 	simulatedClientIp,
-	tickSignUpBoxes,
 	waitForHydration
 } from './helpers';
+import { addWalletInSheet } from './ledger';
 
 /**
  * FN-25b journeys on /kekayaan: the empty chart, the "Belum dihitung" cards pre-filling the add sheet, the
@@ -15,47 +15,27 @@ import {
  * every figure, the range control, the phone and desktop layouts and the no-JavaScript paths. Each test signs up
  * its own fictional user. No snapshot exists in e2e (the cron never runs), so the chart shows its empty text.
  */
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(
+function freshUser(
 	browser: Browser,
 	testInfo: TestInfo,
 	viewport: { width: number; height: number }
 ) {
 	const phone = viewport.width < 1024;
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
+	// A phone has a coarse pointer, where every control is at least 44 px tall.
+	return newUser(browser, testInfo, {
+		prefix: 'fn25b',
+		name: 'Pemilik Kekayaan',
 		viewport,
-		// A phone has a coarse pointer, where every control is at least 44 px tall.
 		hasTouch: phone,
-		isMobile: phone,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) }
+		isMobile: phone
 	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik Kekayaan');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn25b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${APP_ORIGIN}/`);
-	return { context, page };
 }
 
 async function addWallet(page: Page, name: string, type: string, balance?: string) {
 	await page.goto('/dompet');
 	await waitForHydration(page);
-	await page.getByRole('link', { name: 'Tambah dompet' }).first().click();
-	const sheet = page.getByRole('dialog', { name: 'Tambah dompet' });
-	await sheet.getByLabel('Nama dompet').fill(name);
-	await sheet.getByRole('radio', { name: type }).check();
-	if (balance) await sheet.getByLabel('Saldo awal').fill(balance);
-	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
-	await expect(sheet).toBeHidden();
-	await expect(page.getByText('Dompet ditambahkan.')).toBeVisible();
+	await addWalletInSheet(page, { name, type, balance });
 }
 
 async function openKekayaan(page: Page) {

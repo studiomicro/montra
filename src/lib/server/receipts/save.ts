@@ -17,7 +17,7 @@ import { NOTE_MAX_LENGTH, TITLE_MAX_LENGTH } from '#lib/shared/transactions';
 import { listCategories } from '../categories/repo';
 import type { Db } from '../db';
 import { batchAssert, isBatchAssertFailure } from '../db/assert';
-import { textField, wholeAmountMinor } from '../forms';
+import { textField, wholeAmountMinor, ID_MAX_LENGTH } from '../forms';
 import type { StoredPhoto } from '../photos/store';
 import type { SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq } from '../sync/seq';
@@ -25,10 +25,10 @@ import { AMOUNT_INVALID, DATE_INVALID } from '../transactions/messages';
 import {
 	attachPhoto,
 	insertTransactions,
-	MAX_TRANSACTIONS_PER_SPACE,
+	transactionCapReached,
 	type NewTransaction
 } from '../transactions/repo';
-import { capturedTransactionInput, ID_MAX_LENGTH } from '../transactions/validation';
+import { capturedTransactionInput, type FieldErrors } from '../transactions/validation';
 import { isUniqueViolation, newId } from '../util';
 import { WALLET_NOT_FOUND } from '../wallets/messages';
 import { getWallet } from '../wallets/repo';
@@ -265,6 +265,24 @@ export function plannedRows(
 	return { rows, photoIndex: 0 };
 }
 
+/**
+ * A refused row's messages on the review form (the first per field wins): a split item's category and amount on
+ * that item (`item`: its index; null for the receipt's own row), the amount otherwise on the total, the rest on
+ * their own fields.
+ */
+function addRowErrors(
+	errors: ReceiptFieldErrors,
+	rowErrors: FieldErrors,
+	item: number | null
+): void {
+	const field = item === null ? null : `item.${item}`;
+	for (const [name, message] of Object.entries(rowErrors)) {
+		if (name === 'categoryId' && field) errors[field] ??= message;
+		else if (name === 'amountMinor') errors[field ?? 'total'] ??= message;
+		else errors[name] ??= message;
+	}
+}
+
 /** Imported-style rows carry no printed time: noon WIB on their date, or the save instant for today's receipt. */
 const RECEIPT_TIME = '12:00';
 
@@ -321,14 +339,8 @@ export async function saveReceiptTransactions(
 			}
 		);
 		if (!checked.ok) {
-			// A split row's category error belongs to its item; the receipt-level fields to themselves.
-			const field =
-				draft.mode === 'split' && row.index < draft.items.length ? `item.${row.index}` : null;
-			for (const [name, message] of Object.entries(checked.errors)) {
-				if (name === 'categoryId' && field) errors[field] ??= message;
-				else if (name === 'amountMinor') errors[field ?? 'total'] ??= message;
-				else errors[name] ??= message;
-			}
+			const item = draft.mode === 'split' && row.index < draft.items.length ? row.index : null;
+			addRowErrors(errors, checked.errors, item);
 			continue;
 		}
 		rows.push({
@@ -373,10 +385,6 @@ export async function saveReceiptTransactions(
 		sql`select ${photoAlreadySaved(spaceId, keyPrefix)} as n`
 	);
 	if (already?.n) return { ok: false, reason: 'already' };
-	const [live] = await db.all<{ n: number }>(
-		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-	);
-	if ((live?.n ?? 0) + rows.length > MAX_TRANSACTIONS_PER_SPACE)
-		return { ok: false, reason: 'limit' };
+	if (await transactionCapReached(db, spaceId, rows.length)) return { ok: false, reason: 'limit' };
 	return { ok: false, reason: 'gone' };
 }

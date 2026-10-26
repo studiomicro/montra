@@ -6,6 +6,7 @@ import { isLiveMember } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { WalletInput } from './validation';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 /** Most wallets one space holds, archived ones included (they stay listable); also the list's row cap. */
 export const MAX_WALLETS_PER_SPACE = 50;
@@ -133,10 +134,6 @@ export async function getWallet(
 	return row ? summary(row) : null;
 }
 
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
-const bumpedUpdatedAt = (now: number) => sql`max(${now}, ${wallets.updatedAt} + 1)`;
-
 /**
  * Batch item: `walletId` becomes the space's one favourite and the previous favourite is cleared, in one
  * statement (so concurrent swaps always leave exactly one). Runs only while `guard` holds and `walletId` is a
@@ -148,7 +145,7 @@ function favouriteSwap(db: Db, scope: WalletScope, walletId: string, now: number
 		.update(wallets)
 		.set({
 			isFavourite: sql`case when ${wallets.id} = ${walletId} then 1 else 0 end`,
-			updatedAt: bumpedUpdatedAt(now),
+			updatedAt: bumpedUpdatedAt(wallets.updatedAt, now),
 			seq: currentSpaceSeq(spaceId)
 		})
 		.where(
@@ -174,7 +171,11 @@ function favouriteSwap(db: Db, scope: WalletScope, walletId: string, now: number
 function favouriteRepair(db: Db, spaceId: string, now: number) {
 	return db
 		.update(wallets)
-		.set({ isFavourite: true, updatedAt: bumpedUpdatedAt(now), seq: currentSpaceSeq(spaceId) })
+		.set({
+			isFavourite: true,
+			updatedAt: bumpedUpdatedAt(wallets.updatedAt, now),
+			seq: currentSpaceSeq(spaceId)
+		})
 		.where(
 			and(
 				sql`${wallets.id} = (select w.id from wallets w where w.space_id = ${spaceId}

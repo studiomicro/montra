@@ -18,11 +18,10 @@ import {
 import { providerField } from '#lib/server/connected-apps/validation';
 import { devRoutesEnabled } from '#lib/server/dev';
 import { getEnv } from '#lib/server/env';
-import { readFormBody } from '#lib/server/forms';
+import { readFormBody, idField } from '#lib/server/forms';
 import { isGmailConfigured, type GmailAppEnv } from '#lib/server/gmail/config';
 import { getConnection } from '#lib/server/gmail/repo';
 import { currentSpaceScope } from '#lib/server/spaces/current';
-import { idField } from '#lib/server/subscriptions/validation';
 import { errorLabel } from '#lib/server/util';
 import { appRows, isConnectedAppProvider } from '#lib/shared/connected-apps/providers';
 import { inboundDomain } from '#lib/shared/inbound/address';

@@ -1,8 +1,14 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
-import { expectNoHorizontalScroll, isPhone, simulatedClientIp, waitForHydration } from './helpers';
+import {
+	APP_ORIGIN,
+	expectNoHorizontalScroll,
+	isPhone,
+	simulatedClientIp,
+	waitForHydration
+} from './helpers';
 import { d1, spaceIdOf } from './d1';
-import { addWallet, BASE, freshUser, ids, postForm, rp, today } from './ledger';
+import { addWallet, freshUser, ids, postExpense, rp, today } from './ledger';
 import { stripScripts, stripTags } from '../test/helpers/html';
 
 /**
@@ -32,27 +38,21 @@ async function seed(page: Page) {
 	await addWallet(page, 'BCA');
 	const { wallet, category } = await ids(page);
 	const bca = await wallet('BCA');
-	const post = async (o: Record<string, string>) =>
-		expect(
-			(
-				await postForm(page, '/riwayat/baru?/create', {
-					type: 'expense',
-					walletId: bca,
-					note: '',
-					occurredTime: '',
-					occurredOn: today(),
-					...o
-				})
-			).status()
-		).toBe(303);
-	await post({
+	await postExpense(page, {
 		type: 'income',
+		walletId: bca,
 		categoryId: await category('Gaji'),
 		amount: '9000000',
 		title: 'Gaji'
 	});
-	await post({ categoryId: await category('Kopi'), amount: '25000', title: 'Kopi' });
-	await post({
+	await postExpense(page, {
+		walletId: bca,
+		categoryId: await category('Kopi'),
+		amount: '25000',
+		title: 'Kopi'
+	});
+	await postExpense(page, {
+		walletId: bca,
 		categoryId: await category('Makan'),
 		amount: '45000',
 		title: 'Warteg',
@@ -74,7 +74,7 @@ test('Bulan → Kuartal → Tahun are navigations: Back returns each period, rel
 	await expect(page.getByRole('heading', { name: 'Perbandingan' })).toBeVisible();
 
 	await kind(page, 'Kuartal').check();
-	await page.waitForURL(`${BASE}/alur-uang?k=${year()}-Q${quarter()}`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang?k=${year()}-Q${quarter()}`);
 	await expect(page.getByText(`Q${quarter()} '${year().slice(2)}`)).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Rata-rata per bulan' })).toBeVisible();
 	await expect(page.getByText('Dibagi', { exact: false })).toBeVisible();
@@ -84,22 +84,22 @@ test('Bulan → Kuartal → Tahun are navigations: Back returns each period, rel
 	).toBeVisible();
 
 	await kind(page, 'Tahun').check();
-	await page.waitForURL(`${BASE}/alur-uang?y=${year()}`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang?y=${year()}`);
 	await expect(page.locator('header .subtitle')).toHaveText(`Tahun ${year()} · sejauh ini`);
 	await expectNoHorizontalScroll(page);
 
 	await page.goBack();
-	await page.waitForURL(`${BASE}/alur-uang?k=${year()}-Q${quarter()}`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang?k=${year()}-Q${quarter()}`);
 	await expect(kind(page, 'Kuartal')).toBeChecked();
 	await page.goBack();
-	await page.waitForURL(`${BASE}/alur-uang`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang`);
 	await expect(kind(page, 'Bulan')).toBeChecked();
 
 	// The previous quarter, by its stepper link; reload shows the same period and its meal.
 	await page.goto(`/alur-uang?k=${year()}-Q${quarter()}`);
 	await waitForHydration(page);
 	await page.getByRole('link', { name: 'Periode sebelumnya' }).click();
-	await page.waitForURL(`${BASE}/alur-uang?k=${previousQuarter()}`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang?k=${previousQuarter()}`);
 	const url = page.url();
 	await page.reload();
 	expect(page.url()).toBe(url);
@@ -155,11 +155,11 @@ test('without JavaScript: the switch is a GET form with "Tampilkan"; stepper lin
 	await expect(kind(page, 'Kuartal')).toBeChecked();
 	await expect(page.getByRole('heading', { name: 'Rata-rata per bulan' })).toBeVisible();
 	await page.getByRole('link', { name: 'Periode sebelumnya' }).click();
-	await page.waitForURL(`${BASE}/alur-uang?k=${previousQuarter()}`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang?k=${previousQuarter()}`);
 	await expect(page.getByText(`${rp('45.000')} keluar`).first()).toBeVisible();
 	await kind(page, 'Tahun').check();
 	await page.getByRole('button', { name: 'Tampilkan' }).click();
-	await page.waitForURL(`${BASE}/alur-uang?k=${previousQuarter()}&m=tahun`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang?k=${previousQuarter()}&m=tahun`);
 	await expect(kind(page, 'Tahun')).toBeChecked();
 	await expectNoHorizontalScroll(page);
 	await context.close();
@@ -190,7 +190,7 @@ test('Laporan kekayaan: from Kekayaan, the current quarter closes with the live 
 	await page.goto('/kekayaan');
 	await waitForHydration(page);
 	await page.getByRole('link', { name: 'Laporan kuartal dan tahun' }).click();
-	await page.waitForURL(`${BASE}/kekayaan/laporan`);
+	await page.waitForURL(`${APP_ORIGIN}/kekayaan/laporan`);
 	await waitForHydration(page);
 	await expect(page.getByRole('heading', { level: 1, name: 'Laporan kekayaan' })).toBeVisible();
 	await expect(kind(page, 'Kuartal')).toBeChecked();
@@ -204,9 +204,9 @@ test('Laporan kekayaan: from Kekayaan, the current quarter closes with the live 
 	expect(await slider.getAttribute('aria-valuenow')).not.toBe(before);
 	await expectNoHorizontalScroll(page);
 	await kind(page, 'Tahun').check();
-	await page.waitForURL(`${BASE}/kekayaan/laporan?y=${year()}`);
+	await page.waitForURL(`${APP_ORIGIN}/kekayaan/laporan?y=${year()}`);
 	await page.getByRole('link', { name: 'Lihat alur uang' }).click();
-	await page.waitForURL(`${BASE}/alur-uang?y=${year()}`);
+	await page.waitForURL(`${APP_ORIGIN}/alur-uang?y=${year()}`);
 	await context.close();
 });
 
@@ -233,15 +233,12 @@ async function fall(browser: Browser, testInfo: TestInfo) {
 	const firstOfLastMonth = new Date(Date.UTC(Number(year()), Number(today().slice(5, 7)) - 2, 1))
 		.toISOString()
 		.slice(0, 10);
-	await postForm(page, '/riwayat/baru?/create', {
-		type: 'expense',
+	await postExpense(page, {
 		walletId: await wallet('BCA'),
 		categoryId: await category('Kopi'),
 		amount: '1000',
 		title: 'Kopi lalu',
-		note: '',
-		occurredOn: firstOfLastMonth,
-		occurredTime: ''
+		occurredOn: firstOfLastMonth
 	});
 	const space = spaceIdOf(email);
 	// The day before this quarter: Rp 133.929.000 with a debt of Rp 10.000.000 (live now: Rp 9.029.000, no debt).

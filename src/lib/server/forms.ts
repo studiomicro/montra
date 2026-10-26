@@ -132,6 +132,25 @@ export function textField(form: FormData, name: string): string {
 	return typeof value === 'string' ? value : '';
 }
 
+/** Longest id read from a form, a URL or a route: ids are UUIDs, so anything longer cannot match. */
+export const ID_MAX_LENGTH = 64;
+/** An `updated_at` (epoch ms) as a form carries it. */
+const UPDATED_AT = /^\d{1,15}$/;
+
+/** An id from a route, URL or field: '' when over-long, so it costs the same lookup and matches nothing. */
+export const boundedId = (value: string): string => (value.length > ID_MAX_LENGTH ? '' : value);
+
+/** An id field (boundedId): '' when missing or over-long. */
+export const idField = (form: FormData, name: string): string => boundedId(textField(form, name));
+
+/** An `updated_at` the form posted, as a number; -1 (matches nothing, so "changed meanwhile") when malformed. */
+export const updatedAtValue = (value: string): number =>
+	UPDATED_AT.test(value) ? Number(value) : -1;
+
+/** The `updated_at` the form was loaded with (updatedAtValue of the `updatedAt` field). */
+export const expectedUpdatedAt = (form: FormData, name = 'updatedAt'): number =>
+	updatedAtValue(textField(form, name));
+
 /** Most whole-unit digits of an amount field (the AmountInput limit; 13 digits × 100 stays a safe integer). */
 const WHOLE_AMOUNT_MAX_DIGITS = 13;
 /**

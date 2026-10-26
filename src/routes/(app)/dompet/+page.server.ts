@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { cardSummaries } from '#lib/server/cards/summary';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, expectedUpdatedAt, ID_MAX_LENGTH, idField } from '#lib/server/forms';
 import { errorLabel } from '#lib/server/util';
 import { GOAL_LIMIT, GOAL_NOT_FOUND, GOALS_LOAD_FAILED } from '#lib/server/goals/messages';
 import { goalsSetAside } from '#lib/server/goals/progress';
@@ -40,21 +40,7 @@ import type { Actions, PageServerLoad, RequestEvent } from './$types';
 // locals.user, so there is one access rule; a wallet id from the form is only ever looked up inside that space,
 // so another space's id and an unknown id get the same answer.
 
-/** Longest wallet id read from a form; ids are UUIDs, anything longer cannot match. */
-const WALLET_ID_MAX_LENGTH = 64;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
-
-function walletId(form: FormData): string {
-	const id = textField(form, 'walletId');
-	return id.length > WALLET_ID_MAX_LENGTH ? '' : id;
-}
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
+const walletId = (form: FormData) => idField(form, 'walletId');
 
 function refused(result: Exclude<WalletWriteResult, 'ok'>) {
 	if (result === 'card_locked') return fail(409, { error: CARD_TYPE_LOCKED });
@@ -81,7 +67,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const showArchived = url.searchParams.get('arsip') === '1';
 	// `?tambah=1` / `?ubah=<id>` open the wallet form and `?target=baru` the goal form without JavaScript (a
 	// sheet does it with JavaScript).
-	const editId = url.searchParams.get('ubah')?.slice(0, WALLET_ID_MAX_LENGTH) ?? null;
+	const editId = url.searchParams.get('ubah')?.slice(0, ID_MAX_LENGTH) ?? null;
 	const open = url.searchParams.get('tambah') === '1' ? 'add' : editId;
 	// `&jenis=kartu_kredit` (the card page's "Tambah kartu"): the new wallet starts as a card, without JavaScript too.
 	const addCard = open === 'add' && url.searchParams.get('jenis') === 'kartu_kredit';

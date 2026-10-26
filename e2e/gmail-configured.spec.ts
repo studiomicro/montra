@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
 	collectCspViolations,
-	E2E_PORT,
+	APP_ORIGIN,
 	expectNoHorizontalScroll,
 	waitForHydration
 } from './helpers';
@@ -43,7 +43,7 @@ test('configured, not connected: explanation, then "Lanjut ke Google" as a plain
 	expect(url.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/gmail.readonly');
 	expect(url.searchParams.get('code_challenge_method')).toBe('S256');
 	expect(url.searchParams.get('redirect_uri')).toBe(
-		`http://localhost:${E2E_PORT}/pengaturan/aplikasi/gmail/callback`
+		`${APP_ORIGIN}/pengaturan/aplikasi/gmail/callback`
 	);
 	expect(url.searchParams.get('code_verifier')).toBeNull();
 	expect(csp).toEqual([]);

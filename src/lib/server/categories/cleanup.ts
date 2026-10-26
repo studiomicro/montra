@@ -12,6 +12,7 @@ import { resolveMerchants, RESOLVE_BATCH_MAX } from '../merchants/resolve';
 import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { ensurePresetCategories, listCategories } from './repo';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 /**
  * FN-48 "Rapikan kategori": captured and imported rows still sitting in a fallback category ("Lainnya",
@@ -245,7 +246,7 @@ export async function applyCleanup(
 						// The marker stays `auto` (a row from before 0037 gets it now): its category is still a
 						// machine proposal, so a later clean-up may revisit it after an undo.
 						categorySource: 'auto',
-						updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+						updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 						seq: currentSpaceSeq(spaceId)
 					})
 					.where(
@@ -341,7 +342,7 @@ export async function undoCleanup(
 			.update(categoryCleanupBatches)
 			.set({
 				undoneAt: now,
-				updatedAt: Math.max(now, expectedUpdatedAt + 1),
+				updatedAt: nextUpdatedAt(expectedUpdatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -361,7 +362,7 @@ export async function undoCleanup(
 				categoryId: sql`(select i.previous_category_id from category_cleanup_items i
 					where i.batch_id = ${batchId} and i.transaction_id = ${transactions.id})`,
 				categorySource: 'auto',
-				updatedAt: sql`max(${now}, ${transactions.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(transactions.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(

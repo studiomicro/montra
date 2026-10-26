@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { SIGNED_OUT, simulatedClientIp, tickSignUpBoxes } from './helpers';
-import { addWallet, BASE, ids, PASSWORD } from './ledger';
+import { APP_ORIGIN, newUser } from './helpers';
+import { addWallet, ids } from './ledger';
 
 /**
  * Anggaran (APP_PARITY § 3) without JavaScript: the total and a category budget are set through the inline forms
@@ -9,21 +9,11 @@ import { addWallet, BASE, ids, PASSWORD } from './ledger';
 test('without JavaScript: the total and a category budget are set with plain form posts', async ({
 	browser
 }, testInfo) => {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		javaScriptEnabled: false,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) }
+	const { context, page } = await newUser(browser, testInfo, {
+		prefix: 'anggaran',
+		name: 'Tanpa JS',
+		javaScriptEnabled: false
 	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	await page.getByLabel('Nama').fill('Tanpa JS');
-	await page
-		.getByLabel('E-mail')
-		.fill(`anggaran-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
 	await addWallet(page, 'BCA');
 
 	await page.goto('/anggaran');
@@ -31,7 +21,7 @@ test('without JavaScript: the total and a category budget are set with plain for
 		page.getByRole('heading', { level: 2, name: 'Belum ada anggaran bulanan' })
 	).toBeVisible();
 	await page.getByRole('link', { name: 'Ubah anggaran' }).click();
-	await expect(page).toHaveURL(`${BASE}/anggaran?ubah=bulanan`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/anggaran?ubah=bulanan`);
 	// Submit buttons are pressed with Enter: the phone's floating tab bar may cover them.
 	const total = page.locator('section.inline-form');
 	await total.getByLabel('Anggaran per bulan').fill('0');
@@ -61,6 +51,6 @@ test('Beranda links to Anggaran (the phone path; the sidebar links it on desktop
 }) => {
 	await page.goto('/');
 	await page.locator('main').getByRole('link', { name: 'Lihat anggaran' }).click();
-	await expect(page).toHaveURL(`${BASE}/anggaran`);
+	await expect(page).toHaveURL(`${APP_ORIGIN}/anggaran`);
 	await expect(page.getByRole('heading', { level: 1, name: 'Anggaran' })).toBeVisible();
 });

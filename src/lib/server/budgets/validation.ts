@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { WALLET_CURRENCIES } from '#lib/shared/wallets';
 import type { Locale } from '#lib/shared/i18n';
-import { amountMinorFromText, amountRefusal, textField } from '../forms';
+import { amountMinorFromText, amountRefusal, textField, updatedAtValue } from '../forms';
 import { MAX_AMOUNT_MINOR } from '../transactions/validation';
 import {
 	BUDGET_AMOUNT_INVALID,
@@ -9,9 +9,6 @@ import {
 	BUDGET_CURRENCY_INVALID,
 	BUDGET_TOO_LARGE
 } from './messages';
-
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
 
 const budgetInputSchema = z.object({
 	amountMinor: z
@@ -64,5 +61,5 @@ export function parseBudgetForm(form: FormData, locale: Locale): ParsedBudgetFor
 export function expectedUpdatedAt(form: FormData): number | null {
 	const value = textField(form, 'updatedAt');
 	if (value === '') return null;
-	return UPDATED_AT.test(value) ? Number(value) : -1;
+	return updatedAtValue(value);
 }

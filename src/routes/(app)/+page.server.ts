@@ -5,7 +5,7 @@ import { berandaLists, berandaSummary } from '#lib/server/budgets/summary';
 import { onThisDayEntry } from '#lib/server/content/on-this-day';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { closeDay, streakSummary } from '#lib/server/streak/repo';
-import { errorLabel } from '#lib/server/util';
+import { sectionOr } from '#lib/server/util';
 import { STORY_OFF_COOKIE, STORY_SEEN_COOKIE, storyCards, storyDue } from '#lib/shared/daily-story';
 import { wibDateString, wibTodayString } from '#lib/shared/dates';
 import { greetingPeriod } from '#lib/shared/greeting';
@@ -27,18 +27,9 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const openBudget = url.searchParams.get('anggaran') === '1';
 	// "Terbaru", "Akan datang" and the streak load beside the figures: if one fails, the rest still shows.
 	const [summary, lists, streak] = await Promise.all([
-		berandaSummary(locals.db, spaceId, today).catch((e: unknown) => {
-			console.error('beranda: summary failed', e);
-			return null;
-		}),
-		berandaLists(locals.db, spaceId, today).catch((e: unknown) => {
-			console.error('beranda: lists failed', e);
-			return null;
-		}),
-		streakSummary(locals.db, userId, today).catch((e: unknown) => {
-			console.error('beranda: streak failed', errorLabel(e));
-			return null;
-		})
+		sectionOr('beranda: summary failed', berandaSummary(locals.db, spaceId, today), null),
+		sectionOr('beranda: lists failed', berandaLists(locals.db, spaceId, today), null),
+		sectionOr('beranda: streak failed', streakSummary(locals.db, userId, today), null)
 	]);
 	// FN-54 D2: the story's cards only when it is due today on this device (a seen day or the off switch costs no
 	// payload), never on a load error.

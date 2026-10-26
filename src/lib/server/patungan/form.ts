@@ -13,9 +13,8 @@ import {
 	type PatunganFormValues
 } from '#lib/shared/patungan';
 import { cleanText } from '#lib/shared/text';
-import { amountMinorFromText, textField } from '../forms';
+import { amountMinorFromText, textField, ID_MAX_LENGTH } from '../forms';
 import { DATE_INVALID } from '../transactions/messages';
-import { ID_MAX_LENGTH } from '../transactions/validation';
 import {
 	GUEST_NAME_INVALID,
 	MEMBER_NOT_FOUND,

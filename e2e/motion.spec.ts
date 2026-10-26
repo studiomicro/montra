@@ -448,6 +448,7 @@ test.describe('motion', () => {
 			await touch(page, 'touchmove', 200);
 			if (standalone) expect(await pill.evaluate((el) => el.getAnimations().length)).toBe(0);
 			await touch(page, 'touchend', 200);
+			// Proves a negative: an upward drag never reloads, so there is no event to await.
 			await page.waitForTimeout(150);
 			expect(loads).toBe(0);
 			// A drag down from the top: the indicator follows the finger (a paused Web Animation), then reloads.
@@ -473,6 +474,7 @@ test.describe('motion', () => {
 				await expect(pill).not.toHaveAttribute('aria-busy', 'true');
 				expect(loads).toBeGreaterThan(0);
 			} else {
+				// Proves a negative: outside the installed app a drag never reloads.
 				await page.waitForTimeout(300);
 				expect(loads).toBe(0);
 			}
@@ -672,6 +674,7 @@ test.describe('illustrations', () => {
 			const email = (await page.getByLabel('E-mail').boundingBox())!;
 			expect(email.y + email.height).toBeLessThanOrEqual(640);
 			const before = await fieldText(page, 'phone');
+			// Proves a negative: under reduced motion the field text stays still, so wait past a rotation tick.
 			await page.waitForTimeout(1000);
 			expect(await fieldText(page, 'phone')).toBe(before);
 			await expectNoHorizontalScroll(page);
@@ -711,6 +714,7 @@ test.describe('illustrations', () => {
 				document.dispatchEvent(new Event('visibilitychange'));
 			});
 			const paused = await fieldText(live, 'phone');
+			// Proves a negative: a hidden tab stops rotating, so wait past a tick and compare.
 			await live.waitForTimeout(500);
 			expect(await fieldText(live, 'phone')).toBe(paused);
 			await moving.close();

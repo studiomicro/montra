@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { getEnv } from '#lib/server/env';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, textField, boundedId, expectedUpdatedAt } from '#lib/server/forms';
 import {
 	addContribution,
 	deleteContribution,
@@ -25,6 +25,7 @@ import {
 import { parseContributionForm, parseGoalForm } from '#lib/server/goals/validation';
 import { notifyGoalMilestone } from '#lib/server/notifications/triggers';
 import { currentSpaceAccess } from '#lib/server/spaces/current';
+import { errorLabel } from '#lib/server/util';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
 // One goal of the session's current space (locals.space, re-validated through requireSpaceAccess with
@@ -32,23 +33,13 @@ import type { Actions, PageServerLoad, RequestEvent } from './$types';
 // same query, so another space's id and an unknown id get the same answer: 404 "Not found" for the page,
 // GOAL_NOT_FOUND / CONTRIBUTION_NOT_FOUND for an action.
 
-/** Longest id read from a URL or form; ids are UUIDs, anything longer cannot match. */
-const ID_MAX_LENGTH = 64;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
 /** `?sebelum=<created_at>_<id>`: the history page after (older than) that contribution. */
 const CURSOR = /^(\d{1,15})_([0-9a-f-]{1,64})$/;
 
 async function goalScope(event: { locals: App.Locals; params: { id: string } }) {
 	const { scope } = await currentSpaceAccess(event.locals);
-	const goalId = event.params.id.length > ID_MAX_LENGTH ? '' : event.params.id;
+	const goalId = boundedId(event.params.id);
 	return { scope, goalId };
-}
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
 }
 
 function cursorOf(url: URL): ContributionCursor | null {
@@ -70,7 +61,7 @@ export const load: PageServerLoad = async (event) => {
 	try {
 		goal = await getGoal(locals.db, scope.spaceId, goalId, { includeArchived: true });
 	} catch (e) {
-		console.error('tabungan: goal read failed', e);
+		console.error('tabungan: goal read failed', errorLabel(e));
 		return {
 			goal: null,
 			contributions: [],
@@ -101,7 +92,7 @@ export const load: PageServerLoad = async (event) => {
 			open
 		};
 	} catch (e) {
-		console.error('tabungan: contribution list failed', e);
+		console.error('tabungan: contribution list failed', errorLabel(e));
 		return {
 			goal,
 			contributions: [],
@@ -144,13 +135,7 @@ export const actions: Actions = {
 	deleteContribution: async (event) => {
 		const { form, scope, goalId, db } = await guarded(event);
 		const id = textField(form, 'contributionId');
-		const result = await deleteContribution(
-			db,
-			scope,
-			goalId,
-			id.length > ID_MAX_LENGTH ? '' : id,
-			Date.now()
-		);
+		const result = await deleteContribution(db, scope, goalId, boundedId(id), Date.now());
 		if (result !== 'ok') return fail(404, { error: CONTRIBUTION_NOT_FOUND });
 		return { saved: 'deleted' as const };
 	},

@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { collectCspViolations, expectNoHorizontalScroll, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense, rp } from './ledger';
+import {
+	APP_ORIGIN,
+	collectCspViolations,
+	expectNoHorizontalScroll,
+	waitForHydration
+} from './helpers';
+import { addWallet, freshUser, ids, postExpense, rp } from './ledger';
 
 /**
  * FN-49 Patungan pass 1 journeys (every rule is also covered by Vitest against local D1,
@@ -114,7 +119,7 @@ test('without JavaScript: a refused split shows why; a valid one is saved and se
 	await expect(page.getByText('Ditandai lunas.')).toBeVisible();
 
 	// The payer's own share (Rp 50.000) is the only new expense.
-	await page.goto(`${BASE}/riwayat`);
+	await page.goto(`${APP_ORIGIN}/riwayat`);
 	await expect(page.locator('main')).toContainText(`${rp('50.000')} keluar`);
 	await context.close();
 	await signedIn.close();

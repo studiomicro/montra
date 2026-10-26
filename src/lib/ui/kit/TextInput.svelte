@@ -3,13 +3,11 @@
 		label,
 		value = $bindable(''),
 		name,
-		type = 'text',
 		autocomplete
 	}: {
 		label: string;
 		value?: string;
 		name?: string;
-		type?: 'text' | 'email' | 'search';
 		autocomplete?: HTMLInputElement['autocomplete'];
 	} = $props();
 	const id = $props.id();
@@ -17,7 +15,7 @@
 
 <label class="field" for={id}>
 	<span class="label">{label}</span>
-	<input {id} {name} {type} {autocomplete} bind:value class="input" />
+	<input {id} {name} type="text" {autocomplete} bind:value class="input" />
 </label>
 
 <style>

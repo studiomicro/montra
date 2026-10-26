@@ -1568,6 +1568,11 @@ describe('red team lows L1–L4 (personal-data retention)', () => {
 		const [gone] = await draftsOf(p.space.id);
 		expect(gone).toMatchObject({ amount_minor: null, title: null });
 		expect(gone!.deleted_at).not.toBeNull();
+		// Stamped with its own space's freshly advanced change counter, so a sync pull returns the tombstone.
+		const counter = await db.get<{ seq: number }>(
+			sql`select seq from space_seq where space_id = ${p.space.id}`
+		);
+		expect(gone!.seq).toBe(counter!.seq);
 		// The other user's connection, ledger and draft are untouched.
 		expect(live(await draftsOf(q.space.id))).toHaveLength(1);
 		expect(await conn(q.user.id)).toMatchObject({ status: 'connected' });

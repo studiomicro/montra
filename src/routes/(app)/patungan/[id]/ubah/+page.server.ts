@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { readFormBody, textField } from '#lib/server/forms';
+import { readFormBody, textField, expectedUpdatedAt, boundedId } from '#lib/server/forms';
 import { readSplitForm } from '#lib/server/patungan/form';
 import {
 	BILL_UNAVAILABLE,
@@ -18,19 +18,15 @@ import {
 	type SplitDetail,
 	type SplitWriteRefusal
 } from '#lib/server/patungan/repo';
-import { expectedUpdatedAt } from '#lib/server/recurring/validation';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { DATE_INVALID, REFS_GONE } from '#lib/server/transactions/messages';
 import { setSplitSavedNotice } from '#lib/server/transactions/saved-notice';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { minorToAmountText } from '#lib/shared/amount-input';
 import { isDateString } from '#lib/shared/dates';
 import type { Locale } from '#lib/shared/i18n';
 import { SPLIT_NOTE_MAX, SPLIT_TITLE_MAX, type PatunganFormValues } from '#lib/shared/patungan';
 import { cleanText } from '#lib/shared/text';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
-
-const bounded = (value: string) => (value.length > ID_MAX_LENGTH ? '' : value);
 
 /** A bill's total is fixed by the transaction it is linked to (an own-share row follows the share instead). */
 const fixedTotal = (split: SplitDetail) =>
@@ -69,7 +65,7 @@ function formValues(
 // someone has, only the title, date and note (`details`). The server refuses the rest, not only the form.
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const scope = await currentSpaceScope(locals);
-	const split = await getSplit(locals.db, scope.spaceId, bounded(params.id));
+	const split = await getSplit(locals.db, scope.spaceId, boundedId(params.id));
 	if (!split) error(404, 'Not found');
 	if (split.createdByUserId !== scope.userId || split.isDemo)
 		redirect(303, `/patungan/${split.id}`);
@@ -85,7 +81,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 async function guarded(event: RequestEvent) {
 	const form = await readFormBody(event.request);
 	const scope = await currentSpaceScope(event.locals);
-	const split = await getSplit(event.locals.db, scope.spaceId, bounded(event.params.id));
+	const split = await getSplit(event.locals.db, scope.spaceId, boundedId(event.params.id));
 	return { form, scope, db: event.locals.db, split };
 }
 

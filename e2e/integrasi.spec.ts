@@ -3,11 +3,13 @@ import {
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
+	newDevice,
 	SIGNED_OUT,
-	simulatedClientIp,
-	tickSignUpBoxes,
+	signUp,
+	uniqueEmail,
 	waitForHydration
 } from './helpers';
+import {} from './ledger';
 
 /**
  * FN-41 Integrasi AI: add, replace and remove a personal Anthropic key, with and without JavaScript, at 360 px and
@@ -17,30 +19,15 @@ import {
  */
 test.use({ storageState: SIGNED_OUT });
 
-const PASSWORD = 'terang-benderang-8';
 const key = (tag: string) => `sk-ant-api03-e2e-synthetic-${tag}-${Date.now()}`;
 
-let contexts = 0;
 async function signedUp(browser: Browser, javaScriptEnabled = true): Promise<Page> {
-	const context = await browser.newContext({
-		baseURL: APP_ORIGIN,
-		locale: 'id-ID',
+	const { page } = await newDevice(browser, {
 		javaScriptEnabled,
 		viewport: test.info().project.name === 'phone' ? { width: 360, height: 780 } : undefined,
-		reducedMotion: 'reduce',
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(test.info(), ++contexts) }
+		reducedMotion: 'reduce'
 	});
-	const page = await context.newPage();
-	const email = `fn41-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
-	await page.goto('/daftar');
-	if (javaScriptEnabled) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Budi Santoso');
-	await page.getByLabel('E-mail').fill(email);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL((url) => url.pathname !== '/daftar', { timeout: 30_000 });
+	await signUp(page, { email: uniqueEmail('fn41'), js: javaScriptEnabled });
 	return page;
 }
 

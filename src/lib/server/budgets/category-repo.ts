@@ -6,6 +6,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { BudgetInput } from './validation';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 /** One live category budget (Anggaran page): a standing monthly amount for one expense category. */
 export interface CategoryBudget {
@@ -73,9 +74,6 @@ async function whyNot(
 	return row.category === 1 ? 'stale' : 'missing';
 }
 
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
-
 /**
  * Sets the budget of one expense category, like `setBudget`: `expectedUpdatedAt` null is a create (revives the
  * pair's tombstone, else inserts the pair's first row; concurrent creates leave one live row and the others
@@ -102,7 +100,7 @@ export async function setCategoryBudget(
 					amountMinor: input.amountMinor,
 					currency: input.currency,
 					deletedAt: null,
-					updatedAt: sql`max(${now}, ${categoryBudgets.updatedAt} + 1)`,
+					updatedAt: bumpedUpdatedAt(categoryBudgets.updatedAt, now),
 					seq: currentSpaceSeq(spaceId)
 				})
 				.where(

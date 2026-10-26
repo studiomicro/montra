@@ -8,6 +8,7 @@ import type { Db } from '../db';
 import { merchantCache, merchantRules } from '../db/schema';
 import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
+import { bumpedUpdatedAt } from '../sync/updated-at';
 
 /**
  * FN-20 storage: the space's merchant rules, its history of saved transactions read as rules, and the AI cache.
@@ -238,7 +239,7 @@ const tombstone = (spaceId: string, now: number) => ({
 	deletedAt: now,
 	merchantName: null,
 	categoryId: null,
-	updatedAt: sql`max(${now}, ${merchantRules.updatedAt} + 1)`,
+	updatedAt: bumpedUpdatedAt(merchantRules.updatedAt, now),
 	seq: currentSpaceSeq(spaceId)
 });
 

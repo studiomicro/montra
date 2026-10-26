@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { getCategory, listCategoriesWithPresets } from '#lib/server/categories/repo';
-import { readFormBody } from '#lib/server/forms';
+import { readFormBody, idField, expectedUpdatedAt, ID_MAX_LENGTH } from '#lib/server/forms';
 import { currentSpaceScope } from '#lib/server/spaces/current';
 import { dismissCandidate, findCandidates } from '#lib/server/subscriptions/detect';
 import {
@@ -24,13 +24,7 @@ import {
 	updateSubscription,
 	type SubscriptionWriteResult
 } from '#lib/server/subscriptions/repo';
-import {
-	expectedUpdatedAt,
-	ID_MAX_LENGTH,
-	idField,
-	parsePayForm,
-	parseSubscriptionForm
-} from '#lib/server/subscriptions/validation';
+import { parsePayForm, parseSubscriptionForm } from '#lib/server/subscriptions/validation';
 import { REFS_GONE, TRANSACTION_LIMIT } from '#lib/server/transactions/messages';
 import { capturedTransactionInput } from '#lib/server/transactions/validation';
 import { listWallets, getWallet } from '#lib/server/wallets/repo';

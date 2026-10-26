@@ -80,8 +80,12 @@ async function processInboundMail(
 	const { db, env } = deps;
 	const receivedAt = deps.now();
 	const base = { recipient, messageKey: await messageKeyOf(mail), receivedAt };
-	const record = async (r: Omit<MailRecord, 'recipient' | 'messageKey' | 'receivedAt'>) =>
-		(await recordMail(db, { ...base, ...r })) !== null;
+	/** Records the mail as `r`: `outcome` when this delivery wrote the row, `repeat` when it was already recorded. */
+	const recordAs = async (
+		outcome: InboundOutcome,
+		r: Omit<MailRecord, 'recipient' | 'messageKey' | 'receivedAt'>
+	): Promise<InboundOutcome> =>
+		(await recordMail(db, { ...base, ...r })) !== null ? outcome : 'repeat';
 
 	const auth = trustedAuthResults(mail.headers, env.INBOUND_AUTHSERV_ID);
 	// A Gmail confirmation code is kept only when google.com itself authenticated the mail (DMARC + aligned
@@ -89,10 +93,8 @@ async function processInboundMail(
 	const code = gmailConfirmationCode(mail.fromAddress, mail.subject, mail.text);
 	if (code) {
 		if (!authenticatedFrom(auth, mail.fromAddress))
-			return (await record({ status: 'not_payment' })) ? 'not_payment' : 'repeat';
-		return (await record({ status: 'confirmation', confirmationCode: code }))
-			? 'confirmation'
-			: 'repeat';
+			return recordAs('not_payment', { status: 'not_payment' });
+		return recordAs('confirmation', { status: 'confirmation', confirmationCode: code });
 	}
 
 	const ownMailbox =
@@ -108,7 +110,7 @@ async function processInboundMail(
 	const senderDomain = ownMailbox ? (quotedSenderDomain(mail.text) ?? fromDomain) : fromDomain;
 	const parser = parserFor(senderDomain);
 	if (!looksLikePayment({ allowlisted: parser !== null, subject: mail.subject, text: mail.text }))
-		return (await record({ status: 'not_payment' })) ? 'not_payment' : 'repeat';
+		return recordAs('not_payment', { status: 'not_payment' });
 
 	const ledger = {
 		trust,
@@ -136,8 +138,8 @@ async function processInboundMail(
 		);
 		return 'draft';
 	}
-	const unreadable = async (reason: MailRecord['reason']) =>
-		(await record({ ...ledger, status: 'unreadable', reason })) ? 'unreadable' : 'repeat';
+	const unreadable = (reason: MailRecord['reason']) =>
+		recordAs('unreadable', { ...ledger, status: 'unreadable', reason });
 	if (mail.text === '') return unreadable('unparsed');
 	// No text is kept when it could not be read anyway (owner decision 7): the user forwards it again later.
 	if (!isAiGatewayConfigured(env)) return unreadable('ai_unconfigured');

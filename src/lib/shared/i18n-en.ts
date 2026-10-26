@@ -27,8 +27,6 @@ export const en: Record<string, string> = {
 	'Navigasi utama': 'Main navigation',
 	'Belum ada transaksi bulan ini.': 'No transactions this month yet.',
 	'Transaksi yang kamu catat muncul di sini.': 'Transactions you record show up here.',
-	'Tambahkan dompet dan aset untuk melihat kekayaan bersihmu.':
-		'Add wallets and assets to see your net worth.',
 	'Kembali ke Beranda': 'Back to Home',
 	'Halaman tidak ditemukan.': 'Page not found.',
 	'Terjadi kesalahan. Coba lagi.': 'Something went wrong. Try again.',
@@ -485,10 +483,8 @@ export const en: Record<string, string> = {
 	'Contoh: Kopi susu, Gaji Oktober.': 'For example: Iced coffee, October salary.',
 	'Catatan (opsional)': 'Note (optional)',
 	Tanggal: 'Date',
-	'Waktu (opsional)': 'Time (optional)',
 	'Belum ada data {bulan}': 'No data for {bulan} yet',
 	'Waktu (WIB, opsional)': 'Time (WIB, optional)',
-	'Waktu (WIB)': 'Time (WIB)',
 	'Kosongkan untuk memakai waktu saat disimpan.': 'Leave empty to use the time of saving.',
 	'Kosongkan untuk tetap memakai waktu yang tersimpan.': 'Leave empty to keep the stored time.',
 	'Simpan transaksi': 'Save transaction',
@@ -521,25 +517,17 @@ export const en: Record<string, string> = {
 		'Transactions could not be loaded. Try again in a moment.',
 	'Transaksi disimpan.': 'Transaction saved.',
 	'Transaksi dihapus.': 'Transaction deleted.',
-	'{n} transaksi · keluar {out}': '{n} transactions · out {out}',
-	'{n} transaksi · masuk {in}': '{n} transactions · in {in}',
-	'Transfer ke {wallet}': 'Transfer to {wallet}',
-	'Transfer dari {wallet}': 'Transfer from {wallet}',
 	Kemarin: 'Yesterday',
 	'Cari judul atau catatan': 'Search titles or notes',
 	Cari: 'Search',
 	Filter: 'Filter',
-	'Filter ({n})': 'Filter ({n})',
 	'Hapus filter': 'Clear filters',
 	Terapkan: 'Apply',
 	'Per bulan': 'By month',
-	'Rentang tanggal': 'Date range',
 	'Dari tanggal': 'From',
 	'Sampai tanggal': 'To',
 	'Semua kategori': 'All categories',
 	'Semua dompet': 'All wallets',
-	'Bulan sebelumnya': 'Previous month',
-	'Bulan berikutnya': 'Next month',
 	'Tidak ada transaksi yang cocok dengan filter ini.': 'No transactions match this filter.',
 	'Ke awal daftar': 'Back to the top of the list',
 	'Muat lebih banyak': 'Load more',
@@ -697,7 +685,6 @@ export const en: Record<string, string> = {
 	'Hapus anggaran': 'Remove budget',
 	'Pengeluaran {bulan}': '{bulan} spending',
 	'Ditambah {jumlah} dalam mata uang lain': 'Plus {jumlah} in other currencies',
-	'Sisa {sisa} · {per_hari}/hari untuk {hari} hari': '{sisa} left · {per_hari}/day for {hari} days',
 	'Anggaran bulan ini sudah habis.': 'This month’s budget is used up.',
 	'Sudah melebihi anggaran sebesar {jumlah}': 'Over budget by {jumlah}',
 	'Sudah melebihi anggaran.': 'Over budget.',
@@ -720,12 +707,9 @@ export const en: Record<string, string> = {
 	Selisih: 'Difference',
 	'Rincian di bawah hanya dalam {mata_uang}.': 'The breakdown below is in {mata_uang} only.',
 	'Pemasukan per kategori': 'Income by category',
-	'Merchant teratas': 'Top merchants',
 	'Tanpa judul': 'Untitled',
 	'Belum ada transaksi di periode ini.': 'No transactions in this period yet.',
 	Tren: 'Trend',
-	'Pengeluaran per bulan tahun ini': 'Spending by month this year',
-	'Pemasukan per bulan tahun ini': 'Income by month this year',
 	'{bulan} dibanding {sebelumnya}': '{bulan} compared with {sebelumnya}',
 	'Laporan tidak bisa dimuat. Coba lagi sebentar lagi.':
 		'Reports could not be loaded. Try again in a moment.',
@@ -991,7 +975,6 @@ export const en: Record<string, string> = {
 	'{n} transaksi dipindahkan ke {wallet}.': '{n} transactions moved to {wallet}.',
 	'{moved} transaksi dipindahkan ke {wallet}, {skipped} dilewati (transfer ke dompet yang sama).':
 		'{moved} transactions moved to {wallet}, {skipped} skipped (transfer to the same wallet).',
-	'Impor CSV': 'Import CSV',
 	'Template Montra atau ekspor Money Manager. Transfer dilewati; kategori dan dompet baru dibuat otomatis.':
 		'The Montra template or a Money Manager export. Transfers are skipped; new categories and wallets are created automatically.',
 	'Unduh template CSV': 'Download the CSV template',
@@ -1197,12 +1180,6 @@ export const en: Record<string, string> = {
 	'Tahunan dibagi 12 dan mingguan dikali 52 lalu dibagi 12, jadi angkanya perkiraan.':
 		'Yearly is divided by 12 and weekly multiplied by 52 then divided by 12, so this is an estimate.',
 	'Tagihan berikutnya': 'Upcoming bills',
-	'Tiap tanggal {tanggal}': 'Monthly on day {tanggal}',
-	'Tiap {hari}': 'Every {hari}',
-	'Tiap {tanggal} {bulan}': 'Every {tanggal} {bulan}',
-	'{tanggal} · hari ini': '{tanggal} · today',
-	'{tanggal} · besok': '{tanggal} · tomorrow',
-	'{tanggal} · {n} hari lagi': '{tanggal} · in {n} days',
 	'Terakhir dibayar {tanggal}': 'Last paid {tanggal}',
 	'Tandai {nama} sudah dibayar': 'Mark {nama} as paid',
 	'Tandai sudah dibayar': 'Mark as paid',
@@ -1687,7 +1664,6 @@ export const en: Record<string, string> = {
 	'hari terakhir': 'last day',
 	'{n} hari lagi': '{n} days left',
 	'Anggaran {kategori} per bulan': '{kategori} budget per month',
-	'Awal periode anggaran': 'Budget period start',
 	'Periode anggaran mengikuti bulan kalender, mulai tanggal 1.':
 		'The budget period follows the calendar month, starting on the 1st.',
 	'Melebihi anggaran': 'Over budget',
@@ -1699,8 +1675,6 @@ export const en: Record<string, string> = {
 	'Tetapkan satu angka untuk sebulan. Sisanya dibagi rata ke hari yang tersisa, jadi kamu tahu berapa yang aman dibelanjakan hari ini.':
 		'Set one amount for the month. What is left is split over the remaining days, so you know how much is safe to spend today.',
 	'Anggaran bulanan untuk kategori tertentu': 'Monthly budgets for specific categories',
-	'Belum ada anggaran per kategori. Pilih kategori di daftar "Belum ada anggaran" untuk mengaturnya.':
-		'No category budgets yet. Pick a category in the "No budget yet" list to set one.',
 	'{jumlah} melebihi': '{jumlah} over',
 	'Anggaran {kategori} terpakai': '{kategori} budget used',
 	'Lebih cepat dari jadwal': 'Ahead of pace',
@@ -1779,7 +1753,6 @@ export const en: Record<string, string> = {
 	'+{n} transaksi mata uang lain ({mata_uang}) tidak ditampilkan.':
 		'+{n} transactions in other currencies ({mata_uang}) not shown.',
 	'Belum ada alur uang': 'No money flow yet',
-	'Belum ada pemasukan atau pengeluaran di bulan ini.': 'No income or spending in this month yet.',
 	'Dari mana ke mana': 'From where to where',
 	'Alur uang {bulan}: pemasukan ke dompet, dompet ke pengeluaran':
 		'Money flow {bulan}: income into wallets, wallets into spending',
@@ -1814,9 +1787,6 @@ export const en: Record<string, string> = {
 	Segera: 'Soon',
 	'tgl {tanggal}': 'day {tanggal}',
 	'Jatuh tempo': 'Due',
-	'Terlalu banyak alur bulan ini: hanya yang terbesar yang ditampilkan dan dijumlahkan.':
-		'Too many flows this month: only the largest are shown and added up.',
-	// FN-36 recurring transactions
 	Aktif: 'Active',
 	'Aktif berulang': 'Active recurring',
 	'Belum ada transaksi berulang': 'No recurring transactions yet',
@@ -2570,20 +2540,16 @@ export const en: Record<string, string> = {
 	'Alamat pengalihan belum dipasang.': 'The redirect address is not set.',
 	'Baca ulang yang tertunda': 'Read pending emails again',
 	'Baru saja diperiksa. Coba lagi dalam 5 menit.': 'Just checked. Try again in 5 minutes.',
-	'Belum ada kunci Anthropic untuk membaca e-mail ini.': 'No Anthropic key yet to read this email.',
 	'Belum pernah diperiksa': 'Not checked yet',
 	'Catat pembayaran dari e-mail bank dan QRIS otomatis':
 		'Record payments from bank and QRIS emails automatically',
 	'Data e-mail dihapus dari Montra, tetapi akses di Google belum bisa dicabut. Cabut sendiri di myaccount.google.com/permissions.':
 		'Email data was deleted from Montra, but access at Google could not be revoked. Revoke it yourself at myaccount.google.com/permissions.',
 	'Draf yang sudah masuk tetap ada.': 'Drafts already captured stay.',
-	'E-mail sudah tidak ada di Gmail.': 'The email is no longer in Gmail.',
-	'E-mail terlalu besar untuk dibaca.': 'The email is too large to read.',
 	'E-mail yang tertunda dibaca ulang.': 'Pending emails are being read again.',
 	'Gmail belum terhubung. Muat ulang halaman.': 'Gmail is not connected. Reload the page.',
 	'Gmail diputus. Data e-mail dihapus; transaksi yang sudah tersimpan tetap ada.':
 		'Gmail disconnected. Email data was deleted; saved transactions stay.',
-	'Gmail menolak membuka e-mail ini.': 'Gmail refused to open this email.',
 	'Gmail sudah terhubung. Muat ulang halaman.': 'Gmail is already connected. Reload the page.',
 	'Gmail terhubung. Pembayaran baru akan muncul di Kotak masuk dalam satu jam.':
 		'Gmail connected. New payments will appear in the Inbox within an hour.',
@@ -2642,9 +2608,6 @@ export const en: Record<string, string> = {
 	'Sambungan Gmail belum disiapkan di server ini:': 'Gmail is not set up on this server yet:',
 	'Sambungan Gmail berubah di tab lain. Muat ulang halaman lalu coba lagi.':
 		'The Gmail connection changed in another tab. Reload the page and try again.',
-	'Sambungan Gmail perlu dihubungkan ulang.': 'The Gmail connection needs reconnecting.',
-	'Batas baca AI harian Gmail tercapai. Baca ulang besok.':
-		'The daily Gmail AI reading limit is reached. Read again tomorrow.',
 	'Sambungan tidak bisa dibuka lagi di server. Hubungkan ulang untuk melanjutkan.':
 		'The connection can no longer be opened on the server. Reconnect to continue.',
 	'Sambungan tidak bisa diselesaikan. Mulai lagi.':
@@ -2660,7 +2623,6 @@ export const en: Record<string, string> = {
 	'Sudah 3 pemindaian dalam 24 jam terakhir. Coba lagi besok.':
 		'Already 3 scans in the last 24 hours. Try again tomorrow.',
 	'Terakhir diperiksa {waktu}': 'Last checked {waktu}',
-	'Terlalu lama menunggu dibaca.': 'Waited too long to be read.',
 	'Tersedia di paket Pro': 'Available on the Pro plan',
 	Tertunda: 'Pending',
 	'Tidak bisa memulai sekarang. Coba lagi sebentar lagi.':

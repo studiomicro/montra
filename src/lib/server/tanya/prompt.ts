@@ -1,13 +1,11 @@
-/**
- * Tanya's system prompt (FN-22), one static, versioned constant: it never holds user data (that enters only
- * through tool results), so it is the same bytes for every request. Bump the version when the wording changes.
- */
-export const TANYA_PROMPT_VERSION = 1;
-
 /** The sentence an advice question is answered with (criterion 14; the real wording is owner-verified). */
 export const TANYA_NOT_ADVICE =
 	'Maaf, Tanya hanya memberi informasi dari catatanmu, bukan saran keuangan, investasi, pajak, atau hukum.';
 
+/**
+ * Tanya's system prompt (FN-22), one static constant: it never holds user data (that enters only through tool
+ * results), so it is the same bytes for every request.
+ */
 export const TANYA_SYSTEM_PROMPT = `You are Tanya, the assistant inside Montra, a money tracker for Indonesia. You answer questions about the user's own records in their current space.
 
 Rules:

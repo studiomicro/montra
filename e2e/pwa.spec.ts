@@ -3,15 +3,16 @@ import { pngSize } from '../scripts/png.ts';
 import { splashMedia } from '../src/lib/shared/splash';
 import { SPLASH_SCREENS } from '../src/lib/shared/splash-screens';
 import {
-	tickSignUpBoxes,
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
 	isPhone,
+	PASSWORD,
 	SIGNED_OUT,
-	SITE_ORIGIN,
 	simulatedClientIp,
+	SITE_ORIGIN,
 	STORAGE_STATE,
+	tickSignUpBoxes,
 	waitForHydration
 } from './helpers';
 import { addWallet, freshUser, ids, postExpense } from './ledger';
@@ -19,7 +20,6 @@ import { PUSH, queueOneBlocked, queueSize } from './offline-queue';
 
 /** FN-13: manifest, service worker (offline shell only), sign-out cache hygiene, install guide, push state. */
 
-const PASSWORD = 'terang-benderang-8';
 /**
  * How long a wait for the update banner may take: it follows a service worker install, which precaches the app shell
  * and takes seconds on a CI runner. A wait for an event that does arrive, not a timing claim.
@@ -443,6 +443,7 @@ test.describe('updates (FN-42, /pengaturan/tentang)', () => {
 		// The new build took over; nothing waits any more, so no banner — and the page reloaded exactly once.
 		expect(await workers(page)).toEqual({ active: 'service-worker.js', waiting: null });
 		await expect(page.getByText(BANNER)).toHaveCount(0);
+		// Proves "reloaded exactly once": a second reload would arrive later, so wait it out.
 		await page.waitForTimeout(1500);
 		expect(await loads(page)).toBe(before + 1);
 
@@ -499,7 +500,7 @@ test.describe('automatic update checks (FN-42b)', () => {
 			(window as unknown as { __visibility: string }).__visibility = s;
 			document.dispatchEvent(new Event('visibilitychange'));
 		}, state);
-	/** No further `update()` arrives within a short settle time. */
+	/** No further `update()` arrives within a short settle time (a negative, so a fixed wait is the only way to look). */
 	const settle = (page: Page) => page.waitForTimeout(500);
 	/** `n` checks were made and none is still running (the next trigger must not meet one in flight). */
 	const expectChecks = async (page: Page, n: number) => {
@@ -692,6 +693,7 @@ test.describe('automatic update checks (FN-42b)', () => {
 		await expect.poll(() => loads(page).catch(() => before), { timeout: 20_000 }).toBe(before + 1);
 		await waitForHydration(page);
 		await expect(page.getByText(BANNER)).toHaveCount(0);
+		// Proves "reloaded exactly once": a second reload would arrive later, so wait it out.
 		await page.waitForTimeout(1500);
 		expect(await loads(page)).toBe(before + 1);
 
@@ -975,6 +977,7 @@ test.describe('manifest in the browser (FN-13b)', () => {
 		await page.goto('/riwayat/suara');
 		await waitForHydration(page);
 		// A full load from a launcher shortcut never auto-starts the microphone (it needs a tap, red team L2).
+		// Proves a negative: the microphone must not start by itself, so there is no event to await.
 		await page.waitForTimeout(1000);
 		await expect(page.getByRole('button', { name: 'Berhenti merekam' })).toHaveCount(0);
 	});

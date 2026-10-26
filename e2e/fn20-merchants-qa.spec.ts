@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoHorizontalScroll, isPhone, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, ids, postExpense } from './ledger';
+import { APP_ORIGIN, expectNoHorizontalScroll, isPhone, waitForHydration } from './helpers';
+import { addWallet, freshUser, ids, postExpense } from './ledger';
 
 /**
  * QA for FN-20 (merchant recognition): browser-only criteria AC-15 (suggestion chip, never overwrites a picked
@@ -24,6 +24,7 @@ test('AC-15: chip appears with its reason, applies merchant + category, never ov
 
 	// two characters: no request, no chip
 	await title.fill('ko');
+	// Proves a negative: no suggestion request follows two characters; wait out the typing debounce, then look.
 	await page.waitForTimeout(700);
 	expect(requests.length).toBe(0);
 	await expect(page.locator('button.suggestion')).toHaveCount(0);
@@ -111,7 +112,7 @@ test('AC-5/17/23: a category correction teaches the space; rules page lists, per
 		viewport: page.viewportSize() ?? undefined
 	});
 	const p2 = await plain.newPage();
-	await p2.goto(`${BASE}/pengaturan/pedagang`);
+	await p2.goto(`${APP_ORIGIN}/pengaturan/pedagang`);
 	await p2
 		.locator('li.rule')
 		.filter({ hasText: 'Warung Bu Sari' })
@@ -122,8 +123,9 @@ test('AC-5/17/23: a category correction teaches the space; rules page lists, per
 
 	await page.goto('/riwayat/baru');
 	await waitForHydration(page);
+	const suggested = page.waitForResponse((r) => r.url().includes('/riwayat/saran'));
 	await page.getByLabel('Judul (opsional)').fill('warung bu sari');
-	await page.waitForTimeout(800);
+	await suggested;
 	// history now names the saved Hiburan row, but never as a rule
 	const chip = page.locator('button.suggestion');
 	if (await chip.count()) await expect(chip).not.toContainText('Dari aturanmu');

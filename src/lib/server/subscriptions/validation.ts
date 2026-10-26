@@ -17,7 +17,7 @@ import {
 } from '#lib/shared/subscriptions-catalogue';
 import { cleanText } from '#lib/shared/text';
 import { WALLET_CURRENCIES } from '#lib/shared/wallets';
-import { amountMinorFromText, amountRefusal, textField } from '../forms';
+import { amountMinorFromText, amountRefusal, ID_MAX_LENGTH, idField, textField } from '../forms';
 import { MAX_AMOUNT_MINOR } from '../transactions/validation';
 import {
 	AMOUNT_INVALID,
@@ -35,10 +35,6 @@ import {
 	WEEKDAY_INVALID
 } from './messages';
 
-/** Longest id read from a form; ids are UUIDs (catalogue ids are shorter), anything longer cannot match. */
-export const ID_MAX_LENGTH = 64;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
 /** A small whole number as a select posts it (`1`–`31`). */
 const SMALL_INT = /^\d{1,2}$/;
 
@@ -173,18 +169,6 @@ export function parseSubscriptionForm(form: FormData, locale: Locale): ParsedSub
 			reminderDaysBefore: reminder
 		}
 	};
-}
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-export function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
-}
-
-/** An id field (subscription, wallet, category, transaction): '' when over-long (matches nothing). */
-export function idField(form: FormData, name: string): string {
-	const id = textField(form, name);
-	return id.length > ID_MAX_LENGTH ? '' : id;
 }
 
 /** "Tandai sudah dibayar": record a new expense, or link an existing one. */

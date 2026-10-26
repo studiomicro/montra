@@ -1,12 +1,11 @@
 import { and, eq } from 'drizzle-orm';
-import { RetryLaterError } from '#lib/shared/jobs';
 import type { InboundMailReason, InboundTrust } from '#lib/shared/inbound/address';
 import type { Db } from '../db';
 import { inboundMail } from '../db/schema';
 import { isAiGatewayConfigured, type AiGatewayEnv } from '../ai-keys/anthropic';
 import type { AiKeysEnv } from '../ai-keys/crypto';
 import { resolveAnthropicKey } from '../ai-keys/lookup';
-import { readMailText } from './ai-read';
+import { aiReadFailure, readMailText } from './ai-read';
 import { captureDraft, mailDedupeKey } from './draft';
 
 /**
@@ -15,11 +14,6 @@ import { captureDraft, mailDedupeKey } from './draft';
  * the text in the same statement that records it (the schema allows text only while `queued`). The key opened
  * is always the row's owner's (`user_id` of the row), never one named by the message.
  */
-
-/** Deliveries before a transient provider failure ends as `unreadable/ai_failed` (wrangler max_retries 3). */
-export const INBOUND_READ_MAX_ATTEMPTS = 3;
-/** Seconds before a transient failure is retried. */
-export const INBOUND_RETRY_DELAY_S = 60;
 
 export type InboundReadEnv = AiKeysEnv & AiGatewayEnv;
 
@@ -56,55 +50,44 @@ export async function processInboundRead(
 	const key = await resolveAnthropicKey(db, row.userId, env);
 	if (!key) return finish('no_ai_key');
 	const outcome = await readMailText(env, key, row.text, fetchFn);
-	switch (outcome.kind) {
-		case 'ok': {
-			const trust: InboundTrust = row.trust ?? 'unverified';
-			await captureDraft(
-				db,
-				{
-					recipient: { spaceId: row.spaceId, userId: row.userId },
-					...outcome.reading,
-					reference: null,
-					trust,
+	if (outcome.kind === 'ok') {
+		const trust: InboundTrust = row.trust ?? 'unverified';
+		await captureDraft(
+			db,
+			{
+				recipient: { spaceId: row.spaceId, userId: row.userId },
+				...outcome.reading,
+				reference: null,
+				trust,
+				parser: 'ai',
+				dedupeKey: await mailDedupeKey({
 					parser: 'ai',
-					dedupeKey: await mailDedupeKey({
-						parser: 'ai',
-						referenceKey: null,
-						amountMinor: outcome.reading.amountMinor,
-						messageKey: row.messageKey
-					})
-				},
-				{ kind: 'queued', mailId, now }
-			);
-			return 'read';
-		}
-		case 'not_payment':
-			// Id and date only, like every other non-payment mail.
-			await db
-				.update(inboundMail)
-				.set({
-					status: 'not_payment',
-					reason: null,
-					trust: null,
-					parser: null,
-					senderDomain: null,
-					subject: null,
-					pendingText: null,
-					updatedAt: now
+					referenceKey: null,
+					amountMinor: outcome.reading.amountMinor,
+					messageKey: row.messageKey
 				})
-				.where(queued);
-			return 'read';
-		case 'currency':
-			return finish('currency');
-		case 'invalid':
-			return finish('ai_invalid');
-		case 'not_configured':
-			return finish('ai_unconfigured');
-		case 'network':
-			if (attempts >= INBOUND_READ_MAX_ATTEMPTS) return finish('ai_failed');
-			throw new RetryLaterError('inbound read: provider unavailable', INBOUND_RETRY_DELAY_S);
-		default:
-			// invalid key, quota, model unavailable: retrying will not help; the user fixes it and forwards again.
-			return finish('ai_failed');
+			},
+			{ kind: 'queued', mailId, now }
+		);
+		return 'read';
 	}
+	if (outcome.kind === 'not_payment') {
+		// Id and date only, like every other non-payment mail.
+		await db
+			.update(inboundMail)
+			.set({
+				status: 'not_payment',
+				reason: null,
+				trust: null,
+				parser: null,
+				senderDomain: null,
+				subject: null,
+				pendingText: null,
+				updatedAt: now
+			})
+			.where(queued);
+		return 'read';
+	}
+	// Invalid key, quota, model unavailable: the user fixes it and forwards again.
+	return finish(aiReadFailure(outcome, attempts, 'inbound read'));
 }

@@ -5,6 +5,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { BudgetInput } from './validation';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 /** The space's live budget: one standing monthly amount (FN-07, owner decisions B and G). */
 export interface Budget {
@@ -63,9 +64,6 @@ async function whyNot(db: Db, scope: SpaceScope): Promise<'stale' | 'gone'> {
 	return row?.member === 1 ? 'stale' : 'gone';
 }
 
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
-
 /**
  * Sets the space's budget. `expectedUpdatedAt` is what the form was loaded with.
  *
@@ -94,7 +92,7 @@ export async function setBudget(
 					amountMinor: input.amountMinor,
 					currency: input.currency,
 					deletedAt: null,
-					updatedAt: sql`max(${now}, ${budgets.updatedAt} + 1)`,
+					updatedAt: bumpedUpdatedAt(budgets.updatedAt, now),
 					seq: currentSpaceSeq(spaceId)
 				})
 				.where(

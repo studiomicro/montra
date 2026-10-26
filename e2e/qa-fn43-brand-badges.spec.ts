@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
-import { SIGNED_OUT, simulatedClientIp, tickSignUpBoxes, waitForHydration } from './helpers';
+import { newUser, type UserOptions, waitForHydration } from './helpers';
+import { addWalletInSheet } from './ledger';
 
 /**
  * QA supplement for FN-43 (PRD acceptance criteria 13, 14 — "Browser/Playwright"). The engineer's own test suite
@@ -7,26 +8,9 @@ import { SIGNED_OUT, simulatedClientIp, tickSignUpBoxes, waitForHydration } from
  * asserted a brand badge is actually drawn on /dompet or in the Langganan catalogue picker. This file closes that
  * gap. Each test signs up its own fictional user in its own context, so its personal space starts empty.
  */
-const PASSWORD = 'terang-benderang-8';
 
-async function freshUser(browser: Browser, testInfo: TestInfo) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) }
-	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('QA FN-43');
-	await page
-		.getByLabel('E-mail')
-		.fill(`qa-fn43-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL('**/');
-	return { context, page };
-}
+const freshUser = (browser: Browser, testInfo: TestInfo, opts: UserOptions = {}) =>
+	newUser(browser, testInfo, { prefix: 'qa-fn43', name: 'QA FN-43', ...opts });
 
 const row = (page: Page, name: string) =>
 	page.locator('main').getByRole('listitem').filter({ hasText: name });
@@ -34,12 +18,7 @@ const row = (page: Page, name: string) =>
 async function addWallet(page: Page, name: string) {
 	await page.goto('/dompet');
 	await waitForHydration(page);
-	await page.getByRole('link', { name: 'Tambah dompet' }).first().click();
-	const sheet = page.getByRole('dialog', { name: 'Tambah dompet' });
-	await sheet.getByLabel('Nama dompet').fill(name);
-	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
-	await expect(sheet).toBeHidden();
-	await expect(page.getByText('Dompet ditambahkan.')).toBeVisible();
+	await addWalletInSheet(page, { name });
 }
 
 test('Dompet: a wallet named BCA shows the bca brand badge; an unnamed wallet keeps its initials tile', async ({

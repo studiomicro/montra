@@ -2,8 +2,8 @@ import { fail } from '@sveltejs/kit';
 import { getEnv } from '#lib/server/env';
 import { belongingsTotal } from '#lib/server/belongings/repo';
 import { collectiblesTotal } from '#lib/server/collectibles/repo';
-import { readFormBody, textField } from '#lib/server/forms';
-import { errorLabel } from '#lib/server/util';
+import { readFormBody, expectedUpdatedAt, ID_MAX_LENGTH, idField } from '#lib/server/forms';
+import { errorLabel, sectionOr } from '#lib/server/util';
 import { NW_CHANGED, NW_LIMIT, NW_LOAD_FAILED, NW_NOT_FOUND } from '#lib/server/net-worth/messages';
 // One phrase for every read-only `Data demo` row (FN-28's answer, same i18n key).
 import { COLLECTIBLE_DEMO_READONLY as DEMO_READONLY } from '#lib/server/collectibles/messages';
@@ -36,20 +36,12 @@ import type { Actions, PageServerLoad, RequestEvent } from './$types';
 // item id from the form is only ever looked up inside that space, so another space's id and an unknown id
 // get the same answer.
 
-/** Longest item id read from a form; ids are UUIDs, anything longer cannot match. */
-const ITEM_ID_MAX_LENGTH = 64;
-/** An `updated_at` (epoch ms) as the form carries it. */
-const UPDATED_AT = /^\d{1,15}$/;
-
 /** `&saran=emas|pensiun` (a "Belum dihitung" card without JavaScript): the suggestion to pre-fill from. */
 function suggestionParam(value: string | null): WealthSuggestion | null {
 	return value === 'emas' ? 'gold' : value === 'pensiun' ? 'pension' : null;
 }
 
-function itemId(form: FormData): string {
-	const id = textField(form, 'itemId');
-	return id.length > ITEM_ID_MAX_LENGTH ? '' : id;
-}
+const itemId = (form: FormData) => idField(form, 'itemId');
 
 /** The coin codes of the latest cached Indodax ticker; null while none is cached (codes then accepted). */
 async function knownCoins(): Promise<ReadonlySet<string> | null> {
@@ -62,12 +54,6 @@ function itemRefused(result: Exclude<NetWorthWriteResult, 'ok'>) {
 	return result === 'missing'
 		? fail(404, { nwError: NW_NOT_FOUND })
 		: fail(409, { nwError: NW_CHANGED });
-}
-
-/** The `updated_at` the form was loaded with; -1 (matches nothing, so "changed meanwhile") when malformed. */
-function expectedUpdatedAt(form: FormData): number {
-	const value = textField(form, 'updatedAt');
-	return UPDATED_AT.test(value) ? Number(value) : -1;
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -88,7 +74,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	]);
 	// `?aset=baru` / `?aset=<id>` open the net-worth form without JS, `&saran=` (FN-25b's "Belum dihitung" cards)
 	// pre-fills the new item.
-	const openItem = url.searchParams.get('aset')?.slice(0, ITEM_ID_MAX_LENGTH) ?? null;
+	const openItem = url.searchParams.get('aset')?.slice(0, ID_MAX_LENGTH) ?? null;
 	const suggestion = suggestionParam(url.searchParams.get('saran'));
 	return { netWorth, trend, creditCards, openItem, suggestion, belongings, collectibles };
 };
@@ -145,14 +131,12 @@ async function loadNetWorth(db: App.Locals['db'], spaceId: string, now: number, 
 }
 
 /** The stored daily totals of the chosen range (FN-25b); a failure shows the chart's own error state. */
-async function loadTrend(db: App.Locals['db'], spaceId: string, range: TrendRange, today: string) {
-	try {
-		return { range, points: await netWorthTrend(db, spaceId, range, today), failed: false };
-	} catch (e) {
-		console.error('kekayaan: trend failed', errorLabel(e));
-		return { range, points: [], failed: true };
-	}
-}
+const loadTrend = (db: App.Locals['db'], spaceId: string, range: TrendRange, today: string) =>
+	sectionOr(
+		'kekayaan: trend failed',
+		netWorthTrend(db, spaceId, range, today).then((points) => ({ range, points, failed: false })),
+		{ range, points: [], failed: true }
+	);
 
 /**
  * The credit-card wallets' 30-day spend (FN-25b) with each card's available credit and due chip (FN-55a); a
@@ -187,25 +171,21 @@ async function loadCreditCards(
 	}
 }
 
-/** The belongings total per currency, or null when it cannot be loaded (the row then says so). */
-async function loadBelongings(db: App.Locals['db'], spaceId: string) {
-	try {
-		return { totals: await belongingsTotal(db, spaceId, wibTodayString()), failed: false };
-	} catch (e) {
-		console.error('kekayaan: belongings total failed', errorLabel(e));
-		return { totals: [], failed: true };
-	}
-}
+/** The belongings total per currency, or failed when it cannot be loaded (the row then says so). */
+const loadBelongings = (db: App.Locals['db'], spaceId: string) =>
+	sectionOr(
+		'kekayaan: belongings total failed',
+		belongingsTotal(db, spaceId, wibTodayString()).then((totals) => ({ totals, failed: false })),
+		{ totals: [], failed: true }
+	);
 
 /** The collectibles total per currency, or failed when it cannot be loaded (the row then says so). */
-async function loadCollectibles(db: App.Locals['db'], spaceId: string) {
-	try {
-		return { totals: await collectiblesTotal(db, spaceId), failed: false };
-	} catch (e) {
-		console.error('kekayaan: collectibles total failed', errorLabel(e));
-		return { totals: [], failed: true };
-	}
-}
+const loadCollectibles = (db: App.Locals['db'], spaceId: string) =>
+	sectionOr(
+		'kekayaan: collectibles total failed',
+		collectiblesTotal(db, spaceId).then((totals) => ({ totals, failed: false })),
+		{ totals: [], failed: true }
+	);
 
 async function guarded(event: RequestEvent) {
 	const form = await readFormBody(event.request);

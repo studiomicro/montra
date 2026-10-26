@@ -6,14 +6,7 @@ import {
 	type Page,
 	type TestInfo
 } from '@playwright/test';
-import {
-	APP_ORIGIN,
-	expectNoHorizontalScroll,
-	SIGNED_OUT,
-	simulatedClientIp,
-	tickSignUpBoxes,
-	waitForHydration
-} from './helpers';
+import { APP_ORIGIN, expectNoHorizontalScroll, newUser, waitForHydration } from './helpers';
 
 /**
  * FN-47 real-browser behaviour only (the rules themselves are Vitest vectors in amount-input.test.ts and
@@ -21,32 +14,22 @@ import {
  * fraction digits, the currency switch inside an open form, the 360 px layout and the no-JavaScript post.
  * Every test signs up its own fictional user, so its space starts with no wallets.
  */
-const PASSWORD = 'terang-benderang-8';
 
 async function freshUser(
 	browser: Browser,
 	testInfo: TestInfo,
 	opts: { javaScriptEnabled?: boolean; locale?: 'id' | 'en' } = {}
 ) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 47) },
-		javaScriptEnabled: opts.javaScriptEnabled ?? true
+	const { locale, ...context } = opts;
+	const user = await newUser(browser, testInfo, {
+		prefix: 'fn47',
+		name: 'Pemilik Dompet',
+		n: 47,
+		...context
 	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	if (opts.javaScriptEnabled !== false) await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Pemilik Dompet');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn47-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${APP_ORIGIN}/`);
-	if (opts.locale === 'en')
-		await context.addCookies([{ name: 'lang', value: 'en', url: APP_ORIGIN }]);
-	return { context, page };
+	if (locale === 'en')
+		await user.context.addCookies([{ name: 'lang', value: 'en', url: APP_ORIGIN }]);
+	return user;
 }
 
 /** The add-wallet form, opened from its URL (the same sheet the "Tambah dompet" link opens). */

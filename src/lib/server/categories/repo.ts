@@ -12,6 +12,7 @@ import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 import type { CategoryCreate, CategoryEdit } from './validation';
+import { bumpedUpdatedAt, nextUpdatedAt } from '../sync/updated-at';
 
 /** Most categories one space creates (the 24 presets included, hidden ones too). */
 export const MAX_CATEGORIES_PER_SPACE = 100;
@@ -296,9 +297,6 @@ export async function createCategory(
 	return { ok: false, reason: (count?.n ?? 0) >= MAX_CATEGORIES_PER_SPACE ? 'limit' : 'gone' };
 }
 
-/** `updated_at` of a write that expected `expected`: always later, even within the same millisecond. */
-const nextUpdatedAt = (expected: number, now: number) => Math.max(now, expected + 1);
-
 /**
  * Renames a category and/or changes its tile, only while its `updated_at` is still `expectedUpdatedAt` (a
  * second tab's stale form gets `stale`). Transactions point at the row, so they show the change at once.
@@ -355,7 +353,7 @@ export async function setCategoryHidden(
 			.update(categories)
 			.set({
 				isHidden: hidden,
-				updatedAt: sql`max(${now}, ${categories.updatedAt} + 1)`,
+				updatedAt: bumpedUpdatedAt(categories.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(

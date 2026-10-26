@@ -3,11 +3,11 @@ import {
 	APP_ORIGIN,
 	collectCspViolations,
 	expectNoHorizontalScroll,
-	SIGNED_OUT,
+	newUser,
 	simulatedClientIp,
-	tickSignUpBoxes,
 	waitForHydration
 } from './helpers';
+import {} from './ledger';
 
 /**
  * FN-34b journeys at 360 px: the Beranda streak chip opens /beruntun (empty, then one closed day with the
@@ -15,36 +15,25 @@ import {
  * with and without JavaScript. Each test signs up its own fictional user. No VAPID keys in e2e: the per-device
  * switch shows "Belum dikonfigurasi" while the reminder preference still saves.
  */
-const BASE = APP_ORIGIN;
 const PASSWORD = 'beruntun-pagi-8';
 
 async function freshUser(browser: Browser, testInfo: TestInfo, javaScriptEnabled = true) {
-	const context = await browser.newContext({
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 3) },
-		viewport: { width: 360, height: 780 },
-		hasTouch: true,
-		isMobile: true
+	const phone = { viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true };
+	const user = await newUser(browser, testInfo, {
+		prefix: 'fn34b',
+		name: 'Beruntun',
+		password: PASSWORD,
+		n: 3,
+		...phone
 	});
-	const page = await context.newPage();
-	await page.goto('/daftar');
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Beruntun');
-	await page
-		.getByLabel('E-mail')
-		.fill(`fn34b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL(`${BASE}/`);
-	if (javaScriptEnabled) return { context, page };
+	if (javaScriptEnabled) return user;
 	// The same session in a JavaScript-disabled context.
-	const state = await context.storageState();
-	await context.close();
+	const state = await user.context.storageState();
+	await user.context.close();
 	const noJs = await browser.newContext({
 		storageState: state,
 		javaScriptEnabled: false,
-		viewport: { width: 360, height: 780 },
+		viewport: phone.viewport,
 		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 3) }
 	});
 	return { context: noJs, page: await noJs.newPage() };
@@ -62,7 +51,7 @@ test('the streak chip opens /beruntun: empty, then today closed with calendar, m
 	await expect(chipLink).toBeVisible();
 	expect((await chipLink.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 	await chipLink.click();
-	await page.waitForURL(`${BASE}/beruntun`);
+	await page.waitForURL(`${APP_ORIGIN}/beruntun`);
 	await expect(page.getByRole('heading', { level: 1, name: 'Beruntun' })).toBeVisible();
 	await expect(main.getByText('Belum ada hari berturut-turut.', { exact: false })).toBeVisible();
 	await expect(main.getByText('Beruntun anggaran')).toBeVisible();
@@ -80,7 +69,7 @@ test('the streak chip opens /beruntun: empty, then today closed with calendar, m
 	await main.locator('section.today').getByRole('button', { name: 'Tutup hari ini' }).click();
 	await expect(main.locator('.day-chip')).toHaveText('1 hari berturut-turut');
 	await main.getByRole('link', { name: '1 hari berturut-turut' }).click();
-	await page.waitForURL(`${BASE}/beruntun`);
+	await page.waitForURL(`${APP_ORIGIN}/beruntun`);
 	await expect(main.locator('.big')).toHaveText('1');
 	await expect(main.getByText('1 hari berturut-turut · Hari ini ditutup')).toBeVisible();
 	const calendar = main.getByRole('group', { name: /^Hari ditutup,/ });
@@ -99,11 +88,11 @@ test('the streak chip opens /beruntun: empty, then today closed with calendar, m
 	await page.waitForURL(/\/beruntun\?bulan=/);
 	await expect(main.getByRole('link', { name: 'Periode sebelumnya' })).toHaveCount(0);
 	await main.getByRole('link', { name: 'Periode berikutnya' }).click();
-	await page.waitForURL(`${BASE}/beruntun`);
+	await page.waitForURL(`${APP_ORIGIN}/beruntun`);
 	await expectNoHorizontalScroll(page);
 
 	// English.
-	await context.addCookies([{ name: 'lang', value: 'en', url: BASE }]);
+	await context.addCookies([{ name: 'lang', value: 'en', url: APP_ORIGIN }]);
 	await page.reload();
 	await expect(page.getByRole('heading', { level: 1, name: 'Streak' })).toBeVisible();
 	await expect(main.getByText('Best run').first()).toBeVisible();
@@ -125,7 +114,7 @@ test('the reminder hour saves on /pengaturan/notifikasi; push stays "Belum dikon
 		.locator('main')
 		.getByRole('link', { name: /Pengingat tutup hari/ })
 		.click();
-	await page.waitForURL(`${BASE}/pengaturan/notifikasi`);
+	await page.waitForURL(`${APP_ORIGIN}/pengaturan/notifikasi`);
 	await waitForHydration(page);
 	await expect(
 		page.getByRole('switch', { name: 'Beri tahu di perangkat ini Belum dikonfigurasi' })

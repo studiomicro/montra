@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalScroll, waitForHydration } from './helpers';
-import { addWallet, BASE, freshUser, postForm, rp } from './ledger';
+import { APP_ORIGIN, expectNoHorizontalScroll, waitForHydration } from './helpers';
+import { addWallet, freshUser, postForm, rp } from './ledger';
 
 /**
  * FN-55a credit card wallet in a real browser: the card form (card wording, the bill with its sen, limit and days),
@@ -61,7 +61,7 @@ test('add a card, open its page, pay the bill as a transfer; the debt drops afte
 	await expect(page.locator('select[name="walletId"] option:checked')).toHaveText(/^Bank Fiktif/);
 	await page.getByLabel('Jumlah').fill('1.000.000');
 	await page.getByRole('button', { name: 'Simpan transaksi' }).click();
-	await page.waitForURL(`${BASE}/riwayat?saved=created`);
+	await page.waitForURL(`${APP_ORIGIN}/riwayat?saved=created`);
 
 	await page.goto('/dompet');
 	await expect(page.getByRole('link', { name: /Kartu Fiktif/ })).toContainText(

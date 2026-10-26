@@ -1,8 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { collectCspViolations, expectNoHorizontalScroll, waitForHydration } from './helpers';
+import {
+	collectCspViolations,
+	expectNoHorizontalScroll,
+	PASSWORD,
+	waitForHydration
+} from './helpers';
+import {} from './ledger';
 
 /** The shared e2e user's password (e2e/auth.setup.ts). */
-const PASSWORD = 'terang-benderang-8';
 
 /**
  * FN-38 public API: create a token in Pengaturan → API (shown once), call the API with it, see a session

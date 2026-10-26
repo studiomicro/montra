@@ -14,7 +14,7 @@ import {
 	createTransaction,
 	getTransaction,
 	insertTransactions,
-	MAX_TRANSACTIONS_PER_SPACE
+	transactionCapReached
 } from './repo';
 import {
 	capturedTransactionInput,
@@ -138,13 +138,6 @@ export async function checkVoiceRows(
 export type SaveVoiceResult =
 	{ ok: true; saved: number } | { ok: false; reason: 'limit' | 'gone' | 'duplicate' };
 
-async function full(db: Db, spaceId: string, adding: number): Promise<boolean> {
-	const [count] = await db.all<{ n: number }>(
-		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-	);
-	return (count?.n ?? 0) + adding > MAX_TRANSACTIONS_PER_SPACE;
-}
-
 /**
  * "Simpan N transaksi": every checked row in one `db.batch` through FN-05's insert path (`insertTransactions`,
  * the same statement `createTransaction` runs), `source = 'voice'`, each with the dedupe key `<key>:<i>`. A
@@ -181,7 +174,10 @@ export async function saveVoiceTransactions(
 		if (isUniqueViolation(e)) return { ok: false, reason: 'duplicate' };
 		if (!isBatchAssertFailure(e)) throw e;
 	}
-	return { ok: false, reason: (await full(db, spaceId, rows.length)) ? 'limit' : 'gone' };
+	return {
+		ok: false,
+		reason: (await transactionCapReached(db, spaceId, rows.length)) ? 'limit' : 'gone'
+	};
 }
 
 export type RecordAgainResult =

@@ -1,10 +1,12 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import {
 	APP_ORIGIN,
+	newDevice as newDeviceBase,
 	expectNoHorizontalScroll,
+	PASSWORD,
 	SIGNED_OUT,
-	simulatedClientIp,
-	tickSignUpBoxes,
+	signUp,
+	uniqueEmail,
 	waitForHydration
 } from './helpers';
 
@@ -18,30 +20,24 @@ test.use({ storageState: SIGNED_OUT });
 // Several scrypt (128 MiB) and PBKDF2 derivations per journey.
 test.describe.configure({ timeout: 180_000 });
 
-const PASSWORD = 'terang-benderang-8';
 const CANCELLED = 'Dibatalkan. Masuk dengan kata sandi atau coba lagi.';
 const NOT_OPEN = 'Kunci akun belum dibuka di sesi ini. Buka dengan kata sandi di halaman Akun.';
 
-const freshEmail = (tag: string) =>
-	`fn50-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
+const freshEmail = (tag: string) => uniqueEmail(`fn50-${tag}`);
 
-let contexts = 0;
 async function newDevice(
 	browser: Browser,
 	opts: { javaScriptEnabled?: boolean; theme?: 'dark' } = {}
 ): Promise<{ context: BrowserContext; page: Page }> {
-	const context = await browser.newContext({
-		baseURL: APP_ORIGIN,
-		locale: 'id-ID',
+	const device = await newDeviceBase(browser, {
 		viewport: { width: 360, height: 780 },
 		hasTouch: true,
 		isMobile: true,
-		javaScriptEnabled: opts.javaScriptEnabled ?? true,
-		storageState: SIGNED_OUT,
-		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(test.info(), ++contexts) }
+		javaScriptEnabled: opts.javaScriptEnabled
 	});
-	if (opts.theme) await context.addCookies([{ name: 'theme', value: opts.theme, url: APP_ORIGIN }]);
-	return { context, page: await context.newPage() };
+	if (opts.theme)
+		await device.context.addCookies([{ name: 'theme', value: opts.theme, url: APP_ORIGIN }]);
+	return device;
 }
 
 /** A platform authenticator that holds discoverable credentials and verifies the user automatically. */
@@ -61,15 +57,8 @@ async function addAuthenticator(context: BrowserContext, page: Page) {
 	return { cdp, authenticatorId };
 }
 
-async function signUp(page: Page, email: string) {
-	await page.goto('/daftar');
-	await waitForHydration(page);
-	await page.getByLabel('Nama').fill('Budi Santoso');
-	await page.getByLabel('E-mail').fill(email);
-	await page.getByLabel('Kata sandi').fill(PASSWORD);
-	await tickSignUpBoxes(page);
-	await page.getByRole('button', { name: 'Daftar' }).click();
-	await page.waitForURL((url) => url.pathname !== '/daftar', { timeout: 60_000 });
+async function signUpAndSettle(page: Page, email: string) {
+	await signUp(page, { email, timeout: 60_000 });
 	// The redirect target finishes loading before the next navigation (a goto mid-load is aborted).
 	await waitForHydration(page);
 }
@@ -95,7 +84,7 @@ test.describe('passkeys (FN-50)', () => {
 		const email = freshEmail('journey');
 		const { context, page } = await newDevice(browser);
 		const authenticator = await addAuthenticator(context, page);
-		await signUp(page, email);
+		await signUpAndSettle(page, email);
 
 		// AC 16: empty state, then AC 19 and 49: registered, listed after the reload, focus back on the opener.
 		await page.goto('/pengaturan/akun/passkey');
@@ -188,7 +177,7 @@ test.describe('passkeys (FN-50)', () => {
 	}) => {
 		const email = freshEmail('cancel');
 		const { context, page } = await newDevice(browser);
-		await signUp(page, email);
+		await signUpAndSettle(page, email);
 		await page.goto('/pengaturan/akun');
 		await waitForHydration(page);
 		await page.getByRole('button', { name: 'Keluar dari akun' }).click();
@@ -217,7 +206,7 @@ test.describe('passkeys (FN-50)', () => {
 	}) => {
 		const email = freshEmail('nojs');
 		const js = await newDevice(browser);
-		await signUp(js.page, email);
+		await signUpAndSettle(js.page, email);
 		await js.context.close();
 		const { context, page } = await newDevice(browser, { javaScriptEnabled: false });
 		await page.goto('/masuk');
@@ -235,7 +224,7 @@ test.describe('passkeys (FN-50)', () => {
 	}) => {
 		const email = freshEmail('list');
 		const { context, page } = await newDevice(browser, { theme: 'dark' });
-		await signUp(page, email);
+		await signUpAndSettle(page, email);
 		await page.goto('/pengaturan/akun/passkey');
 		await waitForHydration(page);
 		// Three devices: one authenticator holds one passkey per account (it refuses a second, excludeCredentials).

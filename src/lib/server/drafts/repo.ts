@@ -6,19 +6,20 @@ import type { CategoryKind, CategorySource } from '#lib/shared/transactions';
 import { ensurePresetCategories, getCategory, listCategories } from '../categories/repo';
 import type { Db } from '../db';
 import { batchAssert, isBatchAssertFailure } from '../db/assert';
-import { drafts, spaceSeq } from '../db/schema';
+import { drafts } from '../db/schema';
 import { learnFromCorrections } from '../merchants/learn';
 import { isLiveMember, type SpaceScope } from '../spaces/access';
-import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
+import { bumpSpaceSeq, bumpSpaceSeqsWhere, currentSpaceSeq } from '../sync/seq';
 import {
 	insertTransactions,
-	MAX_TRANSACTIONS_PER_SPACE,
+	transactionCapReached,
 	type NewTransaction
 } from '../transactions/repo';
 import { capturedTransactionInput } from '../transactions/validation';
 import { isUniqueViolation, newId } from '../util';
 import { getWallet, listWallets } from '../wallets/repo';
 import type { DraftRef } from './validation';
+import { bumpedUpdatedAt } from '../sync/updated-at';
 
 /** Most pending drafts one page lists (the header still counts all of them). */
 const DRAFT_LIST_MAX = 100;
@@ -152,11 +153,8 @@ export async function getDrafts(
 	return rows.flatMap((r) => live(r) ?? []);
 }
 
-/** `updated_at` after a write: always later than before, even within the same millisecond. */
-const bumpedUpdatedAt = (now: number) => sql`max(${now}, drafts.updated_at + 1)`;
-
 /** The columns a draft keeps none of once discarded or saved (content-free tombstone, like transactions). */
-const tombstone = (spaceId: string, now: number) => ({
+const tombstone = (spaceId: string | SQL, now: number) => ({
 	deletedAt: now,
 	amountMinor: null,
 	currency: null,
@@ -167,7 +165,7 @@ const tombstone = (spaceId: string, now: number) => ({
 	occurredOn: null,
 	occurredAt: null,
 	flag: null,
-	updatedAt: bumpedUpdatedAt(now),
+	updatedAt: bumpedUpdatedAt(drafts.updatedAt, now),
 	seq: currentSpaceSeq(spaceId)
 });
 
@@ -180,16 +178,10 @@ const tombstone = (spaceId: string, now: number) => ({
 export function discardDraftsWhere(db: Db, draftIds: SQL, now: number) {
 	const target = sql`drafts.id in (${draftIds}) and drafts.deleted_at is null`;
 	return [
-		db
-			.insert(spaceSeq)
-			.select(sql`select distinct drafts.space_id, 1 from drafts where ${target}`)
-			.onConflictDoUpdate({ target: spaceSeq.spaceId, set: { seq: sql`${spaceSeq.seq} + 1` } }),
+		bumpSpaceSeqsWhere(db, drafts, target),
 		db
 			.update(drafts)
-			.set({
-				...tombstone('', now),
-				seq: sql`(select s.seq from space_seq s where s.space_id = drafts.space_id)`
-			})
+			.set(tombstone(sql`drafts.space_id`, now))
 			.where(target)
 	] as const;
 }
@@ -252,7 +244,11 @@ export async function renameDraft(
 		bumpSpaceSeq(db, spaceId),
 		db
 			.update(drafts)
-			.set({ title, updatedAt: bumpedUpdatedAt(now), seq: currentSpaceSeq(spaceId) })
+			.set({
+				title,
+				updatedAt: bumpedUpdatedAt(drafts.updatedAt, now),
+				seq: currentSpaceSeq(spaceId)
+			})
 			.where(
 				and(
 					eq(drafts.id, ref.id),
@@ -344,7 +340,7 @@ export async function setDraftsCategory(
 			.set({
 				categoryId,
 				categorySource: 'user',
-				updatedAt: bumpedUpdatedAt(now),
+				updatedAt: bumpedUpdatedAt(drafts.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -396,7 +392,7 @@ export async function fillDraftCategories(
 			.update(drafts)
 			.set({
 				categoryId: pick('categoryId'),
-				updatedAt: bumpedUpdatedAt(now),
+				updatedAt: bumpedUpdatedAt(drafts.updatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
 			.where(
@@ -443,7 +439,11 @@ export async function setDraftsWallet(
 	const result = await allOrNothing(db, spaceId, json, matching.length, [
 		db
 			.update(drafts)
-			.set({ walletId, updatedAt: bumpedUpdatedAt(now), seq: currentSpaceSeq(spaceId) })
+			.set({
+				walletId,
+				updatedAt: bumpedUpdatedAt(drafts.updatedAt, now),
+				seq: currentSpaceSeq(spaceId)
+			})
 			.where(
 				and(
 					pending(spaceId),
@@ -537,10 +537,7 @@ export async function saveDrafts(
 		if (isUniqueViolation(e)) return { ok: false, reason: 'duplicate' };
 		throw e;
 	}
-	const [count] = await db.all<{ n: number }>(
-		sql`select count(*) as n from transactions where space_id = ${spaceId} and deleted_at is null`
-	);
-	const full = (count?.n ?? 0) + rows.length > MAX_TRANSACTIONS_PER_SPACE;
+	const full = await transactionCapReached(db, spaceId, rows.length);
 	return { ok: false, reason: full ? 'limit' : 'stale' };
 }
 

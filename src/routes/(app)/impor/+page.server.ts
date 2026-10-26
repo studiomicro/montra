@@ -1,7 +1,13 @@
 import { fail } from '@sveltejs/kit';
 import { countCleanupCandidates } from '#lib/server/categories/cleanup';
 import { overUserSlidingLimit } from '#lib/server/auth/throttle';
-import { BodyBudgetExceeded, readFormBody, textField } from '#lib/server/forms';
+import {
+	BodyBudgetExceeded,
+	expectedUpdatedAt,
+	idField,
+	readFormBody,
+	textField
+} from '#lib/server/forms';
 import { getEnv } from '#lib/server/env';
 import { importCsv, previewCsv, type CsvRefusal } from '#lib/server/imports/csv-import';
 import {
@@ -100,15 +106,12 @@ import {
 	TRANSACTION_LIMIT,
 	TRANSACTION_RATE_LIMITED
 } from '#lib/server/transactions/messages';
-import { ID_MAX_LENGTH } from '#lib/server/transactions/validation';
 import { errorLabel } from '#lib/server/util';
 import { importSheetAction, previewSheetAction, suggestMappingAction } from './spreadsheet.server';
 import { WALLET_NOT_FOUND } from '#lib/server/wallets/messages';
 import { listWallets } from '#lib/server/wallets/repo';
 import { isDateString, monthOf, monthRange, wibTodayString } from '#lib/shared/dates';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
-
-const UPDATED_AT = /^\d{1,15}$/;
 
 /** FN-16j: each refused move as the page shows it (nothing was written). */
 const MOVE_REFUSALS: Readonly<
@@ -661,14 +664,13 @@ export const actions: Actions = {
 	undo: async (event) => {
 		const form = await readFormBody(event.request);
 		const scope = await currentSpaceScope(event.locals);
-		const id = textField(form, 'id');
-		const updatedAt = textField(form, 'updatedAt');
+		const id = idField(form, 'id');
 		// A malformed id or version matches nothing: the same answers as an unknown batch or a stale page.
 		const result = await undoImportBatch(
 			event.locals.db,
 			scope,
-			id.length > ID_MAX_LENGTH ? '' : id,
-			UPDATED_AT.test(updatedAt) ? Number(updatedAt) : -1,
+			id,
+			expectedUpdatedAt(form),
 			Date.now()
 		);
 		if (result === 'missing') return fail(404, { error: BATCH_NOT_FOUND });
@@ -684,16 +686,15 @@ export const actions: Actions = {
 	move: async (event) => {
 		const form = await readFormBody(event.request);
 		const scope = await currentSpaceScope(event.locals);
-		const id = textField(form, 'id');
-		const updatedAt = textField(form, 'updatedAt');
-		const walletId = textField(form, 'walletId');
+		const id = idField(form, 'id');
+		const walletId = idField(form, 'walletId');
 		// A malformed id or version matches nothing: the same answers as an unknown batch/wallet or a stale page.
 		const result = await moveImportBatch(
 			event.locals.db,
 			scope,
-			id.length > ID_MAX_LENGTH ? '' : id,
-			walletId.length > ID_MAX_LENGTH ? '' : walletId,
-			UPDATED_AT.test(updatedAt) ? Number(updatedAt) : -1,
+			id,
+			walletId,
+			expectedUpdatedAt(form),
 			Date.now()
 		);
 		if (!result.ok) {
@@ -719,12 +720,12 @@ export const actions: Actions = {
 		const now = Date.now();
 		if (await overTransactionCreateLimit(event.locals.db, scope.userId, now))
 			return fail(429, { error: TRANSACTION_RATE_LIMITED });
-		const id = textField(form, 'id');
+		const id = idField(form, 'id');
 		const gap = textField(form, 'gap');
 		const result = await closeContinuityGap(
 			event.locals.db,
 			scope,
-			id.length > ID_MAX_LENGTH ? '' : id,
+			id,
 			GAP.test(gap) ? Number(gap) : Number.NaN,
 			now
 		);
