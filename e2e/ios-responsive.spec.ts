@@ -11,7 +11,9 @@ import { addWallet, BASE, ids, PASSWORD, postExpense } from './ledger';
 /**
  * ios-responsive guard (owner request 2026-10-10): the key screens on WebKit (the closest engine to iOS Safari) at
  * the iPhone SE (375 px) and iPhone 15 Pro Max (430 px) sizes — see the `ios-se` and `ios-pro-max` projects in
- * playwright.config.ts, which run only this file. Each signs up its own fictional user with long names and a very
+ * playwright.config.ts, which run only this file — plus iPhone 17 / 17 Pro / 18 Pro (402 px, and 874 px turned) and
+ * iPhone Duo (466 px folded, 626 px and 890 px unfolded; owner request 2026-10-26), and the Galaxy Z Fold on Chromium
+ * (the `android-*` projects: Fold 7 cover 360 px, Fold 7 and Fold 6 unfolded 984 and 928 px). Each signs up its own fictional user with long names and a very
  * long rupiah amount, then on every screen asserts: no horizontal scroll, the last list item and every primary
  * button clear of the floating tab bar and the round Tambah button, the tab bar above the home indicator, and a
  * sticky title below the notch. Insets are emulated through the `--sai-*` variables (WebKit cannot fake `env()`).
@@ -20,8 +22,23 @@ import { addWallet, BASE, ids, PASSWORD, postExpense } from './ledger';
 const INSETS: Record<string, { top: number; right: number; bottom: number; left: number }> = {
 	// iPhone SE has no notch and a home button; the Pro Max has a Dynamic Island and a home indicator.
 	'ios-se': { top: 0, right: 0, bottom: 0, left: 0 },
-	'ios-pro-max': { top: 47, right: 0, bottom: 34, left: 0 }
+	'ios-pro-max': { top: 47, right: 0, bottom: 34, left: 0 },
+	// iPhone 17 / 17 Pro / 18 Pro: Dynamic Island on top upright, on the left or right when turned.
+	'ios-17': { top: 62, right: 0, bottom: 34, left: 0 },
+	'ios-17-landscape': { top: 0, right: 62, bottom: 21, left: 62 },
+	// iPhone Duo: insets not published yet; emulated with the Pro Max's values (upright) and a home indicator
+	// (turned) until a real device is measured.
+	'ios-duo-folded': { top: 47, right: 0, bottom: 34, left: 0 },
+	'ios-duo-open': { top: 47, right: 0, bottom: 34, left: 0 },
+	'ios-duo-open-landscape': { top: 24, right: 0, bottom: 20, left: 0 },
+	// Galaxy Z Fold in Android Chrome: the browser's own bars sit outside the page, so no insets reach it.
+	'android-fold7-cover': { top: 0, right: 0, bottom: 0, left: 0 },
+	'android-fold7-open': { top: 0, right: 0, bottom: 0, left: 0 },
+	'android-fold6-open': { top: 0, right: 0, bottom: 0, left: 0 }
 };
+
+/** Pages whose body splits into two columns on the 860 – 1023 px tablet tier (app +layout.svelte). */
+const TWO_COLUMN_SCREENS = ['/', '/dompet', '/anggaran', '/laporan', '/impor'];
 
 const SCREENS = [
 	'/',
@@ -88,14 +105,18 @@ async function coverage(page: Page) {
 	});
 }
 
-test.describe('iPhone layout on WebKit', () => {
+test.describe('iPhone and Galaxy Z Fold layout', () => {
 	test.use({ storageState: SIGNED_OUT });
 
 	test('key screens: no horizontal scroll, nothing under the tab bar or the notch', async ({
 		page,
 		browserName
 	}, testInfo) => {
-		test.skip(browserName !== 'webkit', 'WebKit only');
+		const android = testInfo.project.name.startsWith('android-');
+		test.skip(
+			browserName !== (android ? 'chromium' : 'webkit'),
+			android ? 'Chromium only' : 'WebKit only'
+		);
 		test.setTimeout(180_000);
 		const insets = INSETS[testInfo.project.name]!;
 		await page.context().setExtraHTTPHeaders({ 'cf-connecting-ip': simulatedClientIp(testInfo) });
@@ -111,6 +132,8 @@ test.describe('iPhone layout on WebKit', () => {
 		await tickSignUpBoxes(page);
 		await page.getByRole('button', { name: 'Daftar' }).click();
 		await page.waitForURL(`${BASE}/`);
+		// FN-54: the once-a-day greeting sheet would cover Beranda (e2e/sapaan.spec.ts tests it).
+		await page.context().addCookies([{ name: 'montra-sapaan-off', value: '1', url: BASE }]);
 		await addWallet(page, LONG_WALLET, '1.264.000.000');
 		await addWallet(page, 'Tunai', '250.000');
 		const { wallet, category } = await ids(page);
@@ -168,6 +191,19 @@ test.describe('iPhone layout on WebKit', () => {
 				await expectNoHorizontalScroll(page);
 			});
 		}
+
+		await test.step('tablet tier: two-column pages show both columns; narrower screens stack them', async () => {
+			const width = page.viewportSize()!.width;
+			for (const path of TWO_COLUMN_SCREENS) {
+				await page.goto(path);
+				await waitForHydration(page);
+				const columns = await page
+					.locator('main .two-col')
+					.first()
+					.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+				expect(columns, `${path} at ${width} px`).toBe(width >= 860 ? 2 : 1);
+			}
+		});
 
 		await test.step('sticky title stays below the top inset', async () => {
 			await page.goto('/riwayat');

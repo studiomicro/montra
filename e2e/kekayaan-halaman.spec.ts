@@ -183,8 +183,8 @@ test('desktop 1280: two columns — hero, chart and lists left; bar, suggestions
 	await expect(page.locator('aside.side')).toContainText('Belum dihitung');
 	await expectNoHorizontalScroll(page);
 
-	// One column below 1024 px.
-	await page.setViewportSize({ width: 1000, height: 900 });
+	// One column below 860 px (from 860 px the tablet tier keeps two columns; app +layout.svelte).
+	await page.setViewportSize({ width: 840, height: 900 });
 	const narrowHero = await page.locator('.hero-area').boundingBox();
 	const narrowSide = await page.locator('aside.side').boundingBox();
 	expect(narrowSide!.x).toBe(narrowHero!.x);

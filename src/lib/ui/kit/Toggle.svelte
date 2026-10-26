@@ -129,7 +129,7 @@
 		transition: transform 0.2s var(--ease);
 	}
 	input:checked + .track {
-		background: var(--ink);
+		background: var(--action);
 	}
 	input:checked + .track::after {
 		transform: translateX(20px);

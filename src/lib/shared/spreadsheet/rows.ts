@@ -74,7 +74,7 @@ const CSV_REASON: Readonly<Record<SheetSkipReason, SkipReason>> = {
 	foreign_currency: 'unsupported_currency'
 };
 
-export interface TabRows {
+interface TabRows {
 	tab: number;
 	/** Rows of this tab counted (imported or skipped), past the header. */
 	rows: number;

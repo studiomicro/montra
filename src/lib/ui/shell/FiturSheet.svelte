@@ -2,13 +2,12 @@
 	import { enhance, type SubmitFunction } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { Module } from '#lib/shared/feature-flags';
-	import { msg } from '#lib/shared/i18n';
-	import type { IconName } from '#lib/ui/icons';
 	import { useI18n } from '#lib/ui/i18n-context';
+	import FeatureChip from '#lib/ui/kit/FeatureChip.svelte';
 	import ToggleRow from '#lib/ui/kit/ToggleRow.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { fiturSheet } from './fitur.svelte';
-	import { MODULE_NAV } from './nav';
+	import { featureItem, MODULE_NAV } from './nav';
 	import Sheet from './Sheet.svelte';
 
 	/**
@@ -20,38 +19,14 @@
 	let { hidden }: { hidden: readonly Module[] } = $props();
 	const { tr } = useI18n();
 
-	const ROWS: readonly { module: Module; label: string; hint: string; icon: IconName }[] = [
-		{
-			module: 'kekayaan',
-			label: msg('Kekayaan bersih'),
-			hint: msg('Aset dan utang, dihitung jadi satu angka'),
-			icon: 'star'
-		},
-		{
-			module: 'barang',
-			label: msg('Barang'),
-			hint: msg('Barang berharga dan perkiraan nilainya'),
-			icon: 'box'
-		},
-		{
-			module: 'langganan',
-			label: msg('Langganan'),
-			hint: msg('Tagihan rutin dan kapan ditagih berikutnya'),
-			icon: 'repeat'
-		},
-		{
-			module: 'koleksi',
-			label: msg('Koleksi'),
-			hint: msg('Koleksi dengan nilai yang kamu isi sendiri'),
-			icon: 'sparkle'
-		},
-		{
-			module: 'patungan',
-			label: msg('Patungan'),
-			hint: msg('Bagi tagihan bersama dan catat siapa yang sudah lunas'),
-			icon: 'people'
+	/** The switchable modules with a page, in the sheet's order; glyph, hue, label and hint from nav.ts (FN-54). */
+	const ROWS = (['kekayaan', 'barang', 'langganan', 'koleksi', 'patungan'] as const).flatMap(
+		(module) => {
+			const item = featureItem(MODULE_NAV[module] ?? '');
+			return item ? [{ module, item }] : [];
 		}
-	];
+	);
+	const ALUR_UANG = featureItem('/alur-uang');
 
 	/** The module being saved (null when none): every switch is disabled meanwhile. */
 	let busy = $state<Module | null>(null);
@@ -107,10 +82,11 @@
 					<form method="POST" action="/pengaturan/fitur?/setFlag" use:enhance={save(row.module)}>
 						<input type="hidden" name="module" value={row.module} />
 						<ToggleRow
-							icon={row.icon}
+							icon={row.item.icon}
+							tone={row.item.tone}
 							name="enabled"
-							label={tr(row.label)}
-							hint={busy === row.module ? tr('Menyimpan…') : tr(row.hint)}
+							label={tr(row.item.label)}
+							hint={busy === row.module ? tr('Menyimpan…') : tr(row.item.hint ?? '')}
 							checked={enabled(row.module)}
 							disabled={busy !== null}
 							onchange={(event) => event.currentTarget.form?.requestSubmit()}
@@ -122,22 +98,22 @@
 		<h3 class="sub">{tr('Buka fitur')}</h3>
 		<ul class="rows">
 			<!-- FN-35: Alur uang is a page for everyone, not a module with a switch (owner decision B). -->
-			<li>
-				<a class="link" href="/alur-uang" onclick={() => (fiturSheet.open = false)}>
-					<span class="circle" aria-hidden="true"><Icon name="flow" size={20} /></span>
-					<span class="link-label"
-						>{tr('Alur uang')}<span class="link-hint"
-							>{tr('Dari mana uang masuk dan ke mana keluar')}</span
-						></span
-					>
-					<Icon name="chevron-right" size={18} />
-				</a>
-			</li>
+			{#if ALUR_UANG}
+				<li>
+					<a class="link" href={ALUR_UANG.href} onclick={() => (fiturSheet.open = false)}>
+						<FeatureChip icon={ALUR_UANG.icon} tone={ALUR_UANG.tone} size={40} />
+						<span class="link-label"
+							>{tr(ALUR_UANG.label)}<span class="link-hint">{tr(ALUR_UANG.hint ?? '')}</span></span
+						>
+						<Icon name="chevron-right" size={18} />
+					</a>
+				</li>
+			{/if}
 			{#each ROWS.filter((row) => !hidden.includes(row.module)) as row (row.module)}
 				<li>
-					<a class="link" href={MODULE_NAV[row.module]} onclick={() => (fiturSheet.open = false)}>
-						<span class="circle" aria-hidden="true"><Icon name={row.icon} size={20} /></span>
-						<span class="link-label">{tr(row.label)}</span>
+					<a class="link" href={row.item.href} onclick={() => (fiturSheet.open = false)}>
+						<FeatureChip icon={row.item.icon} tone={row.item.tone} size={40} />
+						<span class="link-label">{tr(row.item.label)}</span>
 						<Icon name="chevron-right" size={18} />
 					</a>
 				</li>
@@ -204,15 +180,6 @@
 		color: var(--muted);
 		font-size: 13px;
 		font-weight: 400;
-	}
-	.circle {
-		display: grid;
-		flex: none;
-		place-items: center;
-		width: 40px;
-		height: 40px;
-		border-radius: var(--r-pill);
-		background: var(--bg);
 	}
 	.more {
 		display: inline-flex;

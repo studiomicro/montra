@@ -14,10 +14,6 @@ export async function receiptKeyPrefix(photoBytes: Uint8Array): Promise<string> 
 	return `receipt:${bytesToHex(digest).slice(0, 32)}:`;
 }
 
-export async function receiptDedupeKey(photoBytes: Uint8Array, rowIndex: number): Promise<string> {
-	return `${await receiptKeyPrefix(photoBytes)}${rowIndex}`;
-}
-
 /**
  * SQL: a row of this photo (live or deleted) already exists in the space. Keys are `<prefix><digits>`; ':' sorts
  * right after '9', so the range holds exactly this photo's keys (one indexed range scan on the dedupe index).

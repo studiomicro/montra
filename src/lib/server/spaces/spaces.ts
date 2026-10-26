@@ -40,6 +40,7 @@ import {
 	tanyaMessages,
 	transactions,
 	transferLinks,
+	cardStatements,
 	wallets
 } from '../db/schema';
 import { releaseAgentKeys } from '../agent/keys';
@@ -53,7 +54,7 @@ import { recordAuditEvent } from './audit';
 /** Stored length cap of a shared space's name (cleaned like FN-01's sign-up name). */
 export const SPACE_NAME_MAX_LENGTH = 60;
 /** Most memberships `/ruang` lists for one user (no plan cap yet, owner decision C; the page stays bounded). */
-export const SPACE_LIST_LIMIT = 100;
+const SPACE_LIST_LIMIT = 100;
 
 /**
  * Creates a shared space owned by `userId`: the space, the owner membership and the `space_created` audit
@@ -317,6 +318,8 @@ export const SPACE_SCOPED_TABLES = [
 	categoryCleanupBatches,
 	// "Cocokkan transfer" (FN-48 Part C): links point at the space only (transaction ids, no foreign key).
 	transferLinks,
+	// Card statements (FN-55b) point at wallets and import batches (deleted below).
+	cardStatements,
 	// Drafts point at transactions, wallets and categories; transactions at wallets, categories and imports.
 	drafts,
 	transactions,

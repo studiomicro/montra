@@ -8,7 +8,7 @@ import type { ColumnRole, SheetSkipCounts, TabSkipReason } from '#lib/shared/spr
  * `section: 'spreadsheet'`, so the CSV and statement sections never show them and it never shows theirs.
  */
 
-export type SheetRead = {
+type SheetRead = {
 	step: 'read' | 'reviewed';
 	filename: string;
 	walletId: string | null;
@@ -19,7 +19,7 @@ export type SheetRead = {
 	aiError: string | null;
 	aiTab: number | null;
 };
-export type SheetImported = {
+type SheetImported = {
 	step: 'imported';
 	filename: string;
 	counts: CsvCounts;

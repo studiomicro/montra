@@ -25,9 +25,16 @@
 		label: string;
 	} = $props();
 	const { tr, locale } = useI18n();
+
+	// The months run oldest → newest: open scrolled to the end, so the latest months (where the data is) and the
+	// totals are in view on a narrow screen; the category names stay pinned at the left (POLISH_AUDIT B2).
+	let scroller: HTMLDivElement | undefined = $state();
+	$effect(() => {
+		if (scroller) scroller.scrollLeft = scroller.scrollWidth;
+	});
 </script>
 
-<div class="scroll">
+<div class="scroll" bind:this={scroller}>
 	<table aria-label={label}>
 		<thead>
 			<tr>
@@ -79,10 +86,14 @@
 		text-align: center;
 	}
 	th.cat {
+		position: sticky;
+		left: 0;
+		z-index: 1;
 		display: flex;
 		align-items: center;
 		gap: 8px;
 		min-width: 140px;
+		background: var(--panel);
 		color: var(--ink);
 		text-align: left;
 	}

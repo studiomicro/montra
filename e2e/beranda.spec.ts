@@ -8,6 +8,8 @@ import { addWallet, BASE, freshUser, ids, postExpense, postForm, rp, today } fro
  */
 
 const main = (page: Page) => page.locator('main');
+/** The budget block under the charts (FN-54: the hero's budget chip says "Atur anggaran" too, linking to /anggaran). */
+const budget = (page: Page) => main(page).locator('.budget');
 const sheet = (page: Page) => page.getByRole('dialog', { name: 'Anggaran bulanan' });
 /** "Rp3 jt tersisa · Rp… rb sehari untuk N hari" (compact amounts use a no-break space before the unit). */
 const sisa = (millions: number) =>
@@ -25,7 +27,7 @@ async function openBeranda(page: Page) {
 }
 
 async function setBudgetInSheet(page: Page, opener: string, amount: string) {
-	await main(page).getByRole('link', { name: opener }).click();
+	await budget(page).getByRole('link', { name: opener }).click();
 	await expect(sheet(page)).toBeVisible();
 	await sheet(page).getByLabel('Anggaran per bulan').fill(amount);
 	await sheet(page).getByRole('button', { name: 'Simpan' }).click();
@@ -47,7 +49,7 @@ test('budget set in the sheet shows the safe-to-spend line and survives a reload
 
 	await page.reload();
 	await expect(main(page).getByText(sisa(3))).toBeVisible();
-	await expect(main(page).getByRole('link', { name: 'Ubah anggaran' })).toBeVisible();
+	await expect(budget(page).getByRole('link', { name: 'Ubah anggaran' })).toBeVisible();
 	await context.close();
 });
 
@@ -62,15 +64,15 @@ test('edit the budget, then "Hapus anggaran" returns Beranda to the no-budget st
 	await setBudgetInSheet(page, 'Ubah anggaran', '4000000');
 	await expect(main(page).getByText(sisa(4))).toBeVisible();
 
-	await main(page).getByRole('link', { name: 'Ubah anggaran' }).click();
+	await budget(page).getByRole('link', { name: 'Ubah anggaran' }).click();
 	await expect(sheet(page).getByLabel('Anggaran per bulan')).toHaveValue('4.000.000');
 	await sheet(page).getByRole('button', { name: 'Hapus anggaran' }).click();
 	await expect(sheet(page)).toBeHidden();
 	await expect(page.getByText('Anggaran dihapus.')).toBeVisible();
-	await expect(main(page).getByRole('link', { name: 'Atur anggaran' })).toBeVisible();
+	await expect(budget(page).getByRole('link', { name: 'Atur anggaran' })).toBeVisible();
 	await expect(main(page).getByText(/ tersisa · /)).toHaveCount(0);
 	await page.reload();
-	await expect(main(page).getByRole('link', { name: 'Atur anggaran' })).toBeVisible();
+	await expect(budget(page).getByRole('link', { name: 'Atur anggaran' })).toBeVisible();
 	await context.close();
 });
 
@@ -166,7 +168,7 @@ test('at 360 px: no horizontal scroll, 44 px bar and picker targets, focus retur
 		.getByRole('combobox', { name: 'Grafik pengeluaran' })
 		.boundingBox();
 	expect(picker!.height).toBeGreaterThanOrEqual(44);
-	const opener = main(page).getByRole('link', { name: 'Atur anggaran' });
+	const opener = budget(page).getByRole('link', { name: 'Atur anggaran' });
 	expect((await opener.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 
 	await opener.focus();
@@ -192,7 +194,7 @@ test('without JavaScript the budget form works as a plain form: refusal and succ
 	});
 	const page = await context.newPage();
 	await page.goto('/');
-	await main(page).getByRole('link', { name: 'Atur anggaran' }).click();
+	await budget(page).getByRole('link', { name: 'Atur anggaran' }).click();
 	await page.waitForURL(`${BASE}/?anggaran=1`);
 	const inline = main(page).locator('section', {
 		has: page.getByRole('heading', { name: 'Anggaran bulanan' })
@@ -307,7 +309,7 @@ test('FN-34: "Tutup hari ini" closes today once, shows the streak chip and survi
 	const card = main(page).locator('section.today');
 	const chip = main(page).locator('.day-chip');
 	const closeButton = card.getByRole('button', { name: 'Tutup hari ini' });
-	await expect(chip).toHaveText('0 hari berturut-turut');
+	await expect(chip).toHaveText('Mulai hari ini');
 	await expect(card.getByText('Belum ada transaksi hari ini.')).toBeVisible();
 	await expect(closeButton).toBeVisible();
 	if (isPhone(page)) {

@@ -12,7 +12,7 @@ import { fixtureText } from './mail';
 
 export type Endpoint = 'exchange' | 'refresh' | 'revoke' | 'profile' | 'list' | 'get' | 'other';
 
-export interface FakeCall {
+interface FakeCall {
 	endpoint: Endpoint;
 	url: string;
 	body: string;

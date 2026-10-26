@@ -125,7 +125,7 @@ const ZERO_GROUP_AFTER_FIGURE = new RegExp(`${MARK}[.,]? *[0OoØøDQ]{3}(?![A-Za
 export type GuardResult = { kind: 'prose'; text: string } | { kind: 'figures_only'; text: string };
 
 /** The model text as the page may show it: NFKC-folded, invisible and combining characters gone, tabs as spaces. */
-export function normaliseModelText(modelText: string): string {
+function normaliseModelText(modelText: string): string {
 	return modelText
 		.slice(0, TANYA_BODY_MAX * 2)
 		.replace(/\r\n?/g, '\n')

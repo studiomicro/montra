@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { enhance, type SubmitFunction } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { formatDateTimeWib } from '#lib/shared/dates';
 	import { TANYA_CHIPS, TANYA_QUESTION_MAX } from '#lib/shared/tanya';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -22,8 +23,23 @@
 	const uid = $props.id();
 
 	/** The question being written; a refused question keeps its text (criterion 16). */
-	const refusedText = () => (form && 'q' in form && typeof form.q === 'string' ? form.q : '');
+	// FN-54: or the question Beranda's ask field brought along (`?q=`, cleaned by the load).
+	const refusedText = () =>
+		form && 'q' in form && typeof form.q === 'string' ? form.q : data.prefill;
 	let text = $state(refusedText());
+	/**
+	 * FN-54 red team L2: a question that arrived in the address (Beranda's ask field, or any link) is marked as a
+	 * suggestion until it is changed or sent: nothing is sent before Kirim, and a link cannot ask in the user's name.
+	 */
+	const fromLink = $derived(data.prefill !== '' && text === data.prefill);
+	// FN-54 red team L1: once the composer holds it, the question leaves the URL (and so the history entry). Without
+	// JavaScript it stays in the URL; the GET form is the no-JavaScript path.
+	onMount(() => {
+		if (!page.url.searchParams.has('q')) return;
+		const url = new URL(page.url.href);
+		url.searchParams.delete('q');
+		replaceState(url, page.state);
+	});
 	/** '' idle; 'ask' while a question is answered; 'clear' while the conversation is deleted. */
 	let pending = $state<'' | 'ask' | 'clear'>('');
 	let clientError = $state('');
@@ -149,6 +165,12 @@
 			<input type="hidden" name="askId" value={data.askId} />
 			<div class="fields" class:dim={!ready}>
 				<label id="{uid}-label" for="{uid}-q">{tr('Pertanyaanmu')}</label>
+				{#if fromLink}
+					<p class="note" id="{uid}-link">
+						<Icon name="info" size={18} />
+						<span>{tr('Pertanyaan ini diisi dari tautan. Belum ada yang dikirim.')}</span>
+					</p>
+				{/if}
 				<textarea
 					id="{uid}-q"
 					name="q"

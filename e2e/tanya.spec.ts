@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { APP_ORIGIN, STORAGE_STATE } from './helpers.ts';
+import { APP_ORIGIN, STORAGE_STATE, waitForHydration } from './helpers.ts';
 
 // FN-22 QA cycle 1: /tanya on a server without an AI Gateway (no real or stubbed provider is reachable here).
 
@@ -38,4 +38,24 @@ test('/tanya renders without JavaScript and in English via the lang cookie', asy
 		page.getByRole('main').getByText('The AI assistant is not set up yet.')
 	).toBeVisible();
 	await context.close();
+});
+
+test('FN-54: a prefilled question is marked as not sent, and leaves the address bar once loaded', async ({
+	page
+}) => {
+	const q = 'Bulan lalu habis berapa buat kopi?';
+	await page.goto(`/tanya?q=${encodeURIComponent(q)}`);
+	await waitForHydration(page);
+	const composer = page.getByRole('textbox', { name: 'Pertanyaanmu' });
+	await expect(composer).toHaveValue(q);
+	await expect(
+		page.getByText('Pertanyaan ini diisi dari tautan. Belum ada yang dikirim.')
+	).toBeVisible();
+	// Red team L1: the question is removed from the URL (and so from history) after the page has it.
+	await expect(page).toHaveURL(/\/tanya$/);
+	await page.reload();
+	await expect(page.getByRole('textbox', { name: 'Pertanyaanmu' })).toHaveValue('');
+	await expect(
+		page.getByText('Pertanyaan ini diisi dari tautan. Belum ada yang dikirim.')
+	).toHaveCount(0);
 });

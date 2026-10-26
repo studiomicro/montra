@@ -33,11 +33,15 @@
 	import Skeleton from '#lib/ui/kit/Skeleton.svelte';
 	import EmptyState from '#lib/ui/shell/EmptyState.svelte';
 	import PickerField from '#lib/ui/impor/PickerField.svelte';
+	import CardStatementSummary from '#lib/ui/impor/CardStatementSummary.svelte';
+	import { applyAmountsHiddenAtLoad, shown } from '#lib/ui/kit/amounts.svelte';
 	import SpreadsheetImport from '#lib/ui/impor/SpreadsheetImport.svelte';
 	import { sheetAnswer, sheetError } from '#lib/ui/impor/sheet-view';
 	import ScreenTitle from '#lib/ui/shell/ScreenTitle.svelte';
 
 	let { data, form } = $props();
+	// Red team L3: the eye's cookie masks the preview's figures from the first server render, as on Dompet.
+	applyAmountsHiddenAtLoad();
 	const { tr, trf, locale } = useI18n();
 	const uid = $props.id();
 
@@ -197,6 +201,8 @@
 		source === 'csv' ? tr('Dompet untuk baris tanpa dompet') : tr('Dompet tujuan')
 	);
 	const walletName = $derived(data.wallets.find((w) => w.id === walletId)?.name ?? '');
+	/** FN-55b: a card wallet reads card statements only, any other wallet account statements only. */
+	const cardWallet = $derived(data.wallets.find((w) => w.id === walletId)?.type === 'kartu_kredit');
 	const templateOptions = $derived([
 		{ value: '', label: tr('Deteksi otomatis'), hint: tr('Dikenali dari judul kolom') },
 		{
@@ -393,19 +399,33 @@
 			? tr('pakai Foto (tangkapan layar BRImo) atau CSV/Spreadsheet')
 			: alternative === 'app_screenshot'
 				? tr('pakai Foto (tangkapan layar aplikasi)')
-				: tr('belum didukung — pakai CSV atau Spreadsheet, atau nanti AI dengan kuncimu sendiri');
+				: alternative === 'card_waiting'
+					? tr('menunggu contoh tagihan — pakai Spreadsheet/CSV atau catat manual')
+					: tr('belum didukung — pakai CSV atau Spreadsheet, atau nanti AI dengan kuncimu sendiri');
 	// Every institution is named: the readable ones are choosable, the rest shown disabled with the way in today.
+	// FN-55b: the picked wallet decides the list: card issuers for a card wallet, banks for any other.
 	const institutionOptions: PickerOption<string>[] = $derived([
 		{ value: '', label: tr('Deteksi otomatis'), hint: tr('Dikenali dari isi berkas') },
-		...data.statementCatalogue.map((row) => ({
+		...(cardWallet ? data.cardCatalogue : data.statementCatalogue).map((row) => ({
 			value: row.id,
 			label: row.id === 'other' ? tr('Lainnya') : row.label,
 			brand: row.brand ?? undefined,
 			...(row.supported ? {} : { hint: alternativeHint(row.alternative), disabled: true })
 		}))
 	]);
-	/** Without JavaScript only a readable institution can be posted: the disabled ones are left out. */
-	const selectableInstitutions = $derived(institutionOptions.filter((o) => !o.disabled));
+	/**
+	 * Without JavaScript only a readable institution can be posted: the disabled ones are left out, and the bank and
+	 * card readers are both listed (the server refuses a statement of the other kind with its own message).
+	 */
+	const selectableInstitutions = $derived([
+		...institutionOptions.filter((o) => !o.disabled),
+		...(hydrated ? [] : data.cardInstitutions.map((i) => ({ value: i.id, label: i.label })))
+	]);
+	// A reader of the other kind is never kept once the wallet changes kind.
+	$effect.pre(() => {
+		if (institution && !institutionOptions.some((o) => o.value === institution && !o.disabled))
+			institution = '';
+	});
 	const institutionLabel = $derived(
 		selectableInstitutions.find((o) => o.value === institution)?.label ?? tr('Deteksi otomatis')
 	);
@@ -426,7 +446,14 @@
 			? {
 					imported: statementForm.done === 'statementImported',
 					lines: countLines(statementForm.done === 'statementImported', statementForm.counts),
-					summary: statementForm.statement
+					summary: statementForm.statement,
+					// FN-48d: pairs the server already merged by itself (a confirmed write, never a guess).
+					autoMatched:
+						statementForm.done === 'statementImported' &&
+						'autoMatchedCount' in statementForm &&
+						typeof statementForm.autoMatchedCount === 'number'
+							? statementForm.autoMatchedCount
+							: 0
 				}
 			: null
 	);
@@ -446,6 +473,15 @@
 	const needsAi = $derived(
 		!!statementForm && 'needsAi' in statementForm && statementForm.needsAi === true
 	);
+	/** FN-55 B6: the issuer's own password rule, only when its reader declares one. */
+	const passwordHint = $derived(
+		statementForm &&
+			'passwordHint' in statementForm &&
+			typeof statementForm.passwordHint === 'string'
+			? tr(statementForm.passwordHint)
+			: ''
+	);
+
 	// A statement holding several accounts (FN-16e): the server lists them; one is picked and imported at a time.
 	type SectionChoice = {
 		index: number;
@@ -478,7 +514,7 @@
 		if (b.status === 'pass') return tr('Saldo cocok');
 		if (b.status === 'gap')
 			return trf('Saldo tidak cocok, selisih {gap}. Mungkin ada baris yang hilang.', {
-				gap: formatMoney(b.gapMinor, 'IDR')
+				gap: shown(formatMoney(b.gapMinor, 'IDR'))
 			});
 		return tr('Saldo awal atau akhir tidak tercetak, saldo tidak diperiksa.');
 	}
@@ -497,7 +533,7 @@
 				gapMinor: number;
 				adjustOn: string;
 		  };
-	const money = (minor: number) => formatMoney(minor, 'IDR', 'auto', locale);
+	const money = (minor: number) => shown(formatMoney(minor, 'IDR', 'auto', locale));
 	function continuityLine(c: ContinuityView) {
 		if (c.status === 'pass')
 			return c.against === 'wallet'
@@ -514,7 +550,7 @@
 		const values = {
 			opening: money(c.openingMinor),
 			expected: money(c.expectedMinor),
-			gap: formatMoney(c.gapMinor, 'IDR', 'signed', locale)
+			gap: shown(formatMoney(c.gapMinor, 'IDR', 'signed', locale))
 		};
 		return c.against === 'statement' && c.previousPeriodTo
 			? trf(
@@ -543,7 +579,7 @@
 						</span>
 					</span>
 					<span class="dup-side">
-						<span class="num">{formatMoney(dup.amountMinor, 'IDR')}</span>
+						<span class="num">{shown(formatMoney(dup.amountMinor, 'IDR'))}</span>
 						<Badge>{tr('Mungkin duplikat')}</Badge>
 					</span>
 				</span>
@@ -566,7 +602,7 @@
 
 <div class="two-col">
 	<div class="main-col">
-		<section class="card import o-main" aria-labelledby="{uid}-import">
+		<section class="card on-panel import o-main" aria-labelledby="{uid}-import">
 			<div class="card-head">
 				<h2 id="{uid}-import">{tr('Impor berkas')}</h2>
 				<p class="meta">{tr('Pilih dompet tujuan dulu, lalu berkasnya.')}</p>
@@ -752,7 +788,13 @@
 						'Mutasi rekening dari bank: PDF yang berisi teks, atau CSV. Dibaca di server lalu dibuang, tidak disimpan.'
 					)}
 				</p>
-				{#if data.statementInstitutions.length === 0}
+				{#if hydrated && cardWallet}
+					<p class="note">
+						{tr(
+							'Tagihan kartu kredit dibaca setelah formatnya diuji dengan contoh tagihan asli. Sampai itu, pakai Spreadsheet/CSV atau catat manual.'
+						)}
+					</p>
+				{:else if data.statementInstitutions.length === 0}
 					<p class="note">
 						{tr(
 							'Belum ada format bank yang didukung. Format bank ditambahkan setelah diuji dengan contoh mutasi asli.'
@@ -893,6 +935,7 @@
 					{#if statementError}
 						<div class="error-block" role="alert">
 							<p class="error">{statementError}</p>
+							{#if passwordHint}<p class="meta">{passwordHint}</p>{/if}
 							{#if statementHints}
 								<p class="meta">
 									{statementHints.format === 'pdf_text'
@@ -921,7 +964,21 @@
 									})}
 								</p>
 							{/if}
+							{#if statementResult.summary.card}
+								<CardStatementSummary
+									card={statementResult.summary.card}
+									firstStatement={statementResult.summary.continuity.status === 'none'}
+								/>
+							{/if}
 							{#each statementResult.lines as line, i (i)}<p>{line}</p>{/each}
+							{#if statementResult.autoMatched > 0}
+								<p>
+									{trf('{n} pasangan transfer dicocokkan otomatis.', {
+										n: statementResult.autoMatched
+									})}
+									<a href="/impor/cocokkan-transfer">{tr('Periksa di Cocokkan transfer')}</a>
+								</p>
+							{/if}
 							<p>{balanceLine(statementResult.summary.balance)}</p>
 							{#if continuityLine(statementResult.summary.continuity)}
 								<p>{continuityLine(statementResult.summary.continuity)}</p>
@@ -971,7 +1028,11 @@
 
 		{#if data.continuity.length > 0}
 			<!-- FN-48 Part B: only when a statement's Saldo Awal does not connect (a true empty state otherwise). -->
-			<section class="card o-continuity" id="kesinambungan" aria-labelledby="{uid}-continuity">
+			<section
+				class="card on-panel o-continuity"
+				id="kesinambungan"
+				aria-labelledby="{uid}-continuity"
+			>
 				<h2 id="{uid}-continuity">{tr('Kesinambungan saldo')}</h2>
 				<p class="meta">
 					{tr(
@@ -1005,7 +1066,7 @@
 												{trf(
 													'Satu baris Penyesuaian saldo {gap} tanggal {date} akan ditambahkan ke {wallet}. Bisa dihapus kapan saja dari Riwayat.',
 													{
-														gap: formatMoney(item.gapMinor, 'IDR', 'signed', locale),
+														gap: shown(formatMoney(item.gapMinor, 'IDR', 'signed', locale)),
 														date: formatShortDate(item.adjustOn, locale),
 														wallet: item.walletName
 													}
@@ -1026,7 +1087,7 @@
 
 		{#if data.cleanupCount > 0}
 			<!-- FN-48: only when the space has rows still in a fallback category (a true empty state otherwise). -->
-			<section class="card o-cleanup" aria-labelledby="{uid}-cleanup">
+			<section class="card on-panel o-cleanup" aria-labelledby="{uid}-cleanup">
 				<h2 id="{uid}-cleanup">{tr('Rapikan kategori')}</h2>
 				<p class="meta">
 					{trf('{n} transaksi impor masih di Lainnya atau Pemasukan Lain.', {
@@ -1045,7 +1106,7 @@
 
 		{#if data.transferMatchCount > 0}
 			<!-- FN-48 Part C: only when the space has own-transfer pairs to confirm (a true empty state otherwise). -->
-			<section class="card o-cleanup" aria-labelledby="{uid}-transfer-match">
+			<section class="card on-panel o-cleanup" aria-labelledby="{uid}-transfer-match">
 				<h2 id="{uid}-transfer-match">{tr('Cocokkan transfer')}</h2>
 				<p class="meta">
 					{trf('{n} pasangan transfer antar dompetmu sendiri mungkin terbaca dua kali.', {
@@ -1062,7 +1123,7 @@
 			</section>
 		{/if}
 
-		<section class="card o-history" aria-labelledby="{uid}-history">
+		<section class="card on-panel o-history" aria-labelledby="{uid}-history">
 			<h2 id="{uid}-history">{tr('Riwayat impor')}</h2>
 			{#if loading}
 				<div aria-busy="true"><Skeleton rows={3} /></div>
@@ -1182,7 +1243,7 @@
 			{/if}
 		</section>
 
-		<section class="card o-export" id="ekspor" aria-labelledby="{uid}-export">
+		<section class="card on-panel o-export" id="ekspor" aria-labelledby="{uid}-export">
 			<h2 id="{uid}-export">{tr('Ekspor CSV')}</h2>
 			<p class="meta">
 				{tr('Pemasukan dan pengeluaran, tanpa transfer. Paling lama 1 tahun per ekspor.')}
@@ -1264,7 +1325,7 @@
 			</GroupList>
 		</section>
 
-		<section class="card o-jobs" aria-labelledby="{uid}-jobs">
+		<section class="card on-panel o-jobs" aria-labelledby="{uid}-jobs">
 			<h2 id="{uid}-jobs">{tr('Pekerjaan membaca terbaru')}</h2>
 			{#if needsAi}
 				<p class="note" role="status">
@@ -1273,7 +1334,9 @@
 					)}
 				</p>
 			{:else}
+				<!-- Text only: one illustrated empty card per page is enough (POLISH_AUDIT B6). -->
 				<EmptyState
+					mascot={false}
 					text={tr(
 						'Belum ada pekerjaan membaca. Mutasi PDF dan gambar akan dibaca di sini setelah pembacaan AI dikonfigurasi.'
 					)}
@@ -1338,7 +1401,8 @@
 	.o-export {
 		order: 5;
 	}
-	@media (min-width: 1200px) {
+	/* The tablet tier (860 – 1023 px, no sidebar; app +layout.svelte) and the full desktop width. */
+	@media (min-width: 860px) and (max-width: 1023.98px), (min-width: 1200px) {
 		.two-col {
 			grid-template-columns: minmax(0, 740px) minmax(300px, 420px);
 			gap: 40px;
@@ -1394,6 +1458,27 @@
 	.source :global(.segment) {
 		flex: 1 1 auto;
 		padding: 0 8px;
+	}
+	/*
+	 * A phone never squeezes the four sources (APP_PARITY § 3b.3, POLISH_AUDIT B10): the track keeps each label's
+	 * width and the row scrolls sideways, edge to edge of the card.
+	 */
+	@media (max-width: 600px) {
+		.source {
+			margin: -4px -20px;
+			padding: 4px 20px;
+			overflow-x: auto;
+			overscroll-behavior-x: contain;
+			scrollbar-width: none;
+		}
+		.source :global(.segmented) {
+			width: max-content;
+			max-width: none;
+		}
+		.source :global(.segment) {
+			flex: none;
+			padding: 0 14px;
+		}
 	}
 	.panel,
 	.panel-wrap {
@@ -1467,8 +1552,8 @@
 		margin-top: 4px;
 		padding: 0 20px;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		font-weight: 600;
 	}
 	.badges {

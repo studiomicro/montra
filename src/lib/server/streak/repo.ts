@@ -77,3 +77,28 @@ export async function streakDetails(
 	const closedOn = await closedDates(db, userId, today);
 	return { ...streakHistory(closedOn, today), closedOn };
 }
+
+/**
+ * FN-54 /kalender: the user's closed WIB dates between `from` and `to` (one calendar month, so at most 31 rows),
+ * oldest first. Account-scoped like every closure: a shared space's other members never show here.
+ */
+export async function closedDatesIn(
+	db: Db,
+	userId: string,
+	from: string,
+	to: string
+): Promise<string[]> {
+	const rows = await db
+		.select({ closedOn: dayClosures.closedOn })
+		.from(dayClosures)
+		.where(
+			and(
+				eq(dayClosures.userId, userId),
+				gte(dayClosures.closedOn, from),
+				lte(dayClosures.closedOn, to)
+			)
+		)
+		.orderBy(dayClosures.closedOn)
+		.limit(31);
+	return rows.map((r) => r.closedOn);
+}

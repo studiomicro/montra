@@ -488,8 +488,8 @@
 		min-height: 44px;
 		padding: 0 20px;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		font-weight: 600;
 	}
 	.meta {
@@ -615,14 +615,14 @@
 		white-space: nowrap;
 		cursor: pointer;
 	}
+	/* It sits on Impor's --panel card: the page colour, no frame (owner decision 2026-10-15). */
 	.btn.secondary {
-		background: var(--panel);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
+		background: var(--bg);
 		color: var(--ink);
 	}
 	.btn.primary {
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 	}
 	.btn:disabled {
 		opacity: 0.5;

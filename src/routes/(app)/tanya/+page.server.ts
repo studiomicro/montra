@@ -62,8 +62,15 @@ const TANYA_RETRY_AFTER_S = 30;
 /** Longest form-supplied `askId` (a UUID). */
 const ASK_ID = /^[0-9a-f-]{36}$/;
 
-export const load: PageServerLoad = async ({ locals }) => {
+/** Longest `?q=` read before cleaning (a few times TANYA_QUESTION_MAX; the rest is never looked at). */
+const PREFILL_READ_MAX = 2_000;
+
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const scope = await currentSpaceScope(locals);
+	// FN-54 B4: Beranda's ask field opens Tanya with its question in the composer. A prefill only: nothing is sent,
+	// no AI call, credit or key is used and no row is written until the user presses Kirim. Untrusted text: capped,
+	// then cleaned like a posted question (control and zero-width characters out), and only ever rendered as text.
+	const prefill = cleanQuestion((url.searchParams.get('q') ?? '').slice(0, PREFILL_READ_MAX));
 	const db = locals.db;
 	const env = getEnv();
 	const configured = isAiGatewayConfigured(env);
@@ -76,11 +83,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 			configured ? resolveAnthropicKey(db, scope.userId, env).then((k) => k !== null) : false
 		]);
 		const ready: TanyaReady = !configured ? 'no_gateway' : hasKey ? 'ok' : 'no_key';
-		return { messages, ready, askId: newId(), loadError: null };
+		return { messages, ready, askId: newId(), prefill, loadError: null };
 	} catch (e) {
 		console.error('tanya: load failed', errorLabel(e));
 		const ready: TanyaReady = configured ? 'ok' : 'no_gateway';
-		return { messages: [], ready, askId: newId(), loadError: TANYA_LOAD_FAILED };
+		return { messages: [], ready, askId: newId(), prefill, loadError: TANYA_LOAD_FAILED };
 	}
 };
 

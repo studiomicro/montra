@@ -28,7 +28,7 @@
 export const PDFJS_MODULE = /[\\/]unpdf[\\/]dist[\\/]pdfjs\.mjs$/;
 
 /** Message of the error thrown inside PDF.js past the budget (never shown to a user). */
-export const BUDGET_ERROR = 'MONTRA_PDF_DECODE_BUDGET';
+const BUDGET_ERROR = 'MONTRA_PDF_DECODE_BUDGET';
 
 /** Each anchor, what it becomes, and how often it must occur in PDF.js 6.1.200. */
 const EDITS: { what: string; anchor: string; replacement: string; count: number }[] = [

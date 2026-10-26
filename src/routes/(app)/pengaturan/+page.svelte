@@ -48,7 +48,7 @@
 		<IconRow
 			icon="gauge"
 			title={tr('Pemakaian')}
-			hint={tr('Paket, kredit dan batas pakai')}
+			hint={tr('Kredit terpakai dan batas pakai')}
 			href="/pengaturan/pemakaian"
 		/>
 		<IconRow
@@ -100,7 +100,7 @@
 			href="/pengaturan/aplikasi"
 		/>
 		<IconRow
-			icon="key"
+			icon="bolt"
 			title={tr('Integrasi AI')}
 			hint={tr('Kunci Anthropic milikmu sendiri')}
 			href="/pengaturan/integrasi"

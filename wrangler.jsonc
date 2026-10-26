@@ -10,7 +10,7 @@
 	// Invocation logs record every request's full URL, invite tokens in `/ruang/undangan/<token>` and `next=`
 	// included (FN-03 red team L3): off. hooks.server.ts logs one line per request without them instead.
 	"observability": { "enabled": true, "logs": { "invocation_logs": false } },
-	"vars": { "APP_VERSION": "0.11.0" },
+	"vars": { "APP_VERSION": "0.17.0" },
 	"d1_databases": [
 		{
 			"binding": "DB",
@@ -41,7 +41,7 @@
 			// FN-19 Gmail: the one redirect origin of staging (plain var). The OAuth client id and secret are Worker
 			// secrets set by the owner (docs/RUNBOOK.md › Gmail); until then the Gmail page is "Belum dikonfigurasi".
 			"vars": {
-				"APP_VERSION": "0.11.0",
+				"APP_VERSION": "0.17.0",
 				"APP_ENV": "staging",
 				"GOOGLE_OAUTH_REDIRECT_ORIGIN": "https://staging.example.invalid",
 				// FN-50: empty = Turnstile off; `deploy:staging` fills it from STAGING_TURNSTILE_SITE_KEY when set.

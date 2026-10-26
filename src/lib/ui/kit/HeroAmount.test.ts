@@ -24,6 +24,31 @@ describe('HeroAmount first paint', () => {
 	});
 });
 
+// FN-53 QA low: a signed change reads "−Rp 124.900.000" / "+Rp …" (sign before the symbol, U+2212), and while
+// amounts are hidden the sign is not shown either (red team L2: no direction).
+describe('HeroAmount signed', () => {
+	const signed = (minor: number, hidden: boolean) =>
+		render(AmountsAtLoadHarness, {
+			props: {
+				component: HeroAmount as unknown as Component<Record<string, unknown>>,
+				hidden,
+				props: { label: 'Perubahan', amountMinor: minor, signed: true }
+			}
+		})
+			.body.replace(/<!--[\s\S]*?-->/g, '')
+			.replace(/<[^>]+>/g, '');
+	it('puts the sign before the symbol', () => {
+		expect(signed(-12_490_000_000, false)).toContain('\u2212Rp124.900.000');
+		expect(signed(2_500_000_000, false)).toContain('+Rp25.000.000');
+		expect(signed(-12_490_000_000, false)).not.toContain('Rp\u2212');
+	});
+	it('hides the sign with the figure', () => {
+		const body = signed(-12_490_000_000, true);
+		expect(body).toContain(`Rp${HIDDEN_AMOUNT}`);
+		expect(body).not.toMatch(/[\u2212+]Rp/);
+	});
+});
+
 // FN-25b red team 1: with the eye closed, the server render is already masked (no flash before hydration), and
 // the next request starts shown again.
 describe('HeroAmount with hidden amounts', () => {

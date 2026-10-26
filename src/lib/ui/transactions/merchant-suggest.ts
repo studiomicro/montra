@@ -9,9 +9,9 @@ import type { CategoryKind } from '#lib/shared/transactions';
  */
 
 export const SUGGEST_DEBOUNCE_MS = 400;
-export const SUGGEST_MIN_CHARS = 3;
+const SUGGEST_MIN_CHARS = 3;
 /** The app route that answers (deterministic only, session-scoped). */
-export const SUGGEST_URL = '/riwayat/saran';
+const SUGGEST_URL = '/riwayat/saran';
 
 export interface MerchantSuggestion {
 	merchant: string;

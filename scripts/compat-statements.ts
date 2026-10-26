@@ -15,6 +15,8 @@ import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PDF_PASSWORD_MAX_LENGTH } from '../src/lib/server/statements/pdf-text.ts';
 import { readStatement, STATEMENT_MAX_BYTES } from '../src/lib/server/statements/read.ts';
+import { STATEMENT_PARSERS } from '../src/lib/shared/statements/parsers.ts';
+import type { StatementParser } from '../src/lib/shared/statements/types.ts';
 import { maskAccountNumbers } from '../src/lib/shared/text.ts';
 import { assertLocalOnly } from './local-guard.ts';
 import { patchPdfjs, PDFJS_MODULE } from './pdfjs-bounded.ts';
@@ -105,26 +107,43 @@ const REFUSAL_LABELS: Readonly<Record<string, string>> = {
 	section_unsupported: 'not an IDR savings/current account',
 	empty: 'empty CSV',
 	unterminated_quote: 'CSV unterminated quote',
-	too_many_columns: 'CSV > 50 columns'
+	too_many_columns: 'CSV > 50 columns',
+	card_unsupported: 'card statement with more than one card (not supported yet)'
 };
+
+/**
+ * One read as /impor would do it: as an account statement, and (FN-55b) as a card statement when the file is one
+ * (the harness has no wallet: it reads a card statement as if a card wallet were picked).
+ */
+async function readAsImport(
+	input: { bytes: Uint8Array; password: string | null; section?: number | null },
+	parsers: readonly StatementParser[]
+) {
+	// A fresh buffer per read: PDF.js takes the buffer over (it may be detached afterwards).
+	const asBank = await readStatement(
+		{ ...input, bytes: input.bytes.slice(), institution: null },
+		parsers
+	);
+	if (asBank.ok || asBank.error !== 'needs_card_wallet') return asBank;
+	return readStatement({ ...input, institution: null, walletKind: 'card' }, parsers);
+}
 
 /** One statement file (one account of it, when `section` is given) → its matrix line (counts and reasons only). */
 export async function statementLine(
 	root: string,
 	file: string,
 	password: string | null,
-	section: number | null = null
+	section: number | null = null,
+	parsers: readonly StatementParser[] = STATEMENT_PARSERS
 ): Promise<StatementLine> {
 	const folder = folderOf(root, file) + (section === null ? '' : `#${section + 1}`);
 	const dash = { pages: '—', parsed: '—', balance: '—' };
 	if (statSync(file).size > STATEMENT_MAX_BYTES)
 		return { folder, format: '—', institution: '—', ...dash, rejected: '— (larger than 15 MB)' };
-	const result = await readStatement({
-		bytes: new Uint8Array(readFileSync(file)),
-		password,
-		institution: null,
-		section
-	});
+	const result = await readAsImport(
+		{ bytes: new Uint8Array(readFileSync(file)), password, section },
+		parsers
+	);
 	if (!result.ok) {
 		const format =
 			result.error === 'needs_ai' ? 'pdf_scanned' : (result.hints?.format ?? 'unknown');
@@ -174,18 +193,19 @@ export async function statementLine(
 export async function statementLines(
 	root: string,
 	file: string,
-	password: string | null
+	password: string | null,
+	parsers: readonly StatementParser[] = STATEMENT_PARSERS
 ): Promise<StatementLine[]> {
-	if (statSync(file).size > STATEMENT_MAX_BYTES) return [await statementLine(root, file, password)];
-	const whole = await readStatement({
-		bytes: new Uint8Array(readFileSync(file)),
-		password,
-		institution: null
-	});
+	if (statSync(file).size > STATEMENT_MAX_BYTES)
+		return [await statementLine(root, file, password, null, parsers)];
+	const whole = await readAsImport(
+		{ bytes: new Uint8Array(readFileSync(file)), password },
+		parsers
+	);
 	const sections = !whole.ok && whole.error === 'section_required' ? (whole.sections ?? []) : [];
-	if (sections.length === 0) return [await statementLine(root, file, password)];
+	if (sections.length === 0) return [await statementLine(root, file, password, null, parsers)];
 	const lines: StatementLine[] = [];
-	for (const s of sections) lines.push(await statementLine(root, file, password, s.index));
+	for (const s of sections) lines.push(await statementLine(root, file, password, s.index, parsers));
 	return lines;
 }
 
@@ -217,7 +237,11 @@ export function formatMatrix(lines: readonly StatementLine[]): string {
 }
 
 /** The whole report for `samplesDir` (statements matrix plus one line per receipt). */
-export async function compatReport(samplesDir: string, password: string | null): Promise<string> {
+export async function compatReport(
+	samplesDir: string,
+	password: string | null,
+	parsers: readonly StatementParser[] = STATEMENT_PARSERS
+): Promise<string> {
 	const statementsDir = join(samplesDir, 'statements');
 	const receiptsDir = join(samplesDir, 'receipts');
 	const statements = filesUnder(statementsDir);
@@ -228,7 +252,9 @@ export async function compatReport(samplesDir: string, password: string | null):
 	else {
 		const lines: StatementLine[] = [];
 		for (const file of statements)
-			lines.push(...(await statementLines(statementsDir, file, samplePassword(file, password))));
+			lines.push(
+				...(await statementLines(statementsDir, file, samplePassword(file, password), parsers))
+			);
 		out.push(`Statements (${lines.length} files):`, formatMatrix(lines));
 	}
 	if (receipts.length === 0) out.push(`No receipt samples in ${receiptsDir}.`);

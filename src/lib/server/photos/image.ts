@@ -4,17 +4,17 @@ import { sniffImageType, type PhotoType } from '../../shared/photos.ts';
 /** Longest side a stored photo may have (a 48 MP phone photo is 8064 px wide). */
 export const PHOTO_MAX_SIDE = 10_000;
 /** Most pixels a stored photo may have: bounds what a browser decodes when it shows the thumbnail. */
-export const PHOTO_MAX_PIXELS = 50_000_000;
+const PHOTO_MAX_PIXELS = 50_000_000;
 /**
  * Most markers / chunks one file may have, kept or dropped (red team FN-27 M1). Real photos have tens; a
  * flood of empty segments is refused before it costs memory or CPU.
  */
-export const MAX_SEGMENTS = 4096;
+const MAX_SEGMENTS = 4096;
 /**
  * Largest colour profile kept (JPEG ICC_PROFILE segments together, WebP ICCP). Real sRGB / Display P3
  * profiles are 0.5–4 KiB; anything larger is dropped, never refused.
  */
-export const ICC_MAX_BYTES = 64 * 1024;
+const ICC_MAX_BYTES = 64 * 1024;
 
 export type SanitizedImage = {
 	ok: true;

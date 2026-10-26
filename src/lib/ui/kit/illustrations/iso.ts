@@ -83,3 +83,39 @@ export function disc(x: number, y: number, z: number, r: number, h: number): Dis
 		right: `M${cx} ${r1(cy + ry)}L${cx} ${r1(base + ry)}${arc} 0 ${r1(cx + rx)} ${base}L${r1(cx + rx)} ${cy}${arc} 1 ${cx} ${r1(cy + ry)}Z`
 	};
 }
+
+/**
+ * Blueprint floor (owner request 2026-10-14): a square grid on the ground plane (z = 0), `half` from the origin
+ * each way, one line every `step`, as one open path so it costs one shape.
+ */
+export function grid(half: number, step: number): string {
+	const parts: string[] = [];
+	for (let k = -half; k <= half; k += step) {
+		parts.push(
+			line([
+				[k, -half, 0],
+				[k, half, 0]
+			]),
+			line([
+				[-half, k, 0],
+				[half, k, 0]
+			])
+		);
+	}
+	return parts.join('');
+}
+
+/** Construction lines on the ground: each segment from one 3D point to another, as one open path. */
+export function guides(segments: [number, number, number][][]): string {
+	return segments.map((s) => line(s)).join('');
+}
+
+/** Small diamond handles at 3D points (`s` px from centre to tip), as one closed path. */
+export function nodes(points: [number, number, number][], s = 2.5): string {
+	return points
+		.map(([x, y, z]) => {
+			const [cx, cy] = pt(x, y, z);
+			return `M${r1(cx - s)} ${cy}L${cx} ${r1(cy - s)}L${r1(cx + s)} ${cy}L${cx} ${r1(cy + s)}Z`;
+		})
+		.join('');
+}

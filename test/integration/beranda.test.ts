@@ -1,6 +1,6 @@
 import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
 import { sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { signUp } from '#lib/server/auth/accounts';
 import { deleteAccount } from '#lib/server/auth/delete-account';
 import { signInWithPassword } from '#lib/server/auth/password';
@@ -868,5 +868,113 @@ describe('Terbaru and Akan datang (APP_PARITY wave A)', () => {
 				UPCOMING_ROWS
 			)
 		).toHaveLength(3);
+	});
+});
+
+// ---- FN-54: greeting hero and the daily greeting's payload ----
+
+async function heroLoad(who: Person, cookies: Record<string, string> = {}) {
+	const { event } = fakeEvent({
+		url: 'http://localhost/',
+		routeId: '/(app)',
+		db,
+		user: who.user,
+		space: await resolveCurrentSpace(db, who.user.id, undefined),
+		cookies
+	});
+	return (await beranda.load(event as never)) as unknown as {
+		today: string;
+		greeting: string;
+		story: { kind: string; minor?: number | null; date?: string }[];
+		summary: Summary;
+	};
+}
+
+describe('FN-54 greeting and date from one server instant (criteria 1–2, 4)', () => {
+	afterEach(() => vi.useRealTimers());
+
+	it('23:59:59 WIB on 31 Oct is still October and malam; 00:00 WIB is 1 November', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		const p = await person();
+		const l = await ledger(p.scope);
+		await l.tx({ occurredOn: '2026-10-31', occurredTime: '23:30', amountMinor: 1_000_000 });
+		await l.tx({ occurredOn: '2026-11-01', occurredTime: '00:30', amountMinor: 3_000_000 });
+
+		vi.setSystemTime(new Date('2026-10-31T16:59:59Z'));
+		const before = await heroLoad(p);
+		expect([before.today, before.greeting, before.summary.month]).toEqual([
+			'2026-10-31',
+			'malam',
+			'2026-10'
+		]);
+		expect(before.summary.spentMinor).toBe(1_000_000);
+		expect(before.summary.todayGroup?.rows).toHaveLength(1);
+
+		vi.setSystemTime(new Date('2026-10-31T17:00:00Z'));
+		const after = await heroLoad(p);
+		expect([after.today, after.greeting, after.summary.month, after.summary.lastMonth]).toEqual([
+			'2026-11-01',
+			'malam',
+			'2026-11',
+			'2026-10'
+		]);
+		expect(after.summary.spentMinor).toBe(3_000_000);
+
+		vi.setSystemTime(new Date('2026-11-01T00:00:00Z')); // 07:00 WIB
+		expect((await heroLoad(p)).greeting).toBe('pagi');
+	});
+
+	it('the state line counts Riwayat’s day group for today, demo rows included and badged', async () => {
+		const p = await person();
+		const l = await ledger(p.scope);
+		expect((await heroLoad(p)).summary.todayGroup).toBeNull();
+		await l.tx({});
+		await l.tx({ type: 'income', amountMinor: 1, categoryId: l.cat('gaji') });
+		const demo = await l.tx({});
+		await d1.prepare('update transactions set is_demo = 1 where id = ?').bind(demo).run();
+		const s = (await heroLoad(p)).summary;
+		expect(s.todayGroup?.rows).toHaveLength(3);
+		expect(s.todayGroup?.rows.filter((r) => r.isDemo)).toHaveLength(1);
+		expect(s.todayHasMore).toBe(false);
+	});
+});
+
+describe('FN-54 daily greeting payload (criteria 32–35)', () => {
+	it('no wallet: no story; with a wallet and no cookies: yesterday’s bar as card 1', async () => {
+		const p = await person();
+		expect((await heroLoad(p)).story).toEqual([]);
+		const l = await ledger(p.scope);
+		const yesterday = addDays(wibTodayString(), -1);
+		await l.tx({ occurredOn: yesterday, amountMinor: 5_400_000 });
+		const r = await heroLoad(p);
+		expect(r.story[0]).toEqual({
+			kind: 'kemarin',
+			date: yesterday,
+			minor: 5_400_000,
+			currency: 'IDR'
+		});
+		expect(r.story[0]!.minor).toBe(r.summary.bars.find((b) => b.date === yesterday)!.minor);
+	});
+
+	it('seen today or switched off: no payload; seen yesterday: due again; a forged seen value is ignored', async () => {
+		const p = await person();
+		await ledger(p.scope);
+		const today = wibTodayString();
+		expect((await heroLoad(p, { 'montra-sapaan-seen': today })).story).toEqual([]);
+		expect((await heroLoad(p, { 'montra-sapaan-off': '1' })).story).toEqual([]);
+		expect((await heroLoad(p, { 'montra-sapaan-seen': addDays(today, -1) })).story).not.toEqual([]);
+		expect((await heroLoad(p, { 'montra-sapaan-seen': `${today}<x>` })).story).not.toEqual([]);
+	});
+
+	it('card 2 carries the budget’s per-day figure, equal to the budget line', async () => {
+		const p = await person();
+		await ledger(p.scope);
+		await setBudget(db, p.scope, { amountMinor: 300_000_000, currency: 'IDR' }, null, NOW);
+		const r = await heroLoad(p);
+		const card = r.story.find((c) => c.kind === 'hari-ini') as unknown as {
+			perDay: { perDayMinor: number; days: number };
+		};
+		const safe = r.summary.safeToSpend as { kind: 'left'; perDayMinor: number; days: number };
+		expect(card.perDay).toMatchObject({ perDayMinor: safe.perDayMinor, days: safe.days });
 	});
 });

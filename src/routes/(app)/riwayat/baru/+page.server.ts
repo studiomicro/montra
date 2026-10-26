@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { latestCardStatements } from '#lib/server/cards/statements';
 import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
 import { getEnv } from '#lib/server/env';
 import { readFormBody, textField } from '#lib/server/forms';
@@ -22,6 +23,8 @@ import { parseAdjustmentForm, transactionFormValues } from '#lib/server/transact
 import { walletTransactionsSums } from '#lib/server/transactions/wallet-sum';
 import { shownBalance } from '#lib/server/wallets/balance';
 import { listWallets } from '#lib/server/wallets/repo';
+import { amountFractionDigits, minorToAmountText } from '#lib/shared/amount-input';
+import { currencyExponent } from '#lib/shared/money-format';
 import { wibTodayString } from '#lib/shared/dates';
 import { isClientId } from '#lib/shared/offline-queue';
 import type { AdjustmentFormValues, TransactionFormValues } from '#lib/shared/transactions';
@@ -42,13 +45,31 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		// `?wallet=<id>` (Dompet's "Sesuaikan saldo") picks the wallet when it is a live wallet of this space;
 		// otherwise the favourite wallet, listed first (wallets/repo.ts), is the default.
 		const asked = wallets.find((w) => w.id === url.searchParams.get('wallet'));
-		const walletId = asked?.id ?? wallets[0]?.id ?? '';
+		// FN-55a "Bayar tagihan": `?type=transfer&ke=<card>` sends the transfer to that live wallet of the space,
+		// from the first other wallet of its currency (the user may pick another). Nothing new is written here:
+		// saving is FN-05's transfer, so a bill payment is never an expense or income.
+		const target =
+			type === 'transfer' ? wallets.find((w) => w.id === url.searchParams.get('ke')) : undefined;
+		const source = target
+			? (wallets.find(
+					(w) => w.id !== target.id && w.currency === target.currency && w.type !== 'kartu_kredit'
+				) ?? wallets.find((w) => w.id !== target.id && w.currency === target.currency))
+			: undefined;
+		const walletId = source?.id ?? asked?.id ?? wallets[0]?.id ?? '';
+		const cardFill =
+			target?.type === 'kartu_kredit' ? await cardBillFill(locals.db, spaceId, target) : null;
+		const fill = url.searchParams.get('isi');
+		const filled =
+			fill === 'tagihan' ? cardFill?.bill : fill === 'minimum' ? cardFill?.minimum : undefined;
 		const today = wibTodayString();
 		const values: TransactionFormValues = {
 			type: type === 'income' || type === 'transfer' ? type : 'expense',
-			amount: '',
+			amount:
+				filled?.typeable && target
+					? minorToAmountText(filled.minor, target.currency, locals.locale)
+					: '',
 			walletId,
-			transferToWalletId: '',
+			transferToWalletId: target?.id ?? '',
 			categoryId: '',
 			title: '',
 			note: '',
@@ -69,6 +90,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		return {
 			values,
 			adjustmentValues,
+			cardFill,
 			categories,
 			wallets: wallets.map((w) => ({
 				id: w.id,
@@ -83,12 +105,49 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		return {
 			values: null,
 			adjustmentValues: null,
+			cardFill: null,
 			categories: [],
 			wallets: [],
 			loadError: TRANSACTIONS_LOAD_FAILED
 		};
 	}
 };
+
+/** A printed figure for the "Bayar tagihan" fill chips: exact, and whether the amount field can hold it as is. */
+interface FillFigure {
+	minor: number;
+	/** False when it has sen the field of its currency is not typed with: shown as printed, never rounded. */
+	typeable: boolean;
+}
+
+/**
+ * FN-55a: the card's last stored statement's printed figures for the fill chips — the new balance owed and the
+ * minimum payment, each only as printed (absent when not printed or nothing is owed). The user confirms the amount.
+ */
+async function cardBillFill(
+	db: App.Locals['db'],
+	spaceId: string,
+	card: { id: string; name: string; currency: string }
+): Promise<{
+	cardId: string;
+	cardName: string;
+	currency: string;
+	bill: FillFigure | null;
+	minimum: FillFigure | null;
+} | null> {
+	const statement = (await latestCardStatements(db, spaceId, [card.id])).get(card.id);
+	if (!statement) return null;
+	const sen = 10 ** (currencyExponent(card.currency) - amountFractionDigits(card.currency));
+	const figure = (minor: number | null): FillFigure | null =>
+		minor === null || minor <= 0 ? null : { minor, typeable: minor % sen === 0 };
+	return {
+		cardId: card.id,
+		cardName: card.name,
+		currency: card.currency,
+		bill: figure(-statement.newBalanceMinor),
+		minimum: figure(statement.minimumPaymentMinor)
+	};
+}
 
 export const actions: Actions = {
 	create: async (event) => {

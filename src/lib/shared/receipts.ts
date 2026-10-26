@@ -23,12 +23,12 @@ export const RECEIPT_ITEMS_MAX = 80;
 /** "Baca struk" / "Baca lagi" attempts per user per throttle window (10 minutes), owner decision 8. */
 export const RECEIPT_READS_PER_WINDOW = 10;
 /** A read date more than this many years before today (WIB) is flagged "Periksa tanggalnya". */
-export const RECEIPT_DATE_PAST_YEARS = 2;
+const RECEIPT_DATE_PAST_YEARS = 2;
 /** Longest printed payment method kept (the FN-18 extras column). */
 export const RECEIPT_PAYMENT_MAX_LENGTH = 100;
 
 /** One printed item line: its name and line amount (null when not legible). */
-export interface ReceiptItem {
+interface ReceiptItem {
 	name: string;
 	amountMinor: number | null;
 }

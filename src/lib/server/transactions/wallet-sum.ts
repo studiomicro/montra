@@ -70,7 +70,9 @@ export function walletBalanceSql(spaceId: string, walletId: string): SQL {
  * SQL scalar (FN-48 Part B): what a live wallet's rows add up to over a WIB date window, null when the wallet is
  * not live in `spaceId`. With `from` NULL: the wallet's balance before `before` (opening balance plus every row
  * dated earlier). With `from` set: only the rows dated `from` ≤ date < `before` (no opening balance), leaving out
- * the rows of the import batch `excludeBatch` (when not NULL). Either way a merged own transfer whose credit row
+ * the rows of the import batch `excludeBatch` (when not NULL). Either way the checked statement's own rows
+ * (`ownBatch`) never count: a card statement's span is its printed period (FN-55b), so a purchase dated in the
+ * previous cycle but posted in this one would otherwise sit in its own window. Also a merged own transfer whose credit row
  * came from `excludeBatch` or `ownBatch` is left out (FN-48 Part C QA low). Each argument is an SQL expression (a bound value
  * or a column of the caller's query), so one shape serves a JSON-driven listing and a guarded insert alike.
  */
@@ -83,6 +85,7 @@ export function walletWindowSql(
 	// `ownBatch` or `excludeBatch`, so it already sits inside a printed balance and is not counted again here.
 	const filter = sql` and t.occurred_on < ${before} and (${from} is null or t.occurred_on >= ${from})
 		and (${excludeBatch} is null or t.import_batch_id is null or t.import_batch_id <> ${excludeBatch})
+		and (${ownBatch} is null or t.import_batch_id is null or t.import_batch_id <> ${ownBatch})
 		and not exists (select 1 from transfer_links l join transactions c on c.id = l.credit_transaction_id
 			where l.debit_transaction_id = t.id and l.space_id = ${spaceId} and l.undone_at is null
 			and c.space_id = ${spaceId} and c.import_batch_id in (${excludeBatch}, ${ownBatch}))`;

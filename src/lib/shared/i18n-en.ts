@@ -396,6 +396,16 @@ export const en: Record<string, string> = {
 		'Wallets could not be loaded. Try again in a moment.',
 	'Nama dompet': 'Wallet name',
 	'Isi cepat e-wallet': 'Quick fill an e-wallet',
+	// FN-58 pass 1: e-money card wallets.
+	'Kartu e-money': 'E-money card',
+	'Isi cepat kartu e-money': 'Quick fill an e-money card',
+	'Penerbit kartu': 'Card issuer',
+	'Penerbit kartu e-money (kosongkan untuk jenis lain)':
+		'E-money card issuer (leave empty for other types)',
+	'Pilih penerbit': 'Choose an issuer',
+	'Pilih penerbit kartu e-money.': 'Choose the e-money card issuer.',
+	'Hanya untuk kartu e-money. Kosongkan pilihan ini atau pilih jenis Kartu e-money.':
+		'Only for e-money cards. Clear this choice or choose the E-money card type.',
 	'Contoh: BCA, GoPay, Dompet harian.': 'For example: BCA, GoPay, Daily wallet.',
 	Jenis: 'Type',
 	'Mata uang': 'Currency',
@@ -1751,6 +1761,8 @@ export const en: Record<string, string> = {
 		'No reading jobs yet. PDF and image statements are read here once AI reading is configured.',
 	// FN-34: daily streak and "close the day" (a plain count, no reward).
 	'0 hari berturut-turut': '0 days in a row',
+	// POLISH_AUDIT B14: Beranda's streak chip before the first closed day.
+	'Mulai hari ini': 'Start today',
 	'1 hari berturut-turut': '1 day in a row',
 	'{n} hari berturut-turut': '{n} days in a row',
 	'Tutup hari ini': 'Close today',
@@ -2245,7 +2257,7 @@ export const en: Record<string, string> = {
 	'{n} pengguna menyimpan kunci Anthropic': '{n} users have stored an Anthropic key',
 	// FN-42 version, updates and usage
 	Pemakaian: 'Usage',
-	'Paket, kredit dan batas pakai': 'Plan, credits and limits',
+	'Kredit terpakai dan batas pakai': 'Credits used and usage limits',
 	Tentang: 'About',
 	'Versi, pembaruan dan yang baru': "Version, updates and what's new",
 	'Tentang Montra': 'About Montra',
@@ -3102,6 +3114,9 @@ export const en: Record<string, string> = {
 	'Lebih dari satu transaksi cocok dengan jumlah dan tanggal ini. Pilih pasangan yang benar, atau lewati semuanya.':
 		'More than one transaction matches this amount and date. Pick the right pair, or skip them all.',
 	Cocokkan: 'Match',
+	// FN-48d auto-match after a statement import.
+	'{n} pasangan transfer dicocokkan otomatis.': '{n} transfer pairs were matched automatically.',
+	'Periksa di Cocokkan transfer': 'Check them in Match transfers',
 	// FN-25b Kekayaan page parity.
 	'1 bln': '1M',
 	'3 bln': '3M',
@@ -3379,5 +3394,221 @@ export const en: Record<string, string> = {
 	'Passkey bisa membuka akunmu, jadi menambahkannya butuh kata sandimu.':
 		'A passkey can open your account, so adding one needs your password.',
 	'Menunggu perangkat…': 'Waiting for the device…',
-	'Buat passkey': 'Create passkey'
+	'Buat passkey': 'Create passkey',
+	// FN-53 period reports (Alur uang Bulan | Kuartal | Tahun, Laporan kekayaan).
+	'Tahun {tahun}': 'Year {tahun}',
+	'Kuartal {n} · {bulan}': 'Quarter {n} · {bulan}',
+	'Laporan kekayaan tidak bisa dimuat. Coba lagi sebentar lagi.':
+		'The net worth report could not be loaded. Try again in a moment.',
+	Kuartal: 'Quarter',
+	Tahun: 'Year',
+	'Jenis periode': 'Period type',
+	'Laporan kuartal dan tahun': 'Quarterly and yearly report',
+	Awal: 'Start',
+	'Belum ada catatan': 'No record yet',
+	'sejauh ini': 'so far',
+	'Dompet lainnya': 'Other wallets',
+	'Sama dengan {periode}': 'Same as {periode}',
+	'{jumlah} lebih banyak dari {periode}': '{jumlah} more than {periode}',
+	'{jumlah} lebih sedikit dari {periode}': '{jumlah} less than {periode}',
+	'Terlalu banyak alur di periode ini: hanya yang terbesar yang ditampilkan dan dijumlahkan.':
+		'Too many flows in this period: only the largest are shown and summed.',
+	'Belum ada data {periode}': 'No data for {periode} yet',
+	'Dibandingkan dengan {periode} sampai {tanggal}.': 'Compared with {periode} up to {tanggal}.',
+	'Rata-rata per bulan': 'Average per month',
+	'Dibagi {n} bulan berjalan.': 'Divided by {n} months so far.',
+	'Belum ada pemasukan atau pengeluaran di {periode}.': 'No income or expenses in {periode} yet.',
+	'Alur lainnya ({n})': 'Other flows ({n})',
+	'Lihat laporan kekayaan': 'See net worth report',
+	'Perubahan kekayaan bersih': 'Net worth change',
+	Tetap: 'Unchanged',
+	'Laporan kekayaan': 'Net worth report',
+	'Kembali ke kekayaan bersih': 'Back to net worth',
+	'Belum ada catatan kekayaan': 'No net worth records yet',
+	'Belum ada catatan kekayaan di periode ini. Catatan harian mulai setelah kamu menambahkan dompet atau aset.':
+		'No net worth records in this period yet. Daily records start after you add a wallet or an asset.',
+	'Belum cukup catatan untuk menghitung perubahan': 'Not enough records to work out the change',
+	'dari {awal} ({tanggal_awal}) menjadi {akhir} ({tanggal_akhir})':
+		'from {awal} ({tanggal_awal}) to {akhir} ({tanggal_akhir})',
+	sekarang: 'now',
+	'Nilai akhir {akhir} ({tanggal_akhir})': 'Closing value {akhir} ({tanggal_akhir})',
+	'Dihitung sejak {tanggal}: belum ada catatan sebelum itu.':
+		'Counted from {tanggal}: there is no record before that.',
+	'Nilai awal memakai catatan {tanggal}, catatan terakhir sebelum periode ini.':
+		'The opening value uses the record of {tanggal}, the last one before this period.',
+	'Sebagian harga belum tersedia, jadi nilai akhir belum lengkap.':
+		'Some prices are not available yet, so the closing value is incomplete.',
+	'Kekayaan bersih per bulan, {periode}': 'Net worth by month, {periode}',
+	'Perubahan per kelompok': 'Change by group',
+	'Rincian per kelompok tersedia mulai {tanggal}.':
+		'The breakdown by group is available from {tanggal}.',
+	'Rincian per kelompok tersedia setelah pembaruan berikutnya.':
+		'The breakdown by group is available after the next update.',
+	'Tidak ada kelompok yang berubah.': 'No group changed.',
+	'{awal} menjadi {akhir}': '{awal} to {akhir}',
+	'Utang berkurang {jumlah}': 'Debt down {jumlah}',
+	'Utang bertambah {jumlah}': 'Debt up {jumlah}',
+	'Aset mata uang asing dinilai dengan kurs harian; perubahan bisa berasal dari kurs.':
+		'Foreign-currency assets are valued at daily rates; part of a change can come from the rate.',
+	'Kurs: {daftar}.': 'Rates: {daftar}.',
+	'Tidak ada periode sebelumnya': 'No previous period',
+	'{jumlah} dibanding {periode}': '{jumlah} compared with {periode}',
+	// FN-54 greeting hero, calendar, daily greeting and feature tiles
+	'Selamat pagi.': 'Good morning.',
+	'Selamat siang.': 'Good afternoon.',
+	'Selamat sore.': 'Good afternoon.',
+	'Selamat malam.': 'Good evening.',
+	'Belum ada catatan hari ini.': 'Nothing recorded today.',
+	'{sisa} masih bisa dipakai': '{sisa} still to spend',
+	'Tanya apa saja soal uangmu': 'Ask anything about your money',
+	'Buka di Tanya': 'Open in Ask',
+	'Kalender, {tanggal}': 'Calendar, {tanggal}',
+	'Kelola fitur': 'Manage features',
+	'Hari ditutup': 'Day closed',
+	'Ada tagihan atau transaksi berulang': 'Bill or recurring transaction due',
+	'Kalender belum bisa dimuat.': 'The calendar could not be loaded.',
+	'Pengeluaran bulan ini belum bisa dimuat.': 'This month’s spending could not be loaded.',
+	'Hari yang ditutup belum bisa dimuat.': 'Closed days could not be loaded.',
+	'Tagihan yang akan datang belum bisa dimuat.': 'Upcoming bills could not be loaded.',
+	'Pengeluaran per hari, {bulan}': 'Spending per day, {bulan}',
+	'Transaksi dalam mata uang lain tidak dihitung di sini.':
+		'Transactions in other currencies are not counted here.',
+	'Transaksi hari itu belum bisa dimuat.': 'That day’s transactions could not be loaded.',
+	'Tidak ada catatan atau tagihan pada hari itu.': 'Nothing recorded or due on that day.',
+	'Sapaan harian': 'Daily greeting',
+	'Sapaan harian dimatikan.': 'Daily greeting turned off.',
+	'Ringkasan singkat dari catatanmu, sekali sehari saat membuka Beranda.':
+		'A short summary of your records, once a day when you open Home.',
+	Berikutnya: 'Next',
+	'Langkah {n} dari {total}': 'Step {n} of {total}',
+	'Matikan sapaan harian': 'Turn off daily greeting',
+	'Mematikan…': 'Turning off…',
+	'Pada hari ini, {tahun}': 'On this day, {tahun}',
+	'Pengeluaranmu kemarin': 'Your spending yesterday',
+	'Tidak ada pengeluaran tercatat kemarin.': 'No spending recorded yesterday.',
+	'{per_hari} sehari untuk {hari} hari': '{per_hari} a day for {hari} days',
+	'Tagihan dalam 7 hari ke depan': 'Bills in the next 7 days',
+	'Sumber:': 'Sources:',
+	'Pertanyaan ini diisi dari tautan. Belum ada yang dikirim.':
+		'This question was filled in from a link. Nothing has been sent.',
+	// FN-55a/b credit cards.
+	'Dompet ini punya mutasi rekening yang diimpor. Urungkan atau pindahkan impor itu dulu untuk menjadikannya kartu kredit.':
+		'This wallet has imported account statements. Undo or move those imports first to make it a credit card.',
+	'Impor ini mutasi rekening. Pindahkan hanya ke dompet bukan kartu kredit.':
+		'This import is an account statement. Move it only to a wallet that is not a credit card.',
+	'Atau mulai sebagai kartu kredit': 'Or start as a credit card',
+	'Kartu tidak bisa dimuat. Coba lagi sebentar lagi.':
+		'The card could not be loaded. Try again shortly.',
+	'Ini tagihan kartu kredit; pilih dompet kartu kredit.':
+		'This is a credit card statement; choose a credit card wallet.',
+	'Ini mutasi rekening; pilih dompet bukan kartu kredit.':
+		'This is an account statement; choose a wallet that is not a credit card.',
+	'Tagihan dengan lebih dari satu kartu belum didukung, jadi tidak ada yang diimpor. Catat manual atau pakai Spreadsheet/CSV.':
+		'Statements with more than one card are not supported yet, so nothing was imported. Record it by hand or use Spreadsheet/CSV.',
+	'Impor tagihan kartu hanya untuk dompet IDR.': 'Card statement import is for IDR wallets only.',
+	'Nomor kartu di tagihan tidak cocok dengan 4 angka terakhir dompet ini. Pilih dompet kartu yang benar.':
+		"The card number on the statement does not match this wallet's last 4 digits. Choose the right card wallet.",
+	'Tagihan ini sudah diimpor.': 'This statement was already imported.',
+	'Kartu ini sudah menyimpan 60 tagihan, batas terbanyak. Urungkan impor tagihan lama dulu.':
+		'This card already keeps 60 statements, the most allowed. Undo an older statement import first.',
+	'Impor ini tagihan kartu kredit. Pindahkan hanya ke dompet kartu kredit lain.':
+		'This import is a credit card statement. Move it only to another credit card wallet.',
+	'Kartu tujuan sudah punya tagihan dengan tanggal yang sama.':
+		'The target card already has a statement with the same date.',
+	'Isi tagihan dengan angka, maksimal 2 angka di belakang koma.':
+		'Enter the bill as a number, with at most 2 digits after the decimal mark.',
+	'Isi limit kredit dengan jumlah lebih dari 0, maksimal 2 angka di belakang koma.':
+		'Enter a credit limit above 0, with at most 2 digits after the decimal mark.',
+	'Isi tanggal 1 sampai 31, atau kosongkan.': 'Enter a day from 1 to 31, or leave it empty.',
+	'Hanya untuk kartu kredit. Kosongkan kolom ini atau pilih jenis Kartu kredit.':
+		'Only for credit cards. Empty this field or choose the Credit card type.',
+	'Kartu ini punya tagihan yang diimpor. Urungkan impor tagihannya dulu untuk mengganti jenis dompet.':
+		'This card has imported statements. Undo those statement imports first to change the wallet type.',
+	'Jatuh tempo hari ini': 'Due today',
+	'Jatuh tempo besok': 'Due tomorrow',
+	'Jatuh tempo dalam {n} hari': 'Due in {n} days',
+	'Lewat 1 hari': '1 day overdue',
+	'Lewat {n} hari': '{n} days overdue',
+	'Melebihi limit': 'Over the limit',
+	'Kredit tersedia {jumlah}': 'Available credit {jumlah}',
+	'Utang awal (saat kartu ditambahkan)': 'Starting debt (when the card was added)',
+	'Tagihan berjalan sekarang (utang)': 'Current running bill (owed)',
+	'Tulis seperti di tagihan, termasuk sen jika ada: 1.250.000,50.':
+		'Write it as on the statement, cents included if any: 1,250,000.50.',
+	'Kartu ini sedang lebih bayar (saldo kredit)': 'This card is overpaid (credit balance)',
+	'Khusus kartu kredit (kosongkan untuk jenis lain)':
+		'Credit cards only (leave empty for other types)',
+	'Limit kredit (opsional)': 'Credit limit (optional)',
+	'Tanggal tagihan (opsional)': 'Statement day (optional)',
+	'Tanggal 1-31 tiap bulan.': 'Day 1-31 of each month.',
+	'Tanggal jatuh tempo (opsional)': 'Due day (optional)',
+	'Buka kartu': 'Open card',
+	'menunggu contoh tagihan — pakai Spreadsheet/CSV atau catat manual':
+		'waiting for a sample statement — use Spreadsheet/CSV or record by hand',
+	'{jumlah} (saldo kredit)': '{jumlah} (credit balance)',
+	'Tagihan kartu kredit dibaca setelah formatnya diuji dengan contoh tagihan asli. Sampai itu, pakai Spreadsheet/CSV atau catat manual.':
+		'Credit card statements are read once their format has been tested with a real sample statement. Until then, use Spreadsheet/CSV or record by hand.',
+	'Tanggal jatuh tempo': 'Due date',
+	'Tagihan sebelumnya': 'Previous balance',
+	Pembayaran: 'Payments',
+	'Kredit lain (refund)': 'Other credits (refunds)',
+	Pembelian: 'Purchases',
+	'Biaya dan bunga': 'Fees and interest',
+	'Tagihan baru': 'New balance',
+	'Pembayaran minimum (tertera)': 'Minimum payment (as printed)',
+	'Limit kredit (tertera)': 'Credit limit (as printed)',
+	'Tagihan pertama kartu ini: saldonya belum dibandingkan.':
+		"This card's first statement: its balance is not compared yet.",
+	'Tagihan pertama kartu ini: saldonya belum dibandingkan. Saldo dompet kartu sekarang {jumlah}.':
+		"This card's first statement: its balance is not compared yet. The card wallet's balance is now {jumlah}.",
+	'Pembayaran kartu kredit: debit kartu kredit atau Transfer keluar di rekening dengan pembayaran yang tercatat di dompet kartu, dari sehari sebelum sampai tiga hari sesudah debit. Setelah dicocokkan menjadi satu transfer ke kartu, bukan pengeluaran.':
+		'Credit card payments: a credit card or Transfer out debit in an account with the payment recorded in the card wallet, from one day before to three days after the debit. Once matched it becomes one transfer to the card, not spending.',
+	'Pembayaran kartu kredit': 'Credit card payment',
+	'Isi dari tagihan {kartu} (tertera, periksa dulu)':
+		'Fill from the {kartu} statement (as printed, check first)',
+	'Tagihan terakhir (tertera)': 'Last bill (as printed)',
+	'ada sen, ketik jumlah yang kamu bayar': 'has cents, type the amount you paid',
+	'Ubah kartu': 'Edit card',
+	'Utang sekarang': 'Owed now',
+	'Limit kredit {jumlah}': 'Credit limit {jumlah}',
+	'Tambah tanggal': 'Add dates',
+	'Bayar tagihan': 'Pay bill',
+	'Bayar tagihan dicatat sebagai transfer dari dompetmu ke kartu ini, bukan pengeluaran.':
+		'Paying the bill is recorded as a transfer from your wallet to this card, not as spending.',
+	'Tagihan terakhir': 'Last bill',
+	'Belum ada tagihan yang diimpor untuk kartu ini.': 'No statement imported for this card yet.',
+	'Impor tagihan kartu': 'Import a card statement',
+	'Sudah dibayar sejak tagihan': 'Paid since the statement',
+	'Sisa tagihan': 'Bill remaining',
+	'Belum ditagih': 'Not billed yet',
+	'Saldo dompet tidak cocok dengan tagihan terakhir (selisih {jumlah}).':
+		'The wallet balance does not match the last bill (difference {jumlah}).',
+	'Sesuaikan saldo': 'Adjust balance',
+	'1 pembayaran kartu belum dicocokkan': '1 card payment not matched yet',
+	'{n} pembayaran kartu belum dicocokkan': '{n} card payments not matched yet',
+	'Tagihan yang diimpor': 'Imported statements',
+	'Belum ada.': 'None yet.',
+	'Jatuh tempo {tanggal}': 'Due {tanggal}',
+	'Lihat Riwayat impor': 'See import history',
+	'Cicilan yang kamu catat sendiri: buat transaksi berulang bulanan dengan tanggal berakhir di kartu ini.':
+		'Instalments you record yourself: create a monthly recurring transaction with an end date on this card.',
+	'Diagnosa kartu': 'Card diagnosis',
+	'Tempelkan kartu e-money ke bagian belakang ponsel. Montra hanya membaca jawaban kartu, tidak pernah mengubah saldo atau isi kartu, dan tidak menyimpan apa pun.':
+		"Hold an e-money card to the back of the phone. Montra only reads the card's answers, never changes its balance or contents, and saves nothing.",
+	'Membaca kartu lewat NFC hanya bisa di aplikasi Montra untuk Android.':
+		'Reading cards by NFC only works in the Montra app for Android.',
+	'NFC mati atau tidak ada di ponsel ini. Nyalakan NFC di pengaturan ponsel.':
+		"NFC is off or missing on this phone. Turn on NFC in the phone's settings.",
+	'Tempelkan kartu sekarang…': 'Hold the card now…',
+	'Mulai membaca': 'Start reading',
+	Hasil: 'Result',
+	'Kirim log ini hanya ke tim Montra. Angka panjang sudah disamarkan, tetapi log tetap berisi data kartumu.':
+		'Send this log only to the Montra team. Long numbers are masked, but the log still holds your card data.',
+	Tersalin: 'Copied',
+	'Salin log': 'Copy log',
+	'Saldo KMT': 'KMT balance',
+	'Cocokkan dengan saldo di mesin stasiun. Pembacaan KMT masih diuji.':
+		'Compare it with the balance at a station machine. KMT reading is still being tested.',
+	'Baca kartu e-money': 'Read an e-money card',
+	'Tempelkan kartu ke ponsel lewat NFC': 'Hold the card to the phone over NFC'
 };

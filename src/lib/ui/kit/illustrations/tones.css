@@ -1,0 +1,133 @@
+/*
+ * The isometric drawings' colours (FN-40 Part 3), shared by <Illustration> and Beranda's HeroScene (FN-54): an
+ * <svg class="iso-art"> colours its shapes only through these classes, built from theme tokens, so every scene
+ * repaints in light, dark, mono and the Pro themes with no colour in the markup.
+ *
+ * Blueprint look (owner request 2026-10-14): near-flat faces with a hairline edge, on a faint ground grid with
+ * dashed guide lines and diamond nodes. Faces stay lit from the top left (top lightest, right darkest), but the
+ * steps are small: the edge carries the form. Accent and gold keep a light tint of their colour so a coin and the
+ * one highlighted object still read as such.
+ */
+.iso-art {
+	/* Neutral: the page's panel with a light ink tint per face. */
+	--n-t: color-mix(in srgb, var(--ink) 3%, var(--panel));
+	--n-l: color-mix(in srgb, var(--ink) 7%, var(--panel));
+	--n-r: color-mix(in srgb, var(--ink) 12%, var(--panel));
+	/* Paper: the page itself. */
+	--p-t: var(--bg);
+	--p-l: color-mix(in srgb, var(--ink) 4%, var(--bg));
+	--p-r: color-mix(in srgb, var(--ink) 8%, var(--bg));
+	/* Accent: the highlighted object, a light tint of the accent. */
+	--a-t: color-mix(in srgb, var(--accent) 10%, var(--bg));
+	--a-l: color-mix(in srgb, var(--accent) 18%, var(--bg));
+	--a-r: color-mix(in srgb, var(--accent) 28%, var(--bg));
+	/* Gold: coins. */
+	--g-t: color-mix(in srgb, var(--cat-belanja) 16%, var(--bg));
+	--g-l: color-mix(in srgb, var(--cat-belanja) 26%, var(--bg));
+	--g-r: color-mix(in srgb, var(--cat-belanja) 38%, var(--bg));
+	/* Device: a solid in ink, the one dark block in a scene. */
+	--d-t: color-mix(in srgb, var(--ink) 78%, var(--bg));
+	--d-l: color-mix(in srgb, var(--ink) 88%, var(--bg));
+	--d-r: var(--ink);
+	/* Edges and the floor. */
+	--iso-edge: color-mix(in srgb, var(--ink) 42%, var(--bg));
+	--iso-edge-a: color-mix(in srgb, var(--accent) 70%, var(--ink));
+	--iso-edge-g: color-mix(in srgb, var(--cat-belanja) 70%, var(--ink));
+	--iso-grid: color-mix(in srgb, var(--ink) 9%, var(--bg));
+	--iso-guide: color-mix(in srgb, var(--ink) 30%, var(--bg));
+}
+.iso-art .n-t {
+	fill: var(--n-t);
+}
+.iso-art .n-l {
+	fill: var(--n-l);
+}
+.iso-art .n-r {
+	fill: var(--n-r);
+}
+.iso-art .a-t {
+	fill: var(--a-t);
+}
+.iso-art .a-l {
+	fill: var(--a-l);
+}
+.iso-art .a-r {
+	fill: var(--a-r);
+}
+.iso-art .g-t {
+	fill: var(--g-t);
+}
+.iso-art .g-l {
+	fill: var(--g-l);
+}
+.iso-art .g-r {
+	fill: var(--g-r);
+}
+.iso-art .p-t {
+	fill: var(--p-t);
+}
+.iso-art .p-l {
+	fill: var(--p-l);
+}
+.iso-art .p-r {
+	fill: var(--p-r);
+}
+.iso-art .d-t {
+	fill: var(--d-t);
+}
+.iso-art .d-l {
+	fill: var(--d-l);
+}
+.iso-art .d-r {
+	fill: var(--d-r);
+}
+/* Every face gets a hairline edge; accent and gold edges take their own colour. */
+.iso-art :is(.n-t, .n-l, .n-r, .p-t, .p-l, .p-r, .d-t, .d-l, .d-r) {
+	stroke: var(--iso-edge);
+}
+.iso-art :is(.a-t, .a-l, .a-r) {
+	stroke: var(--iso-edge-a);
+}
+.iso-art :is(.g-t, .g-l, .g-r) {
+	stroke: var(--iso-edge-g);
+}
+.iso-art path,
+.iso-art circle {
+	stroke-width: 0.8;
+	stroke-linejoin: round;
+	vector-effect: non-scaling-stroke;
+}
+/* The floor: a faint grid, dashed construction lines, and diamond handles. */
+.iso-art .grid {
+	fill: none;
+	stroke: var(--iso-grid);
+	stroke-width: 0.6;
+}
+.iso-art .guide {
+	fill: none;
+	stroke: var(--iso-guide);
+	stroke-width: 0.8;
+	stroke-dasharray: 3 3;
+}
+.iso-art .node {
+	fill: var(--bg);
+	stroke: var(--iso-edge);
+	stroke-width: 0.8;
+}
+.iso-art .ink,
+.iso-art .mark {
+	fill: none;
+	stroke-width: 1.2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+.iso-art .ink {
+	stroke: currentColor;
+}
+.iso-art .ink.strong {
+	stroke: var(--ink-2);
+	stroke-width: 1.6;
+}
+.iso-art .mark {
+	stroke: var(--iso-edge);
+}

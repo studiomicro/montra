@@ -133,6 +133,5 @@ export const TILE_FALLBACK: Readonly<Partial<Record<TileKey, TileKey>>> = {
 
 /** How a rule came to be: a user's correction (FN-20), or `manual` (reserved in the schema; no editor yet). */
 export const MERCHANT_RULE_SOURCES = ['correction', 'manual'] as const;
-export type MerchantRuleSource = (typeof MERCHANT_RULE_SOURCES)[number];
 /** What wrote a cache row: only the AI step caches (deterministic layers are cheap to recompute). */
 export const MERCHANT_CACHE_REASONS = ['ai'] as const;

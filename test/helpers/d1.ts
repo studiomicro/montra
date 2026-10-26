@@ -48,3 +48,43 @@ export async function withLocalD1(fn: (db: D1Database) => Promise<void>): Promis
 		await dispose();
 	}
 }
+
+/**
+ * A wallet written with the columns every schema before migration 0047 has (FN-55a added three), for migration
+ * tests that fill an older schema first: the app's `createWallet` names every current column. Same arguments and
+ * answer as `createWallet` (`{ ok: true, id }`).
+ */
+export async function insertLegacyWallet(
+	db: D1Database,
+	scope: { spaceId: string; userId?: string },
+	input: {
+		name: string;
+		type: string;
+		currency: string;
+		openingBalanceMinor: number;
+		isFavourite: boolean;
+		lastFour: string | null;
+	},
+	now: number
+): Promise<{ ok: true; id: string }> {
+	const id = crypto.randomUUID();
+	await db
+		.prepare(
+			`insert into wallets (id, space_id, name, type, currency, opening_balance_minor, is_favourite, last_four,
+				created_at, updated_at, deleted_at, seq) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, 1)`
+		)
+		.bind(
+			id,
+			scope.spaceId,
+			input.name,
+			input.type,
+			input.currency,
+			input.openingBalanceMinor,
+			input.isFavourite ? 1 : 0,
+			input.lastFour,
+			now,
+			now
+		)
+		.run();
+	return { ok: true, id };
+}

@@ -295,7 +295,7 @@
 		cursor: pointer;
 	}
 	.tile:has(input:checked) {
-		outline: 2px solid var(--ink);
+		outline: 2px solid var(--action);
 		outline-offset: -2px;
 	}
 	.tile:has(input:focus-visible) {

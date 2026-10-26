@@ -274,6 +274,77 @@ describe('archive and restore', () => {
 	});
 });
 
+describe('FN-58 pass 1 e-money cards (emoney_issuer)', () => {
+	it('round trip: an e_wallet with its issuer and last 4 is created, listed and edited', async () => {
+		const { scope } = await account();
+		const id = await add(scope, {
+			name: 'BCA Flazz',
+			type: 'e_wallet',
+			emoneyIssuer: 'bca_flazz',
+			lastFour: '0042',
+			openingBalanceMinor: 15_000_000
+		});
+		expect(await getWallet(db, scope.spaceId, id)).toMatchObject({
+			type: 'e_wallet',
+			emoneyIssuer: 'bca_flazz',
+			lastFour: '0042',
+			openingBalanceMinor: 15_000_000
+		});
+		expect((await listWallets(db, scope.spaceId)).map((w) => w.emoneyIssuer)).toEqual([
+			'bca_flazz'
+		]);
+		const row = (await getWallet(db, scope.spaceId, id))!;
+		const kmt = input({ name: 'KMT', type: 'e_wallet', emoneyIssuer: 'kmt', lastFour: null });
+		expect(await updateWallet(db, scope, id, kmt, row.updatedAt, NOW + 1)).toBe('ok');
+		const edited = (await getWallet(db, scope.spaceId, id))!;
+		expect(edited).toMatchObject({ emoneyIssuer: 'kmt', lastFour: null });
+		// Edited into a plain bank wallet, the issuer is cleared with it.
+		expect(
+			await updateWallet(db, scope, id, input({ type: 'bank' }), edited.updatedAt, NOW + 2)
+		).toBe('ok');
+		expect((await getWallet(db, scope.spaceId, id))!.emoneyIssuer).toBeNull();
+	});
+
+	it('a plain wallet has no issuer; the CHECK refuses an issuer off an e_wallet and an unknown key', async () => {
+		const { scope } = await account();
+		const bank = await add(scope);
+		expect((await getWallet(db, scope.spaceId, bank))!.emoneyIssuer).toBeNull();
+		await expect(
+			d1.prepare(`update wallets set emoney_issuer = 'bca_flazz' where id = ?`).bind(bank).run()
+		).rejects.toThrow(/CHECK/);
+		await expect(
+			createWallet(db, scope, input({ type: 'kartu_kredit', emoneyIssuer: 'kmt' }), NOW)
+		).rejects.toThrow(/CHECK/);
+		const card = await add(scope, { type: 'e_wallet', emoneyIssuer: 'megacash' });
+		await expect(
+			d1.prepare(`update wallets set emoney_issuer = 'gopay' where id = ?`).bind(card).run()
+		).rejects.toThrow(/CHECK/);
+		// A card cannot leave e_wallet while it keeps its issuer.
+		await expect(
+			d1.prepare(`update wallets set type = 'bank' where id = ?`).bind(card).run()
+		).rejects.toThrow(/CHECK/);
+	});
+
+	it('archive (the tombstone) keeps the issuer like last_four, so a restore brings the card back whole', async () => {
+		const { scope } = await account();
+		const id = await add(scope, { type: 'e_wallet', emoneyIssuer: 'bri_brizzi', lastFour: '7788' });
+		const row = (await getWallet(db, scope.spaceId, id))!;
+		expect(await archiveWallet(db, scope, id, row.updatedAt, NOW + 1)).toBe('ok');
+		const archived = (await getWallet(db, scope.spaceId, id, { includeArchived: true }))!;
+		expect(archived).toMatchObject({
+			archived: true,
+			emoneyIssuer: 'bri_brizzi',
+			lastFour: '7788'
+		});
+		expect(await restoreWallet(db, scope, id, archived.updatedAt, NOW + 2)).toBe('ok');
+		expect(await getWallet(db, scope.spaceId, id)).toMatchObject({
+			archived: false,
+			emoneyIssuer: 'bri_brizzi',
+			lastFour: '7788'
+		});
+	});
+});
+
 describe('setFavourite', () => {
 	it('20 concurrent swaps across two wallets end with exactly one favourite', async () => {
 		const { scope } = await account();

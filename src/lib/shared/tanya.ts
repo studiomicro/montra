@@ -8,7 +8,7 @@ import { cleanText } from './text.ts';
  */
 
 export const TANYA_ROLES = ['user', 'assistant'] as const;
-export type TanyaRole = (typeof TANYA_ROLES)[number];
+type TanyaRole = (typeof TANYA_ROLES)[number];
 
 /** Longest question (characters, after cleaning). */
 export const TANYA_QUESTION_MAX = 500;
@@ -86,7 +86,7 @@ const chartSchema = z.discriminatedUnion('type', [
 /** Most rows one card holds; a tool never builds more (a longer card fails the schema and is dropped on read). */
 export const TANYA_CARD_ROWS_MAX = 40;
 
-export const tanyaCardSchema = z
+const tanyaCardSchema = z
 	.object({
 		/** A phrase, translated by the page. */
 		title: z.string().max(120),
@@ -103,7 +103,7 @@ export const tanyaCardSchema = z
 export type TanyaCard = z.infer<typeof tanyaCardSchema>;
 export type TanyaCardRow = z.infer<typeof rowSchema>;
 
-export const tanyaCardsSchema = z.array(tanyaCardSchema).max(8);
+const tanyaCardsSchema = z.array(tanyaCardSchema).max(8);
 
 /** Stored cards read back: validated again, so a row the page cannot show safely shows none (never a crash). */
 export function parseCards(json: string | null): TanyaCard[] {

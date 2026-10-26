@@ -2,11 +2,11 @@ import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { maskAccountNumbers } from '#lib/shared/text';
 import type { Db } from '../db';
-import { transactions, transferLinks } from '../db/schema';
+import { transactions, transferLinks, type TRANSFER_LINK_SOURCES } from '../db/schema';
 import { isLiveMember, type SpaceScope } from '../spaces/access';
 import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { TOMBSTONE_CONTENT } from '../transactions/repo';
-import { newId } from '../util';
+import { errorLabel, newId } from '../util';
 
 /**
  * FN-48 Part C "Cocokkan transfer": an imported statement records a transfer between two of the user's own wallets
@@ -17,8 +17,15 @@ import { newId } from '../util';
  * user confirms one pair, merges them into one FN-05 transfer row: the debit row becomes the transfer, the credit
  * row is tombstoned (its dedupe key stays, so a re-import never recreates it) and both rows' previous content is
  * kept in `transfer_links` for the one-step undo, which restores the very same rows (same ids, same `created_at`).
- * Never auto-applied, never a match on amount alone, nothing learned from a confirmed or skipped pair.
+ * Never a match on amount alone, nothing learned from a confirmed, skipped or auto-merged pair. FN-48d: right after
+ * a statement import commits, `autoMatchTransferPairs` merges only the own-transfer pairs that have exactly one
+ * possible reading; every other pair still waits for the user's confirm.
+ * FN-55a adds a second kind of pair, a card payment (`CARD_PAIR`): merged the same way into one transfer from the
+ * bank wallet to the card, with the same confirm, undo, stale and cross-space rules.
  */
+
+/** Who merged a pair: the user's confirm, or the statement import's auto-match pass (FN-48d). */
+export type TransferLinkSource = (typeof TRANSFER_LINK_SOURCES)[number];
 
 /** Most pairs one review lists (newest `occurred_on` first); the card's count still shows them all. */
 export const MATCH_PREVIEW_MAX = 200;
@@ -47,9 +54,42 @@ function eligible(alias: 'd' | 'c', spaceId: string): SQL {
 const PAIRED = sql`c.amount_minor = d.amount_minor and c.currency = d.currency and c.wallet_id <> d.wallet_id
 	and c.occurred_on between date(d.occurred_on, '-1 day') and date(d.occurred_on, '+1 day')`;
 
+/**
+ * FN-55a A5, a card payment: debit `d` is a live, real expense row of a non-card wallet in the `kartu-kredit` or
+ * `transfer` tile (a bank's "KARTU KREDIT/PL …" debit), credit `c` a live, real income row of a `kartu_kredit`
+ * wallet in the `transfer` tile (the statement's payment line). The same exclusions as `eligible` (a Patungan bill,
+ * a kept photo).
+ */
+function cardSide(alias: 'd' | 'c', spaceId: string): SQL {
+	const t = sql.raw(alias);
+	const debit = alias === 'd';
+	const tiles = debit ? sql`('kartu-kredit', 'transfer')` : sql`('transfer')`;
+	return sql`${t}.space_id = ${spaceId} and ${t}.deleted_at is null and ${t}.is_demo = 0
+		and ${t}.type = ${debit ? 'expense' : 'income'}
+		and ${debit ? sql`${t}.patungan_split_id is null` : sql`${t}.photo_key is null`}
+		and exists (select 1 from categories k where k.id = ${t}.category_id and k.space_id = ${spaceId}
+			and k.tile_key in ${tiles} and k.kind = ${t}.type)
+		and exists (select 1 from wallets w where w.id = ${t}.wallet_id and w.space_id = ${spaceId}
+			and w.deleted_at is null and w.type ${debit ? sql`<>` : sql`=`} 'kartu_kredit')`;
+}
+
+/**
+ * A card payment's dates (owner decision 5): the card's credit from 1 day before to 3 days after the bank's debit
+ * (card payments post later, across weekends). Every other pair keeps PAIRED's ±1 day.
+ */
+const CARD_PAIRED = sql`c.amount_minor = d.amount_minor and c.currency = d.currency and c.wallet_id <> d.wallet_id
+	and c.occurred_on between date(d.occurred_on, '-1 day') and date(d.occurred_on, '+3 day')`;
+
+/** The two kinds of candidate pair: own wallets' transfer tiles (FN-48 Part C), and a card payment (FN-55a). */
+const OWN_PAIR = (spaceId: string) =>
+	sql`(${PAIRED} and ${eligible('d', spaceId)} and ${eligible('c', spaceId)})`;
+const CARD_PAIR = (spaceId: string) =>
+	sql`(${CARD_PAIRED} and ${cardSide('d', spaceId)} and ${cardSide('c', spaceId)})`;
+
 /** `from … where …` over every candidate pair of the space (append `and …` for one pair). */
-const pairsOf = (spaceId: string) => sql`from transactions d join transactions c on ${PAIRED}
-	where ${eligible('d', spaceId)} and ${eligible('c', spaceId)}`;
+const pairsOf = (spaceId: string) => sql`from transactions d join transactions c
+		on c.space_id = d.space_id and c.amount_minor = d.amount_minor and c.currency = d.currency
+	where d.space_id = ${spaceId} and (${OWN_PAIR(spaceId)} or ${CARD_PAIR(spaceId)})`;
 
 /** How many pairs the space has (counted in SQL, never by loading them); the /impor card's count. */
 export async function countTransferMatches(db: Db, spaceId: string): Promise<number> {
@@ -58,6 +98,7 @@ export async function countTransferMatches(db: Db, spaceId: string): Promise<num
 }
 
 interface PairRow {
+	kind: 'own' | 'card';
 	debitId: string;
 	debitTitle: string | null;
 	debitOn: string;
@@ -73,7 +114,7 @@ interface PairRow {
 }
 
 /** One row of a proposed pair, as the review shows it (title masked, display only). */
-export interface TransferSide {
+interface TransferSide {
 	id: string;
 	title: string;
 	occurredOn: string;
@@ -83,6 +124,8 @@ export interface TransferSide {
 }
 
 export interface TransferPair {
+	/** `card`: a bank debit paying a card's bill (FN-55a); `own`: a transfer between two own accounts. */
+	kind: 'own' | 'card';
 	debit: TransferSide;
 	credit: TransferSide;
 	amountMinor: number;
@@ -94,17 +137,27 @@ export interface TransferPair {
  * the review lists every candidate of it and the user picks one or skips the whole group; nothing is picked for
  * them. A group of one pair is unambiguous.
  */
-export interface TransferMatchGroup {
+export interface TransferMatchGroup<P extends PairOfIds = TransferPair> {
 	/** The group's first pair's ids (a stable key for the list). */
 	key: string;
 	amountMinor: number;
 	currency: string;
 	ambiguous: boolean;
-	pairs: TransferPair[];
+	pairs: P[];
+}
+
+/** What grouping reads of a pair: its two row ids, amount and currency. */
+interface PairOfIds {
+	debit: { id: string };
+	credit: { id: string };
+	amountMinor: number;
+	currency: string;
 }
 
 /** Connected components of the pair graph (rows as nodes), in the order the pairs were listed. */
-export function groupTransferPairs(pairs: readonly TransferPair[]): TransferMatchGroup[] {
+export function groupTransferPairs<P extends PairOfIds>(
+	pairs: readonly P[]
+): TransferMatchGroup<P>[] {
 	const parent = new Map<string, string>();
 	const root = (id: string): string => {
 		let r = id;
@@ -119,7 +172,7 @@ export function groupTransferPairs(pairs: readonly TransferPair[]): TransferMatc
 		if (ra !== rb) parent.set(rb, ra);
 	};
 	for (const p of pairs) unite(p.debit.id, p.credit.id);
-	const groups = new Map<string, TransferMatchGroup>();
+	const groups = new Map<string, TransferMatchGroup<P>>();
 	for (const p of pairs) {
 		const r = root(p.debit.id);
 		const g = groups.get(r);
@@ -157,7 +210,8 @@ export async function proposeTransferMatches(
 ): Promise<TransferMatchPreview> {
 	const [rows, total] = await Promise.all([
 		db.all<PairRow>(
-			sql`select d.id as debitId, d.title as debitTitle, d.occurred_on as debitOn,
+			sql`select case when ${CARD_PAIR(spaceId)} then 'card' else 'own' end as kind,
+				d.id as debitId, d.title as debitTitle, d.occurred_on as debitOn,
 				d.wallet_id as debitWalletId, d.updated_at as debitUpdatedAt,
 				c.id as creditId, c.title as creditTitle, c.occurred_on as creditOn,
 				c.wallet_id as creditWalletId, c.updated_at as creditUpdatedAt,
@@ -169,6 +223,7 @@ export async function proposeTransferMatches(
 		countTransferMatches(db, spaceId)
 	]);
 	const pairs = rows.map((r): TransferPair => ({
+		kind: r.kind,
 		debit: {
 			id: r.debitId,
 			title: maskAccountNumbers(r.debitTitle ?? ''),
@@ -215,17 +270,21 @@ const linkWrittenNow = (spaceId: string, linkId: string) =>
  * both rows' previous content as JSON, then, only when that link was written in this very batch (its `seq`):
  * the debit row becomes the transfer (`type`, `transfer_to_wallet_id` = the credit row's wallet, no category) and
  * the credit row is tombstoned like a single delete (TOMBSTONE_CONTENT; dedupe key, import batch and `created_at`
- * kept). No amount changes anywhere.
+ * kept). No amount changes anywhere. `source` `auto` (FN-48d's pass) is stored on the link and adds
+ * `stillUnambiguous` to the same guard, so a pair that became ambiguous or was declined since the pass read it is
+ * never merged.
  */
 export async function applyTransferMatch(
 	db: Db,
 	scope: SpaceScope,
 	pair: TransferPairChoice,
-	now: number
+	now: number,
+	source: TransferLinkSource = 'manual'
 ): Promise<ApplyMatchResult> {
 	const { spaceId, userId } = scope;
 	const linkId = newId();
 	const written = linkWrittenNow(spaceId, linkId);
+	const unambiguousNow = source === 'auto' ? stillUnambiguous(spaceId, pair) : sql`1`;
 	const [, , , , found] = await db.batch([
 		bumpSpaceSeq(db, spaceId),
 		db.insert(transferLinks).select(
@@ -239,13 +298,14 @@ export async function applyTransferMatch(
 					'tag', c.tag, 'reference', c.reference, 'adjustmentDirection', c.adjustment_direction,
 					'photoKey', c.photo_key, 'photoType', c.photo_type, 'patunganSplitId', c.patungan_split_id,
 					'patunganEffectiveAmountMinor', c.patungan_effective_amount_minor, 'updatedAt', c.updated_at),
-				${now}, ${now}, null, ${currentSpaceSeq(spaceId)}
+				${now}, ${now}, null, ${currentSpaceSeq(spaceId)}, ${source}
 			${pairsOf(spaceId)}
 				and d.id = ${pair.debitId} and c.id = ${pair.creditId}
 				and d.updated_at = ${pair.debitUpdatedAt} and c.updated_at = ${pair.creditUpdatedAt}
 				and ${isLiveMember(spaceId, userId)}
 				and not exists (select 1 from transfer_links l where l.undone_at is null
-					and (l.debit_transaction_id in (d.id, c.id) or l.credit_transaction_id in (d.id, c.id)))`
+					and (l.debit_transaction_id in (d.id, c.id) or l.credit_transaction_id in (d.id, c.id)))
+				and ${unambiguousNow}`
 		),
 		db
 			.update(transactions)
@@ -305,6 +365,185 @@ export async function applyTransferMatch(
 		sql`select 1 as n ${pairsOf(spaceId)} and d.id = ${pair.debitId} and c.id = ${pair.creditId}`
 	);
 	return { status: candidate ? 'stale' : 'missing' };
+}
+
+/**
+ * FN-48d, in the guarded insert of an `auto` merge (the pair as `d` and `c`): the pair is an own transfer and not a
+ * card payment (FN-55a pairs stay manual), no auto-merge — live or undone — ever named either row (an undone one
+ * is the user's "not this pair"), and neither row is in any other candidate pair (own or card) right now, so its
+ * group still has exactly one pair. The inner `pairsOf` declares its own `d` and `c`; the ids come as values.
+ */
+function stillUnambiguous(spaceId: string, pair: TransferPairChoice): SQL {
+	return sql`not ${CARD_PAIR(spaceId)}
+		and not exists (select 1 from transfer_links h where h.space_id = ${spaceId} and h.source = 'auto'
+			and (h.debit_transaction_id in (d.id, c.id) or h.credit_transaction_id in (d.id, c.id)))
+		and not exists (select 1 ${pairsAround(spaceId, 'd', pair.debitId)} and c.id <> ${pair.creditId})
+		and not exists (select 1 ${pairsAround(spaceId, 'c', pair.creditId)} and d.id <> ${pair.debitId})`;
+}
+
+/**
+ * `from … where …` over every candidate pair (own or card) that row `id` is side `known` of: that row by its id,
+ * the other side looked up by space, amount and currency among live rows (`transactions_space_amount_idx`, named
+ * so the plan never walks the space's rows by date instead).
+ */
+function pairsAround(spaceId: string, known: 'd' | 'c', id: string): SQL {
+	const k = sql.raw(known);
+	const o = sql.raw(known === 'd' ? 'c' : 'd');
+	return sql`from transactions ${k} cross join transactions ${o} indexed by transactions_space_amount_idx
+			on ${o}.space_id = ${k}.space_id and ${o}.amount_minor = ${k}.amount_minor
+			and ${o}.currency = ${k}.currency and ${o}.deleted_at is null
+		where ${k}.id = ${id} and ${k}.space_id = ${spaceId} and (${OWN_PAIR(spaceId)} or ${CARD_PAIR(spaceId)})`;
+}
+
+/** Most pairs one statement import merges by itself (owner decision 3); the rest wait on the review page. */
+export const AUTO_MATCH_MAX = 20;
+/**
+ * Most candidate pairs the auto-match pass reads. Pairs only ever join rows of one amount and currency, so the read
+ * is ordered by those: past the cap, the last amount read may be incomplete and is dropped whole (its ambiguity
+ * cannot be judged), every earlier amount is complete.
+ */
+export const AUTO_MATCH_SCAN_MAX = 1000;
+
+/** One candidate pair as the auto-match pass reads it. */
+export interface AutoMatchCandidate {
+	kind: 'own' | 'card';
+	debit: { id: string; occurredOn: string; updatedAt: number };
+	credit: { id: string; occurredOn: string; updatedAt: number };
+	amountMinor: number;
+	currency: string;
+	/** One of the two rows was written by the import that just committed. */
+	touched: boolean;
+	/** An auto-merge (live or undone) already named one of the two rows. */
+	autoBefore: boolean;
+}
+
+/**
+ * The pairs the pass merges, from candidates read in (amount, currency) order with at most `scanMax + 1` rows:
+ * the incomplete last amount dropped, then only groups of exactly one pair that is an own transfer, touched by the
+ * import and never auto-merged before; newest first (later WIB date of the two, then the debit's, then ids), at
+ * most `max`.
+ */
+export function chooseAutoMatches(
+	candidates: readonly AutoMatchCandidate[],
+	scanMax: number,
+	max: number
+): AutoMatchCandidate[] {
+	const extra = candidates.length > scanMax ? candidates[scanMax] : undefined;
+	const complete = extra
+		? candidates
+				.slice(0, scanMax)
+				.filter((p) => p.amountMinor !== extra.amountMinor || p.currency !== extra.currency)
+		: candidates;
+	const later = (p: AutoMatchCandidate) =>
+		p.debit.occurredOn > p.credit.occurredOn ? p.debit.occurredOn : p.credit.occurredOn;
+	const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+	return groupTransferPairs(complete)
+		.filter((g) => !g.ambiguous)
+		.map((g) => g.pairs[0]!)
+		.filter((p) => p.kind === 'own' && p.touched && !p.autoBefore)
+		.sort(
+			(a, b) =>
+				cmp(later(b), later(a)) ||
+				cmp(b.debit.occurredOn, a.debit.occurredOn) ||
+				cmp(a.debit.id, b.debit.id) ||
+				cmp(a.credit.id, b.credit.id)
+		)
+		.slice(0, max);
+}
+
+/**
+ * FN-48d "auto-match": right after a statement import's own batch has committed (never inside it), merges the
+ * import's unambiguous own-transfer pairs by themselves through `applyTransferMatch` (`source` `auto`): the same
+ * guarded merge, link and one-step undo as the user's confirm. The read is bounded by the batch's own amounts — the
+ * live, real, transfer-tile rows `batchId` wrote (`transactions_import_batch_idx`) — looked up among the space's
+ * live rows (`transactions_space_amount_idx`), so every competing row is seen, whatever import it came from, and
+ * the list of amounts is never bound as parameters. `chooseAutoMatches` picks the pairs; a pair that turned stale
+ * or ambiguous before its merge is simply left for the review page. Returns how many were merged.
+ */
+export async function autoMatchTransferPairs(
+	db: Db,
+	scope: SpaceScope,
+	batchId: string,
+	now: number
+): Promise<{ autoMatchedCount: number }> {
+	const { spaceId } = scope;
+	/*
+	 * Plan steering (SQLite): the batch's amounts come first (`cross join` keeps them outermost; the unary `+` keeps
+	 * the batch read on `transactions_import_batch_idx`), then each side is looked up by space, amount and currency
+	 * among live rows (`transactions_space_amount_idx`, named for `c` so the plan never walks the space by date).
+	 */
+	const batchAmounts = sql`(select distinct t.amount_minor, t.currency from transactions t
+		where t.space_id = ${spaceId} and t.import_batch_id = ${batchId} and +t.deleted_at is null and t.is_demo = 0
+		and t.type in ('expense', 'income')
+		and exists (select 1 from categories k where k.id = t.category_id and k.space_id = ${spaceId}
+			and k.tile_key = 'transfer' and k.kind = t.type))`;
+	const rows = await db.all<{
+		kind: 'own' | 'card';
+		debitId: string;
+		debitOn: string;
+		debitUpdatedAt: number;
+		creditId: string;
+		creditOn: string;
+		creditUpdatedAt: number;
+		amountMinor: number;
+		currency: string;
+		touched: number;
+		autoBefore: number;
+	}>(
+		sql`select case when ${CARD_PAIR(spaceId)} then 'card' else 'own' end as kind,
+			d.id as debitId, d.occurred_on as debitOn, d.updated_at as debitUpdatedAt,
+			c.id as creditId, c.occurred_on as creditOn, c.updated_at as creditUpdatedAt,
+			d.amount_minor as amountMinor, d.currency,
+			(d.import_batch_id is ${batchId} or c.import_batch_id is ${batchId}) as touched,
+			exists (select 1 from transfer_links h where h.space_id = ${spaceId} and h.source = 'auto'
+				and (h.debit_transaction_id in (d.id, c.id) or h.credit_transaction_id in (d.id, c.id))) as autoBefore
+		from ${batchAmounts} x cross join transactions d
+			join transactions c indexed by transactions_space_amount_idx on c.space_id = d.space_id and c.amount_minor = d.amount_minor and c.currency = d.currency
+			and c.deleted_at is null
+		where d.space_id = ${spaceId} and d.amount_minor = x.amount_minor and d.currency = x.currency
+			and d.deleted_at is null and (${OWN_PAIR(spaceId)} or ${CARD_PAIR(spaceId)})
+		order by d.amount_minor, d.currency, d.id, c.id
+		limit ${AUTO_MATCH_SCAN_MAX + 1}`
+	);
+	const chosen = chooseAutoMatches(
+		rows.map((r) => ({
+			kind: r.kind,
+			debit: { id: r.debitId, occurredOn: r.debitOn, updatedAt: r.debitUpdatedAt },
+			credit: { id: r.creditId, occurredOn: r.creditOn, updatedAt: r.creditUpdatedAt },
+			amountMinor: r.amountMinor,
+			currency: r.currency,
+			touched: r.touched === 1,
+			autoBefore: r.autoBefore === 1
+		})),
+		AUTO_MATCH_SCAN_MAX,
+		AUTO_MATCH_MAX
+	);
+	let autoMatchedCount = 0;
+	// One small merge after another (each its own db.batch); a pair that fails its guard stays for the user. A merge
+	// that throws ends the pass, but the count still names every merge already written (red team L1): the success
+	// line never under-reports what the Otomatis badge lists.
+	for (const p of chosen) {
+		let result: Awaited<ReturnType<typeof applyTransferMatch>>;
+		try {
+			result = await applyTransferMatch(
+				db,
+				scope,
+				{
+					debitId: p.debit.id,
+					creditId: p.credit.id,
+					debitUpdatedAt: p.debit.updatedAt,
+					creditUpdatedAt: p.credit.updatedAt
+				},
+				now,
+				'auto'
+			);
+		} catch (e) {
+			console.error('impor: transfer auto-match stopped', errorLabel(e));
+			break;
+		}
+		if (result.status === 'ok') autoMatchedCount++;
+	}
+	return { autoMatchedCount };
 }
 
 /**
@@ -573,6 +812,8 @@ export interface TransferLinkSummary {
 	occurredOn: string;
 	fromWalletId: string | null;
 	toWalletId: string;
+	/** FN-48d: `auto` when the statement import's auto-match pass merged it ("Otomatis"). */
+	source: TransferLinkSource;
 }
 
 /** Where a page of the links list starts: below this link (its `createdAt` and `id`), older ones only. */
@@ -600,7 +841,8 @@ export async function listTransferLinks(
 			json_extract(l.credit_snapshot, '$.currency') as currency,
 			coalesce(d.occurred_on, json_extract(l.credit_snapshot, '$.occurredOn')) as occurredOn,
 			d.wallet_id as fromWalletId,
-			json_extract(l.credit_snapshot, '$.walletId') as toWalletId
+			json_extract(l.credit_snapshot, '$.walletId') as toWalletId,
+			l.source as source
 		from transfer_links l
 		left join transactions d on d.id = l.debit_transaction_id and d.space_id = l.space_id
 			and d.deleted_at is null

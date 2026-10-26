@@ -46,7 +46,7 @@ export function submissionKey(form: FormData): string | null {
 }
 
 /** One review row as posted (echoed back on a refusal so a no-JavaScript page keeps the user's edits). */
-export interface VoiceRowValues {
+interface VoiceRowValues {
 	type: string;
 	amount: string;
 	walletId: string;

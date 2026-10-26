@@ -4,8 +4,7 @@ import { signUp } from '#lib/server/auth/accounts';
 import { getDb, type Db } from '#lib/server/db';
 import { listImportBatches } from '#lib/server/imports/repo';
 import { resolveCurrentSpace } from '#lib/server/spaces/access';
-import { createWallet } from '#lib/server/wallets/repo';
-import { applyMigration, openLocalD1 } from '../helpers/d1';
+import { applyMigration, insertLegacyWallet, openLocalD1 } from '../helpers/d1';
 
 /**
  * Migration 0040 (FN-48 Part B) adds five nullable columns to `import_batches` and one index: applied to a local
@@ -60,8 +59,8 @@ beforeAll(async () => {
 	);
 	if (!r.ok) throw new Error('setup failed');
 	spaceId = (await resolveCurrentSpace(db, r.userId, undefined))!.id;
-	const w = await createWallet(
-		db,
+	const w = await insertLegacyWallet(
+		d1,
 		{ spaceId, userId: r.userId },
 		{
 			name: 'BCA',

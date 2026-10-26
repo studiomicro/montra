@@ -17,7 +17,7 @@
 		type PriceSource,
 		type ValueBasis
 	} from '#lib/shared/net-worth';
-	import { WALLET_TYPE_LABELS, type WalletType } from '#lib/shared/wallets';
+	import { walletKindLabel, type WalletType } from '#lib/shared/wallets';
 	import {
 		missingSuggestions,
 		sectionOfKind,
@@ -32,6 +32,7 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
 	import Badge from '#lib/ui/kit/Badge.svelte';
+	import BrandBadge from '#lib/ui/kit/BrandBadge.svelte';
 	import Button from '#lib/ui/kit/Button.svelte';
 	import ErrorState from '#lib/ui/kit/ErrorState.svelte';
 	import GroupList from '#lib/ui/kit/GroupList.svelte';
@@ -40,11 +41,13 @@
 	import { shown } from '#lib/ui/kit/amounts.svelte';
 	import Segmented from '#lib/ui/kit/Segmented.svelte';
 	import Skeleton from '#lib/ui/kit/Skeleton.svelte';
+	import ChevronLinks from '#lib/ui/laporan/ChevronLinks.svelte';
 	import EmptyState from '#lib/ui/shell/EmptyState.svelte';
 	import Sheet from '#lib/ui/shell/Sheet.svelte';
 	import type { Snippet } from 'svelte';
 	import AllocationBar from './AllocationBar.svelte';
 	import CreditCardCard from './CreditCardCard.svelte';
+	import type { DueChip as DueChipValue } from '#lib/shared/cards';
 	import MissingSuggestions from './MissingSuggestions.svelte';
 	import NetWorthItemForm from './NetWorthItemForm.svelte';
 	import TrendChart from './TrendChart.svelte';
@@ -87,6 +90,7 @@
 		id: string;
 		name: string;
 		type: WalletType;
+		emoneyIssuer: string | null;
 		currency: string;
 		balanceMinor: number | null;
 	}
@@ -99,6 +103,9 @@
 		from: string;
 		to: string;
 		totals: { currency: string; outMinor: number | null }[];
+		/** FN-55a: limit − owed, or over the limit; null without a limit. */
+		available?: { kind: 'available'; minor: number | null } | { kind: 'over' } | null;
+		due?: DueChipValue | null;
 	}
 
 	let {
@@ -445,7 +452,7 @@
 	</div>
 {/snippet}
 
-{#snippet itemRows(list: Item[])}
+{#snippet itemRows(list: Item[], withAdd = false)}
 	<GroupList>
 		{#each list as item (item.id)}
 			<GroupRow>
@@ -460,6 +467,15 @@
 				{/if}
 			</GroupRow>
 		{/each}
+		<!-- "Tambah aset" closes the last group instead of floating as a card of its own (POLISH_AUDIT B5). -->
+		{#if withAdd}
+			<GroupRow>
+				<a class="add" href="/kekayaan?aset=baru" onclick={intercept(() => openAdd())}>
+					<Icon name="plus" size={20} />
+					<span>{tr('Tambah aset')}</span>
+				</a>
+			</GroupRow>
+		{/if}
 	</GroupList>
 {/snippet}
 
@@ -545,12 +561,16 @@
 					/>
 					{#if !hydrated}<Button type="submit" variant="secondary">{tr('Tampilkan')}</Button>{/if}
 				</form>
+				<!-- FN-53: the period report (opening, closing and change per month, quarter or year). -->
+				<ChevronLinks
+					links={[{ href: '/kekayaan/laporan', label: tr('Laporan kuartal dan tahun') }]}
+				/>
 			</section>
 
 			<aside class="side">
 				{#if netWorth.allocation && (netWorth.allocation.slices.length > 0 || netWorth.allocation.outside.length > 0)}
 					<section aria-labelledby="nw-allocation-title">
-						<h3 id="nw-allocation-title" class="sr-only">{tr('Pembagian')}</h3>
+						<h3 id="nw-allocation-title">{tr('Pembagian')}</h3>
 						<AllocationBar allocation={netWorth.allocation} />
 					</section>
 				{/if}
@@ -566,7 +586,7 @@
 					<section aria-labelledby="nw-cards-title">
 						<div class="section-head">
 							<h3 id="nw-cards-title">{tr('Kartu kredit')}</h3>
-							<a class="see-all" href="/dompet">{tr('Lihat semua')}</a>
+							<a class="text-link" href="/dompet">{tr('Lihat semua')}</a>
 						</div>
 						<div class="cards">
 							{#each creditCards.cards as card (card.walletId)}
@@ -584,9 +604,10 @@
 						<GroupList>
 							{#each netWorth.wallets as w (w.id)}
 								<GroupRow href="/dompet?ubah={w.id}">
+									<BrandBadge name={w.name} round />
 									<span class="text">
 										<span class="name">{w.name}</span>
-										<span class="meta">{tr(WALLET_TYPE_LABELS[w.type])}</span>
+										<span class="meta">{walletKindLabel(w, tr)}</span>
 									</span>
 									<span class="amount num">{money(w.balanceMinor, w.currency)}</span>
 									<span class="chev" aria-hidden="true"
@@ -623,18 +644,10 @@
 							onaction={() => openAdd()}
 						/>
 					{:else}
-						{#each groups as g (g.kind)}
+						{#each groups as g, i (g.kind)}
 							<h4 class="kind">{tr(NET_WORTH_KIND_LABELS[g.kind])}</h4>
-							{@render itemRows(g.items)}
+							{@render itemRows(g.items, i === groups.length - 1)}
 						{/each}
-						<GroupList>
-							<GroupRow>
-								<a class="add" href="/kekayaan?aset=baru" onclick={intercept(() => openAdd())}>
-									<Icon name="plus" size={20} />
-									<span>{tr('Tambah aset')}</span>
-								</a>
-							</GroupRow>
-						</GroupList>
 					{/if}
 				</section>
 
@@ -694,9 +707,10 @@
 		align-content: start;
 		gap: 24px;
 	}
-	/* FN-25b desktop: Laporan's two-column proportions; the side column spans the hero, chart and lists rows,
-	 * and any extra height goes to the last row, so the left column never gets gaps. */
-	@media (min-width: 1024px) {
+	/* FN-25b desktop, and the 860 px tablet tier (app +layout.svelte): Laporan's two-column proportions; the side
+	 * column spans the hero, chart and lists rows, and any extra height goes to the last row, so the left column never
+	 * gets gaps. */
+	@media (min-width: 860px) {
 		.layout {
 			grid-template-columns: minmax(0, 37fr) minmax(300px, 21fr);
 			grid-template-rows: auto auto 1fr;
@@ -755,14 +769,6 @@
 		font-size: 14px;
 		font-weight: 600;
 	}
-	.see-all {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		color: var(--ink);
-		font-size: 14px;
-		font-weight: 600;
-	}
 	.cards {
 		display: grid;
 		gap: 12px;
@@ -809,6 +815,12 @@
 		flex: none;
 		color: var(--muted);
 	}
+	/* As on Dompet: a narrow phone row keeps its width for the name; the whole row opens the wallet. */
+	@media (max-width: 479px) {
+		.chev {
+			display: none;
+		}
+	}
 	.demo {
 		margin-top: 4px;
 	}
@@ -828,16 +840,23 @@
 		flex-direction: column;
 		min-width: 0;
 	}
+	/* Row title 15 / 600 and amount 15 / 700, as on Dompet (DESIGN_SYSTEM § Transaction row). */
 	.name {
+		display: -webkit-box;
 		overflow: hidden;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		font-size: 15px;
 		font-weight: 600;
-		white-space: nowrap;
-		text-overflow: ellipsis;
+		line-height: 1.3;
+		overflow-wrap: anywhere;
 	}
 	.amount {
 		flex: none;
 		max-width: 50%;
-		font-weight: 600;
+		font-size: 15px;
+		font-weight: 700;
 		text-align: right;
 		overflow-wrap: anywhere;
 	}

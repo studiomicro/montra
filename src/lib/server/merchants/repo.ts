@@ -17,14 +17,14 @@ import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
  */
 
 /** Most rules the settings page lists (a space learns one per corrected merchant). */
-export const MERCHANT_RULES_LIST_MAX = 500;
+const MERCHANT_RULES_LIST_MAX = 500;
 /** Longest search term kept on the settings page. */
 export const MERCHANT_SEARCH_MAX_LENGTH = 60;
 /** History: saved transactions of the last 12 months, at most this many rows per space (PRD AC-19). */
-export const HISTORY_ROWS_MAX = 5000;
+const HISTORY_ROWS_MAX = 5000;
 const HISTORY_DAYS = 365;
 /** AI answers are kept 90 days (owner decision 6). */
-export const MERCHANT_CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const MERCHANT_CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 /** Expired cache rows deleted per write (opportunistic, bounded). */
 const CACHE_SWEEP_MAX = 100;
 
@@ -231,14 +231,6 @@ export async function listRules(db: Db, spaceId: string, search = ''): Promise<M
 		hits: r.hits,
 		updatedAt: r.updatedAt
 	}));
-}
-
-/** How many live rules the space has (counted in SQL). */
-export async function countRules(db: Db, spaceId: string): Promise<number> {
-	const [row] = await db.all<{ n: number }>(
-		sql`select count(*) as n from merchant_rules where space_id = ${spaceId} and deleted_at is null`
-	);
-	return row?.n ?? 0;
 }
 
 /** The columns a deleted rule keeps none of (content-free tombstone). */

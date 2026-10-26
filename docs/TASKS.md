@@ -153,8 +153,42 @@ verification work that can run in a session.
       (`src/routes/+layout.svelte:66`, informational). See `docs/features/fn-51-motion/SECURITY_REPORT.md`.
 - [ ] **You** — FN-51 manual check: CLS and 60 fps of the new motion on a real Android phone (AC 6).
 - [x] **Claude** — FN-48 Part C own-transfer matching (2026-10-13, migration 0043). See HISTORY.
+- [x] **Claude** — FN-48d transfer auto-match after a statement import (2026-10-15, migration 0048). See HISTORY.
+- [ ] **You** — Design polish B6: a new account still shows "Atur/Lihat anggaran" and "Tutup hari ini" on Beranda
+      (kept for FN-34 decision B); decide whether an empty account shows them. See `docs/design/POLISH_AUDIT.md`.
+- [ ] **Claude** — Design polish leftovers (`docs/design/POLISH_AUDIT.md` § Status): B4 Dompet "tersedia" figure
+      (needs a computed value), B13 DailyStory focus (waits for the owner's uncommitted DailyStory change), record-row
+      titles still cut early beside a wide amount at 360 px ("Gaji bulana…"), `e2e/motion.spec.ts:66` waits for an
+      illustration shadow removed on 2026-10-14; uncovered: mono/Pro themes, 601–1023 px, Langganan, Barang,
+      Koleksi, Patungan, Agen, public site.
+- [ ] **Claude** — FN-48d red team L2: the auto-match read and `pairsAround` (`src/lib/server/transfers/match.ts`)
+      compare all same-amount rows of a space before the ±1-day filter and sort before the scan limit; bounded and
+      caught, but slow for thousands of same-amount transfers. See `docs/features/fn-48d-transfer-auto-match/SECURITY_REPORT.md`.
 - [x] **Claude** — FN-50 passkeys and Turnstile bot check (2026-10-13, migration 0044). See HISTORY.
 - [x] **Claude** — CI/CD with GitHub Actions (2026-10-13). See HISTORY and `docs/features/ci-cd/SUMMARY.md`.
+- [x] **Claude** — FN-53 quarterly and yearly money flow and net worth report (2026-10-13, migration 0046). See HISTORY.
+- [x] **Claude** — FN-54 greeting hero, calendar, daily greeting and feature icons (2026-10-13, no migration). See HISTORY.
+- [x] **Claude** — FN-55a/b credit cards and card statement import infrastructure (2026-10-13, migration 0047). See HISTORY.
+- [x] **Claude** — FN-56 ASCII field on sign-in and sign-up (2026-10-13, no migration). See HISTORY.
+- [x] **Claude** — FN-57 app-wide brand-blue accent (2026-10-26, no migration). See HISTORY.
+- [x] **Claude** — FN-58 pass 1 manual "Kartu e-money" wallet, seven issuers (2026-10-26, migration 0049). See HISTORY.
+- [ ] **You** — FN-56: real-phone check of the sign-in animation (iPhone and Android, light and dark).
+- [ ] **You** — FN-58 real-card check: install the debug APK (`native/android-app/README.md`), open Dompet › Baca kartu
+      e-money, tap a KMT and each other e-money card you have, compare the KMT balance with a station machine, and send
+      the copied logs. Also decide on Mandiri (earliest licensed source is decompiled) and Flazz Gen 2 (tainted).
+- [ ] **You** — CekSaldo research (`docs/FEATURES.md` § Second reference, 2026-10-26): decide FN-58 pass 2
+      (NFC tap, needs the FN-33 native apps; pass 1 done 2026-10-26), FN-59 toll receipts (not planned; legal read of
+      the operators' terms first), FN-60 print/PDF export (Pro only?), FN-61 share image, FN-62 manifest shortcuts and
+      spoken number, and whether a lifetime plan belongs in FN-30.
+- [ ] **Claude** — FN-55 red team L2-R (low): a retype to card that lands while a bank-statement import runs still writes
+      the bank rows into the card; guard the import's write so the wallet must not be `kartu_kredit`. Also: "Bayar
+      tagihan" records whole rupiah only, so a bill with sen leaves the sen remaining.
+- [ ] **Claude** — FN-55c card statement parsers, one per issuer, each only after its sample arrives (BRI, BCA, Mandiri,
+      BNI, CIMB Niaga, OCBC); every parser bounds rows by the printed period or the statement date (PRD).
+- [ ] **You** — FN-55c: one card statement PDF per issuer you hold (BRI, BCA, Mandiri, BNI, CIMB Niaga/OCBC), plus its
+      password if protected.
+- [ ] **You** — FN-54: approve "on this day" entries (drafts with sources in
+      `docs/features/fn-54-greeting-calendar/ON_THIS_DAY_REVIEW.md`); real-phone check of the hero, badge and calendar.
 - [x] **Claude** — Open lows outside import fixed or accepted before going public (2026-10-13, migration 0045). See
       HISTORY and `docs/features/fix-lows-services/SUMMARY.md`.
 - [ ] **Claude** — fix-lows-services cycle 2 leftovers (low, `docs/features/fix-lows-services/SECURITY_REPORT.md` "Cycle 2"):
@@ -193,7 +227,7 @@ verification work that can run in a session.
       `docs/features/fn-48c-transfer-matching/SECURITY_REPORT.md` and `QA_REPORT.md`.
 
 - [x] **Claude** — FN-16i Impor page layout (2026-10-11). FN-34b streak extensions (2026-10-11, migration 0038). FN-26b subscription check (2026-10-11, migration 0039). FN-25b Kekayaan page pass 1 (2026-10-11). See HISTORY.
-- [ ] **Claude** — FN-25c Kekayaan pass 2: Piutang asset kind and credit-card statement/due days (migrations).
+- [ ] **Claude** — FN-25c Kekayaan pass 2: Piutang asset kind (credit-card statement/due days done in FN-55a).
       FN-25b lows: amounts flash before the eye toggle applies on reload; decide whether hiding also covers the trend
       line and percentages (owner).
 - [ ] **Claude** — In flight 2026-10-11: FN-49 Patungan pass 1 done (see HISTORY).
@@ -323,6 +357,9 @@ Nothing yet.
 - [x] **Claude** — Resolved 2026-10-13 (`docs/features/fix-lows-imports/`): FN-16f red team L1 (low): positioned text from `pdf-text.ts` so an OCBC row starts only from the Trans Date column and amounts only from Debet/Kredit/Saldo (closes a planted equal income/expense pair at the exact running balance). L2: remark text can refuse the user's own statement (fail closed).
 - [x] **Claude** — FN-16e Mandiri consolidated e-statement parser with account picker (2026-10-09, no migration).
 - [x] **Claude** — FN-44 Koko pixel mascot (2026-10-09, no migration).
+- [x] **Claude** — e2e failing on main 3867a6f (2026-10-26): `period-reports` and `period-reports-qa` seeded the newest
+      space on the server, which a parallel test may own (now the test user's own space, by e-mail); `motion` reduced
+      motion waited for `.illustration .shadow`, removed by the blueprint illustrations (1c93349).
 - [ ] **Claude** — Test flakes under load: fixed-window throttle tests (`public-api` 429 after 20 failures, `struk` 11th read) and local D1 `SocketError: other side closed` in integration files; pass on rerun.
 - [x] **Claude** — FN-43 brand badges (2026-10-09, no migration).
 - [ ] **You** — FN-43 red team L1 (trade dress): badge colours sit close to each brand's own colour and some

@@ -18,7 +18,7 @@ test('without JavaScript the choice is saved by the form and the next page shows
 	await expect(page.getByRole('heading', { level: 1, name: 'Tampilan' })).toBeVisible();
 	await expect(page.getByRole('radio', { name: /^Sistem/ })).toBeChecked();
 	await page.getByRole('radio', { name: /^Hitam-putih/ }).check();
-	await page.getByRole('button', { name: 'Simpan' }).click();
+	await page.getByRole('button', { name: 'Simpan' }).first().click();
 	await expect(page.getByText('Perubahan disimpan.')).toBeVisible();
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono');
 	await expect(page.getByRole('radio', { name: /^Hitam-putih/ })).toBeChecked();
@@ -28,7 +28,7 @@ test('without JavaScript the choice is saved by the form and the next page shows
 });
 
 test('an unknown value is refused and nothing changes', async ({ page }) => {
-	const res = await page.request.post('/pengaturan/tampilan', {
+	const res = await page.request.post('/pengaturan/tampilan?/theme', {
 		form: { theme: 'neon' },
 		headers: { origin: APP_ORIGIN }
 	});

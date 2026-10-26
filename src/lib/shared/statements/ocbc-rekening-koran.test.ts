@@ -102,6 +102,17 @@ describe('OCBC Rekening Koran reading (FN-16h)', () => {
 		expect(indices).toEqual([0, 1, 2, 3, 4, 5, 6]);
 	});
 
+	it('reads a summary printed right after the last rows, on the last table page (the bug report: inconsistent)', () => {
+		const sameAsJuly = { ...RK_JULY, summaryAfterRows: true };
+		const pages = rkPages(sameAsJuly);
+		expect(pages).toHaveLength(RK_JULY.pages.length);
+		const parsed = parse(sameAsJuly);
+		expect(parsed.inconsistent).toBe(false);
+		expect(parsed.sections!.map((s) => s.refusal)).toEqual([null, 'unsupported_currency']);
+		expect(values(parsed.sections![0]!.parse.rows)).toEqual(RK_JULY_ROWS);
+		expect(balanceCheck(parsed.sections![0]!.parse)).toEqual({ status: 'pass' });
+	});
+
 	it('reads slash dates day first, never month first', () => {
 		const swapped = rkWithAfter(0, 1, ['Berita : PENERIMA FIKTIF/-'], { date: '07/13/2026' });
 		expect(idr(swapped).parse.rows[0]).toEqual({ index: 0, ok: false, reason: 'unparseable_date' });
@@ -139,18 +150,26 @@ describe('OCBC Rekening Koran self-checks (notes are third-party text)', () => {
 		expect(parse({ ...RK_JULY, total: '6,981,000.01' }).inconsistent).toBe(true);
 	});
 
-	it('refuses the whole file when the summary misses a currency, adds one, or misprints IDR', () => {
+	it('reads a summary currency with no table block: a sub-account without movement (September 2026 sample)', () => {
+		const idrOnly: RkFixture = {
+			...RK_JULY,
+			pages: [RK_JULY.pages[0]!, RK_JULY.pages[1]!.slice(0, 3)],
+			summaryRows: ['IDR 1.000 6,975,000.00 6,975,000.00', 'SGD 14,000.940 20.37 285,199.14'],
+			total: '7,260,199.14'
+		};
+		const read = parse(idrOnly);
+		expect(read.inconsistent).toBe(false);
+		expect(read.sections).toHaveLength(1);
+		expect(idr(idrOnly).refusal).toBeNull();
+		expect(idr(idrOnly).parse.closingBalanceMinor).toBe(697_500_000);
+		// The extra line still counts toward the total: a total without it refuses the file.
+		expect(parse({ ...idrOnly, total: '6,975,000.00' }).inconsistent).toBe(true);
+	});
+
+	it('refuses the whole file when the summary misses a currency, repeats one, or misprints IDR', () => {
 		// Each summary's total equals its own IDR column, so only the named defect refuses it.
 		for (const [summaryRows, total] of [
 			[['IDR 1.000 6,975,000.00 6,975,000.00'], '6,975,000.00'],
-			[
-				[
-					'IDR 1.000 6,975,000.00 6,975,000.00',
-					'SGD 12,000.000 0.50 6,000.00',
-					'USD 1.000 0.00 0.00'
-				],
-				'6,981,000.00'
-			],
 			[
 				[
 					'IDR 1.000 6,975,000.00 6,975,000.00',
@@ -234,6 +253,24 @@ describe('OCBC Rekening Koran self-checks (notes are third-party text)', () => {
 				'BILAMANA DALAM 14 HARI KALENDER PALSU'
 			]);
 			expect(parse(forged).inconsistent).toBe(true);
+		});
+
+		it('a forged summary opening in a note ends the table early and refuses the whole file', () => {
+			const forged = withLinesAfterFirstRow(['Mata Uang /', 'Currency', 'Tunggakan Bunga /']);
+			expect(parse(forged).inconsistent).toBe(true);
+		});
+
+		it('a forged summary opening in the last note only trims that note; forged summary rows refuse', () => {
+			const opening = ['Mata Uang /', 'Currency', 'Tunggakan Bunga /'];
+			const trimmed = parse({ ...rkWithAfter(1, 4, opening), summaryAfterRows: true });
+			expect(trimmed.inconsistent).toBe(false);
+			const amounts = (rows: readonly MappedRow[]) =>
+				rows.map((r) => (r.ok ? [r.value.date, r.value.type, r.value.amountMinor] : r));
+			expect(amounts(trimmed.sections![0]!.parse.rows)).toEqual(
+				RK_JULY_ROWS.map(([date, type, minor]) => [date, type, minor])
+			);
+			const withRow = rkWithAfter(1, 4, [...opening, 'IDR 1.000 1.00 1.00']);
+			expect(parse({ ...withRow, summaryAfterRows: true }).inconsistent).toBe(true);
 		});
 
 		it('a whole forged row inside a note does not check out', () => {

@@ -15,7 +15,7 @@ import type { Budget } from './repo';
 // computed from it is null too. Sums are taken in BigInt and only then narrowed.
 
 /** Days in the bar chart, today included. */
-export const BAR_DAYS = 14;
+const BAR_DAYS = 14;
 
 /** The WIB day of the month of `date` (1–31). */
 export const dayOfMonth = (date: string): number => Number(date.slice(8, 10));
@@ -257,7 +257,7 @@ export function pacePercent(today: string): number {
 }
 
 /** `ok`: on or under pace; `ahead`: still within the budget but on course to pass it; `over`: past it. */
-export type PaceState = 'ok' | 'ahead' | 'over';
+type PaceState = 'ok' | 'ahead' | 'over';
 
 export interface BudgetProgress {
 	budgetMinor: number;

@@ -78,7 +78,11 @@ describe('exportRow', () => {
 			created_at: Date.UTC(2026, 9, 31, 17, 30),
 			updated_at: Date.UTC(2026, 9, 31, 17, 30),
 			deleted_at: null,
-			seq: 4
+			seq: 4,
+			credit_limit_minor: null,
+			statement_day: null,
+			due_day: null,
+			emoney_issuer: null
 		});
 		expect(row).toEqual({
 			id: 'w1',
@@ -89,7 +93,11 @@ describe('exportRow', () => {
 			isFavourite: true,
 			lastFour: '7890',
 			createdAt: '2026-11-01T00:30:00+07:00',
-			updatedAt: '2026-11-01T00:30:00+07:00'
+			updatedAt: '2026-11-01T00:30:00+07:00',
+			creditLimitMinor: null,
+			statementDay: null,
+			dueDay: null,
+			emoneyIssuer: null
 		});
 	});
 });

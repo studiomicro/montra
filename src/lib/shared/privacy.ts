@@ -40,7 +40,7 @@ export const STAT_SCREENS = [
 ] as const;
 export type StatScreen = (typeof STAT_SCREENS)[number];
 
-export const STAT_ACTIONS = ['view', 'open', 'sign_in', 'sign_up', 'export_account'] as const;
+const STAT_ACTIONS = ['view', 'open', 'sign_in', 'sign_up', 'export_account'] as const;
 export type StatAction = (typeof STAT_ACTIONS)[number];
 
 /** One counted event: a screen and what happened there. Nothing else can be counted. */

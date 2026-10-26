@@ -4,7 +4,7 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { rowOut } from '#lib/ui/motion';
 	import { navigating } from '$app/state';
-	import { addDays, formatDayLabel } from '#lib/shared/dates';
+	import { addDays, formatDayHeader } from '#lib/shared/dates';
 	import { groupByDay } from '#lib/shared/drafts';
 	import FormBanner from '#lib/ui/auth/FormBanner.svelte';
 	import DraftSummary from '#lib/ui/drafts/DraftSummary.svelte';
@@ -30,7 +30,7 @@
 	function dayLabel(date: string): string {
 		if (date === data.today) return tr('Hari ini');
 		if (date === addDays(data.today, -1)) return tr('Kemarin');
-		return formatDayLabel(date, locale);
+		return formatDayHeader(date, data.today, locale);
 	}
 
 	/** The action in flight ('' when none): its button shows progress, every action button is disabled. */
@@ -153,7 +153,14 @@
 {:else if data.loadError}
 	<ErrorState text={tr(data.loadError)} onretry={retry} />
 {:else if data.drafts.length === 0}
-	<EmptyState illustration="inbox" text={tr('Tidak ada draf yang menunggu.')} />
+	<!-- One primary action (DESIGN_SYSTEM § Empty, POLISH_AUDIT B14): the page that sets up captured e-mail; it
+	     says itself when forwarding is not configured yet. -->
+	<EmptyState
+		illustration="inbox"
+		text={tr('Tidak ada draf yang menunggu.')}
+		actionLabel={tr('Teruskan e-mail')}
+		actionHref="/pengaturan/aplikasi/email"
+	/>
 {:else}
 	{#each days as day (day.date)}
 		<section aria-label={dayLabel(day.date)}>

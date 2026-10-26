@@ -84,6 +84,7 @@
 				<li class="pair">
 					<div class="text">
 						<span class="title">{link.title ?? tr('Transaksi dihapus')}</span>
+						{#if link.source === 'auto'}<Badge>{tr('Otomatis')}</Badge>{/if}
 						<span class="meta">
 							{formatDayLabel(link.occurredOn, locale)} ·
 							<span class="num amount"
@@ -134,6 +135,11 @@
 				'Setiap pasangan: satu Transfer keluar dan satu Transfer masuk dengan jumlah sama di dua dompet, selisih paling lama satu hari. Periksa, lalu cocokkan satu per satu.'
 			)}
 		</p>
+		<p class="meta">
+			{tr(
+				'Pembayaran kartu kredit: debit kartu kredit atau Transfer keluar di rekening dengan pembayaran yang tercatat di dompet kartu, dari sehari sebelum sampai tiga hari sesudah debit. Setelah dicocokkan menjadi satu transfer ke kartu, bukan pengeluaran.'
+			)}
+		</p>
 		{#if data.preview.total > data.preview.shown}
 			<p class="meta">
 				{trf(
@@ -167,6 +173,7 @@
 					<ul class="list">
 						{#each group.pairs as p (pairKey(p))}
 							<li class="pair">
+								{#if p.kind === 'card'}<Badge>{tr('Pembayaran kartu kredit')}</Badge>{/if}
 								<div class="text">
 									<span class="side">
 										<span class="title">{p.debit.title || tr('Tanpa judul')}</span>

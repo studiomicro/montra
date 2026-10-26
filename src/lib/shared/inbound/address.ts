@@ -8,7 +8,6 @@ import { msg } from '../i18n.ts';
  */
 
 export const INBOUND_ADDRESS_STATUSES = ['active', 'revoked'] as const;
-export type InboundAddressStatus = (typeof INBOUND_ADDRESS_STATUSES)[number];
 
 /** What became of one received mail (the `inbound_mail` ledger). */
 export const INBOUND_MAIL_STATUSES = [

@@ -53,7 +53,7 @@
 		font-weight: 600;
 		color: var(--muted);
 	}
-	/* Same ring as the global field rule (app.css): a --bg pill alone is too faint on a --panel card. */
+	/* A field on Impor's --panel card: the page colour, no frame (owner decision 2026-10-15). */
 	.pick {
 		display: flex;
 		align-items: center;
@@ -64,7 +64,6 @@
 		border: 0;
 		border-radius: var(--r-s);
 		background: var(--bg);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
 		color: var(--ink);
 		font: inherit;
 		font-size: 15px;

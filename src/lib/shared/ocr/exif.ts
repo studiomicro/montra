@@ -6,7 +6,7 @@
  */
 
 /** Bytes of a JPEG searched for its EXIF segment (APP1 sits right after SOI in camera files). */
-export const EXIF_SCAN_BYTES = 64 * 1024;
+const EXIF_SCAN_BYTES = 64 * 1024;
 
 type Reader = (o: number) => number | null;
 

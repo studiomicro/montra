@@ -30,7 +30,7 @@ const schema = (today: string) =>
 			.nullable()
 	});
 export type CollectibleInput = z.infer<ReturnType<typeof schema>>;
-export type CollectibleField = keyof CollectibleInput;
+type CollectibleField = keyof CollectibleInput;
 
 type Parsed =
 	| { ok: true; value: CollectibleInput }

@@ -10,3 +10,7 @@ playwright-report/
 migrations/
 **/worker-configuration.d.ts
 .superpowers/
+# FN-58 Android app: generated Capacitor/Gradle files and its own node_modules
+native/android-app/android/
+native/android-app/node_modules/
+native/android-app/package-lock.json

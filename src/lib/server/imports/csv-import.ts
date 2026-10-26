@@ -50,12 +50,14 @@ import {
 	MAX_WALLETS_PER_SPACE,
 	type WalletRef
 } from '../wallets/repo';
+import { batchHasCardStatement, insertCardStatement } from '../cards/statements';
+import type { CardStatementFigures } from '#lib/shared/statements/types';
 import { createImportBatch, type StatementFigures } from './repo';
 
 /** Rows per insert statement: keeps each statement's one JSON parameter far below D1's 2 MB value limit. */
 const INSERT_CHUNK = 250;
 /** Most "Mungkin duplikat" rows a preview lists (the count covers all of them). */
-export const PREVIEW_DUPLICATES_MAX = 20;
+const PREVIEW_DUPLICATES_MAX = 20;
 /**
  * Attempts when a concurrent import won a race: it wrote some of this file's rows first (unique dedupe key) or
  * created a wallet or category of the same name first (this import's planned one is then not written).
@@ -98,7 +100,7 @@ export interface PossibleDuplicate {
 }
 
 /** The sources an import writes through this module: FN-18 CSV files, FN-16a statements, FN-17 spreadsheets. */
-export type ImportRowSource = 'csv' | 'statement' | 'spreadsheet';
+type ImportRowSource = 'csv' | 'statement' | 'spreadsheet';
 
 /**
  * A file read into mapped rows on the server: the CSV reader below, or a statement parser (FN-16a). Every row
@@ -116,7 +118,21 @@ export interface PreparedRows {
 	 * are keyed by what they say, because the server never sees the image's bytes.
 	 */
 	keys?: ReadonlyMap<number, string>;
+	/**
+	 * FN-55b, a card statement: the preset tile of each row the statement classed as a fee, interest, tax or payment
+	 * (by row index; card-rows.ts CARD_ROW_TILES). Such a row goes to the space's visible preset of that tile and its
+	 * kind (`category_source = 'auto'`); every other row to FN-20's resolver as before.
+	 */
+	tiles?: ReadonlyMap<number, TileKey>;
+	/**
+	 * FN-55b, a card statement: its card wallet. A row the same wallet already holds (a live, real row of the same
+	 * type and amount dated within CARD_DUPLICATE_DAYS of it, title ignored) is also a possible duplicate.
+	 */
+	cardWalletId?: string;
 }
+
+/** FN-55b: how far apart a card row and a row typed by hand (or captured) may be dated and still look the same. */
+const CARD_DUPLICATE_DAYS = 3;
 
 /** Dedupe key of a record: `<source>:<file hash>:<record index>` (checklist › Idempotent capture). */
 const dedupeKey = (prefix: string, index: number) => `${prefix}${index}`;
@@ -185,9 +201,19 @@ const cleanTitle = (title: string) => cleanText(title, TITLE_MAX_LENGTH);
 async function possibleDuplicates(
 	db: Db,
 	spaceId: string,
-	rows: readonly { index: number; value: RawCsvTransaction }[]
+	rows: readonly { index: number; value: RawCsvTransaction }[],
+	cardWalletId?: string
 ): Promise<Set<number>> {
 	if (rows.length === 0) return new Set();
+	// FN-55b: a card purchase typed by hand (or captured) before its statement: same card wallet, type and amount,
+	// dated within CARD_DUPLICATE_DAYS of the printed transaction date (the title rarely matches).
+	const card = cardWalletId
+		? sql` or exists (select 1 from transactions t where t.space_id = ${spaceId} and t.deleted_at is null
+			and t.wallet_id = ${cardWalletId} and t.type = json_extract(j.value, '$.y')
+			and t.amount_minor = json_extract(j.value, '$.a') and t.currency = 'IDR' and t.is_demo = 0
+			and t.occurred_on between date(json_extract(j.value, '$.d'), ${`-${CARD_DUPLICATE_DAYS} day`})
+				and date(json_extract(j.value, '$.d'), ${`+${CARD_DUPLICATE_DAYS} day`}))`
+		: sql``;
 	const json = JSON.stringify(
 		rows.map((r) => ({
 			i: r.index,
@@ -202,7 +228,7 @@ async function possibleDuplicates(
 		where exists (select 1 from transactions t where t.space_id = ${spaceId} and t.deleted_at is null
 			and t.occurred_on = json_extract(j.value, '$.d') and t.type = json_extract(j.value, '$.y')
 			and t.amount_minor = json_extract(j.value, '$.a') and t.currency = 'IDR' and t.is_demo = 0
-			and lower(coalesce(t.title, '')) = json_extract(j.value, '$.t'))`);
+			and lower(coalesce(t.title, '')) = json_extract(j.value, '$.t'))${card}`);
 	return new Set(found.map((r) => r.i));
 }
 
@@ -237,7 +263,7 @@ async function classify(db: Db, spaceId: string, prepared: PreparedRows): Promis
 		else if (r.reason === 'unsupported_currency') counts.foreignCurrency++;
 		else counts.skipped++;
 	}
-	const flagged = await possibleDuplicates(db, spaceId, fresh);
+	const flagged = await possibleDuplicates(db, spaceId, fresh, prepared.cardWalletId);
 	counts.possibleDuplicates = flagged.size;
 	return { counts, fresh, flagged };
 }
@@ -340,6 +366,11 @@ export interface ImportRowsOptions {
 	 * (every statement row goes there: statement rows name no wallet). Ignored without a fallback wallet.
 	 */
 	statement?: Omit<StatementFigures, 'walletId'> | null;
+	/**
+	 * FN-55b: a card statement's printed figures, stored as its `card_statements` row (in `fallbackWallet`, a card
+	 * wallet) in the same `db.batch`, asserted written: a second live copy of the statement refuses the whole import.
+	 */
+	card?: CardStatementFigures | null;
 }
 
 /** A free-text extra as stored: cleaned, capped, account and card numbers cut to the last 4 digits. */
@@ -442,7 +473,7 @@ export function matchVisibleCategory(
  * FN-48: who chose an imported row's category. A category cell is the user's own choice made elsewhere (`user`);
  * anything this import guessed or fell back to is `auto`, so "Rapikan kategori" may propose a better one later.
  */
-export const categorySourceOf = (r: Pick<RawCsvTransaction, 'categoryName'>): CategorySource =>
+const categorySourceOf = (r: Pick<RawCsvTransaction, 'categoryName'>): CategorySource =>
 	cleanText(r.categoryName, CATEGORY_NAME_MAX_LENGTH) ? 'user' : 'auto';
 
 /** The resolver's lookup key of an imported row: its kind and cleaned description. */
@@ -537,15 +568,24 @@ export async function importRows(
 		resolvedNames ??= await resolvedCategoryNames(
 			db,
 			scope,
-			wanted,
+			wanted.filter((r) => !prepared.tiles?.has(r.index)),
 			allCategories.filter((c) => !c.isHidden),
 			input.merchantEnv,
 			now
 		);
 		const names = resolvedNames;
 		const resolvedName = (row: Pick<RawCsvTransaction, 'title' | 'type'>) => names.get(rowKey(row));
-		const categoryOf = (r: RawCsvTransaction) =>
-			categoryNameOf(r, categoryIndex.presetOf, resolvedName);
+		/** FN-55b: a card row's preset tile, as the space's visible preset of that tile and the row's kind. */
+		const tiledPreset = (index: number, kind: CategoryKind) => {
+			const tile = prepared.tiles?.get(index);
+			return tile === undefined
+				? undefined
+				: allCategories.find(
+						(c) => c.isPreset && !c.isHidden && c.tileKey === tile && c.kind === kind
+					);
+		};
+		const categoryOf = (index: number, r: RawCsvTransaction) =>
+			tiledPreset(index, r.type)?.name ?? categoryNameOf(r, categoryIndex.presetOf, resolvedName);
 		// New names get an id once; they are created only when a row that passed the validator uses them.
 		const planned = new Map<string, string>();
 		const plannedId = (key: string) => planned.get(key) ?? planned.set(key, newId()).get(key)!;
@@ -601,7 +641,7 @@ export async function importRows(
 			const walletKey = asciiLowerKey(name);
 			const existingWallet = name ? (liveWallets.get(walletKey) ?? null) : fallbackWallet;
 			const wallet = existingWallet ?? { id: plannedId(`w:${walletKey}`), currency: 'IDR' };
-			const categoryName = categoryOf(value);
+			const categoryName = categoryOf(index, value);
 			const categoryKey = categoryNameKey(value.type, categoryName);
 			const categoryId = visibleCategories.get(categoryKey) ?? plannedId(`c:${categoryKey}`);
 			const checked = capturedTransactionInput(
@@ -693,7 +733,23 @@ export async function importRows(
 					db,
 					sql`(select count(*) from transactions t where t.space_id = ${spaceId}
 						and t.import_batch_id = ${batchId}) = ${rows.length}`
-				)
+				),
+				...(input.card && fallbackWallet
+					? [
+							insertCardStatement(
+								db,
+								scope,
+								{
+									batchId,
+									walletId: fallbackWallet.id,
+									card: input.card,
+									currency: fallbackWallet.currency
+								},
+								now
+							),
+							batchAssert(db, batchHasCardStatement(spaceId, batchId))
+						]
+					: [])
 			]);
 			return { ok: true, batchId, counts };
 		} catch (e) {

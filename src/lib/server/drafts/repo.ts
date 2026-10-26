@@ -21,7 +21,7 @@ import { getWallet, listWallets } from '../wallets/repo';
 import type { DraftRef } from './validation';
 
 /** Most pending drafts one page lists (the header still counts all of them). */
-export const DRAFT_LIST_MAX = 100;
+const DRAFT_LIST_MAX = 100;
 /**
  * Most pending drafts one space holds (tombstones do not count). Every drafts insert repeats it in its own
  * statement, counting the rows it adds, so a flood of captures is refused whole at the cap, never grown past it.

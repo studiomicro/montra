@@ -26,9 +26,12 @@ about who holds their financial data. The final brand hue and logo are open deci
 4. **Grouped lists, not tables.** Records sit in rounded grey groups with hairline separators, like iOS Settings.
 5. **Fills, not frames (v2).** In-app cards and grouped lists are `--panel` fills, radius 20, no border, no
    shadow. Shadows only on floating things: tab bar, sheets, popovers and the selected segment.
-6. **Ink is the only action colour (v2).** Primary = ink pill, secondary = panel pill, icon buttons = 40 px round
-   panel, switch on = ink. `--brand` blue is only the focus ring and inline text links; one data accent
-   (`--accent`) marks the selected chart series, never an action.
+6. **`--action` is the only action colour (FN-57, owner decision 2026-10-26).** Primary = `--action` pill,
+   secondary = panel pill, icon buttons = 40 px round panel, switch on, selected chip or pill, the current tab and
+   Tambah = `--action`. `--action` is electric blue `#0B3DF5` (white text, 7.0:1) in the default light theme and
+   ink in dark, Hitam-putih, Emas and Hijau tua. `--brand` (the same blue) is the focus ring and inline text links;
+   one data accent (`--accent`) marks the selected chart series, never an action. Status marks (badges, streak days,
+   the unread dot, test-mode notes) stay ink.
 7. **Quiet motion.** Short eased transitions; buttons shrink to 0.97 on press; nothing moves under reduced motion.
 
 ## Colour
@@ -40,20 +43,26 @@ about who holds their financial data. The final brand hue and logo are open deci
 | `--panel` | `#F5F5F7` | `#1C1C1E` | groups, chips, secondary buttons, pills |
 | `--panel-2` | `#EBEBEF` | `#262628` | pressed/hover panel, panel on panel |
 | `--line` | `#E5E5EA` | `#2C2C2E` | hairlines between rows |
-| `--ink` | `#171717` | `#F5F5F7` | text, primary button fill |
+| `--ink` | `#171717` | `#F5F5F7` | text; the action fill in dark and the other themes |
+| `--action` | `#0B3DF5` | `--ink` | **FN-57**: primary buttons, Tambah, current tab, switch on, selected chip/pill |
+| `--on-action` | `#FFFFFF` | `--bg` | text and icons on `--action` |
 | `--ink-2` | `#3A3A3C` | `#D1D1D6` | secondary strong text |
 | `--muted` | `#6E6E73` | `#A1A1A6` | meta text, labels |
 | `--faint` | `#A1A1A6` | `#6E6E73` | placeholders, disabled |
 | `--money-in` | `#16813A` | `#3DBE68` | income amounts, "lebih hemat", success tag |
 | `--money-up` | `#CF3339` | `#FF6B70` | "lebih banyak", over budget, destructive |
 | `--same` | `#5B52E0` | `#8A81F8` | "hampir sama" state |
-| `--brand` | `#1F6FEB` | `#4C8DFF` | **ours**: links in text and the focus ring only (v2: never a fill) |
+| `--brand` | `#0B3DF5` | `#4C8DFF` | **ours**: links in text and the focus ring (FN-57 hue; fills use `--action`) |
+| `--brand-surface` / `--on-brand-surface` | `#0B3DF5` / `#FFFFFF` | `#000000` / `#FFFFFF` | FN-56: the sign-in/sign-up ASCII card and its glyphs (7:1); mono `#141414` / black |
 | `--accent` | `#6C63F0` | `#8B85F5` | the one data accent: selected chart series, trend line, today's bar, top heat step |
-| `--heat-1..4` | `#E2E0FC` `#C4C0F8` `#9C95F3` `#6C63F0` | accent at 22/40/62/100 % on `--panel` | heatmap steps |
+| `--heat-1..4` | `#E2E0FC` `#C4C0F8` `#9C95F3` `#6C63F0` | accent at 32/48/68/100 % on `--panel` (v3.5; step 1 stands apart from a zero day) | heatmap steps |
 | `--warn` | `#C27A0E` | `#E0A032` | "ahead of pace" bars |
 | `--warn-text` | `#A15F00` | `#E8AA45` | "ahead of pace" text (AA; `--warn` is only 3.5:1 on white) |
 | `--raised` | `#FFFFFF` | `#3A3A3C` | the selected segment on its panel track |
 | `--dark*` | see tokens | | always-dark bands (security section, media) |
+
+**Brand blue (FN-56).** The electric brand blue `--brand-surface` exists and is used only by the sign-in/sign-up
+ASCII card; an app-wide move to this blue accent is pending as FN-57, so nothing else uses it yet.
 
 Expense amounts are **ink** with a minus sign (`−Rp 25.000`), not red. Red is only for "more than" and errors.
 
@@ -86,11 +95,11 @@ mono. `<ProBadge>` (Koko's 8 × 3 pixel crown + "Pro") sits beside the account n
 
 | Token | Light | Dark | Mono | Use |
 | --- | --- | --- | --- | --- |
-| `--glass-bg` | white 78 % | `#1C1C1E` 78 % | white / `#1D1D1D` 78 % | glass fill |
+| `--glass-bg` | white 64 % | `#1C1C1E` 64 % | white / `#1D1D1D` 64 % | glass fill |
 | `--glass-solid` | `#FFFFFF` | `#1C1C1E` | `#FFFFFF` / `#1D1D1D` | opaque fallback; text contrast is tested on it |
 | `--glass-border` | white 70 % | white 10 % | as light/dark | 1 px specular inner edge |
 | `--glass-shadow` | ring 6 % + 2 soft layers | ring white 8 % + 2 layers | as light/dark | glass elevation, press lift |
-| `--glass-blur` | blur 16 + saturate 180 % | same | blur 16, no saturate | backdrop filter |
+| `--glass-blur` | blur 24 + saturate 200 % | same | blur 24, no saturate | backdrop filter |
 | `--glass-bg-soft` / `--glass-blur-soft` | `--bg` 72 % / blur 10 | `--bg` 72 % | `--bg` 72 %, no saturate | sticky bars, cards over colour |
 
 Contrast: every text/background pair meets WCAG AA in all eight theme variants — light, dark, mono-light,
@@ -104,7 +113,8 @@ Latin + Latin-Ext, includes U+2212) under `static/fonts/geist/<version>/` with i
 the earlier "system font, no web font download" rule. Rules that follow from it: no third-party font request (CSP stays
 `font-src 'self'`); `font-display: swap`; the file is preloaded in `app.html`, precached by the service worker and
 served `immutable` from its versioned path. **Geist Mono** (`--font-mono`) is only for keys, endpoints and code samples
-on settings pages, never for amounts. Numbers always use `font-variant-numeric: tabular-nums`. Base body 17 px / 1.5,
+on settings pages, never for amounts. Since FN-56 it also draws the decorative ASCII field on sign-in and sign-up (letters
+and a fixed digit ramp, never an amount). Numbers always use `font-variant-numeric: tabular-nums`. Base body 17 px / 1.5,
 antialiased. Geist runs slightly wider than SF: the sizes and tracking below are unchanged and every fit is checked
 at 320-360 px (`e2e/ios-responsive.spec.ts`).
 
@@ -176,6 +186,9 @@ at 320-360 px (`e2e/ios-responsive.spec.ts`).
   scales in from 0.96. Installed app only: Koko waves once per WIB day beside the hero label, and a pull from the
   top of Beranda or Riwayat reloads the page (indicator moved by a paused Web Animation). Script-driven motion also
   stops in a hidden tab (`motionAllowed`).
+- FN-56 (sign-in and sign-up only): the ASCII field is a script-driven frame animation, not CSS: `requestAnimationFrame`
+  throttled to 15 fps, advanced by played time, paused in a hidden tab and while off-screen, a server-rendered still
+  frame under reduced motion and without JavaScript, and frozen after 60 s of play (finite, like the rest).
 - Every addition sits inside `@media (prefers-reduced-motion: no-preference)` (or checks `prefersReducedMotion`),
   so `reduce` shows the end state at once — `test/motion-css.test.ts` and `e2e/motion.spec.ts` check it. The older
   global rule in `src/app.css` ends animations at once and switches transitions off (0 s, not 0.01 ms: a
@@ -185,11 +198,19 @@ at 320-360 px (`e2e/ios-responsive.spec.ts`).
 
 - `<Illustration name size alt>` (`src/lib/ui/kit/Illustration.svelte`): original isometric scenes drawn for this
   app from `illustrations/iso.ts` boxes and discs — never another product's mascot or artwork. Five tones (neutral,
-  accent, gold from `--cat-belanja`, paper, device), three faces each, all from theme tokens via `light-dark()`, so
-  they repaint in light, dark and both mono variants; no colour inside the SVG.
+  accent, gold from `--cat-belanja`, paper, device), three faces each, all from theme tokens, so they repaint in
+  light, dark and both mono variants; no colour inside the SVG.
+- Blueprint look (owner request 2026-10-14): near-flat faces with a hairline edge (accent and gold edges in their own
+  colour), standing on a faint ground grid with dashed construction lines and small diamond handles at the
+  footprint's corners (`grid`, `guide`, `node` classes; `grid()`, `guides()`, `nodes()` in `iso.ts`). Accent and gold
+  stay light tints, so a coin and the one highlighted object still read; device is the one solid ink block.
 - Decorative by default (`aria-hidden`); the text beside it carries the meaning. Placements: `EmptyState`'s
   optional `illustration` prop (the domain empty states). Since FN-44 the error pages, the sign-in/sign-up hero and
   Beranda's first-wallet card show Koko instead (below). A later Rive file can replace a scene behind the same `name`; no Rive runtime ships yet.
+- FN-54 `HeroScene` (`src/lib/ui/home/HeroScene.svelte`): Beranda's greeting strip, isometric city blocks with a coin
+  tower on a blueprint street band (grid, dashed edges, end handles) in the same tones (shared with `<Illustration>` through `illustrations/tones.css`). Static; only the sky follows
+  the server's time of day (low sun, high sun, low warm sun, moon and two stars). Fixed height (96 px, 120 px from
+  1024 px) with `preserveAspectRatio` meet, so the whole scene shows at every width, never stretched; at most 40 shapes and 8 KB.
 
 ## Mascot (FN-44)
 
@@ -216,17 +237,30 @@ at 320-360 px (`e2e/ios-responsive.spec.ts`).
 ## Components
 
 **Button** — pill, 600 weight, no border. Sizes: `lg` 52 px high / 24 px padding / 16 px text; `md` 44 px; `sm` 40
-px / 18 px / 15 px. Variants: `primary` ink fill + bg text (hover adds `--shadow-btn-hover`); `secondary` panel fill
+px / 18 px / 15 px. Variants: `primary` `--action` fill + `--on-action` text (hover adds `--shadow-btn-hover`); `secondary` panel fill
 (hover panel-2); `ghost` transparent; `destructive` money-up text on panel. Disabled = 50 % opacity. Full-width in
 sheets ("Simpan 2 transaksi", "Masukkan 128 transaksi").
 
 **Capture buttons on Beranda** — two big pills side by side: **Suara** (panel fill, mic icon) and **Struk** (ink
-fill, receipt icon); the + tab opens all capture paths.
+fill, receipt icon); the + tab opens all capture paths. From 1024 px (FN-54) they move into Beranda's header row as
+`md` pills (Struk secondary, Suara primary) after the date badge; the bottom pair is not rendered there.
+
+**Greeting hero card (FN-54)** — Beranda's first card: `--panel`, `--r-l`, flat (no border, shadow or blur). The WIB
+date (13 px muted), the greeting as a paragraph (28 px / 800, 34 px on desktop), one muted line about today, the month
+figure with two chips (the last-month comparison and the budget chip, words and rupiah, never percent), a GET ask
+field that prefills Tanya, and `HeroScene` with a still Koko at its right end. The Pro frame sits on the card (once).
+
+**CalendarBadge (FN-54)** — a 48 × 52 px link drawn as a small page: an `--ink` band with the month in `--bg` (11 px /
+700, uppercase), the day below in `--ink` (18 px / 800, tabular). Shows the server's WIB date; opens `/kalender`.
+
+**FeatureChip (FN-54)** — a feature's glyph in `--ink-2` on a round chip tinted like a category tile
+(`color-mix(--cat-<hue> 16%, --bg)`); 28 px in the sidebar (24 px compact), 36 px on Beranda's "Fitur" tiles, 40 px in
+the Fitur sheet and `/pengaturan/fitur`. Hues come from one registry (`src/lib/ui/shell/nav.ts`).
 
 **Badge** — 28 px pill, panel fill, 13 px / 600. **Status tag** — inline green text with a filled green check
 circle ("Tercatat", "AI setuju").
 
-**Chip** — 32 px pill on panel (44 px on coarse pointers), 13 px / 600; selected = ink fill, bg text, a glass
+**Chip** — 32 px pill on panel (44 px on coarse pointers), 13 px / 600; selected = `--action` fill, `--on-action` text, a glass
 top highlight; pressed adds the glass lift; an icon chip
 (Kategori, Dompet) opens a PickerSheet. **Segmented control** — options on a panel track; the selected option is a
 `--raised` pill with the glass edge and `--glass-shadow`; the track carries the glass edge (Bulanan/Tahunan). **Period stepper** — panel pill ‹ label ›; next is disabled
@@ -276,7 +310,9 @@ sticky primary action at the bottom. Review screens (Periksa draf, Tinjau impor,
 card, segmented filter, grouped rows with checkboxes, flags ("Mungkin duplikat" in `--same`, "Periksa totalnya" in
 `--money-up`), bulk actions "Atur kategori" / "Atur dompet", and one sticky primary button with the count.
 
-**Inputs** — 48 px high, radius 12, panel fill, no border; the search field is a full-width panel pill with a
+**Inputs** — 48 px high, radius 12, panel fill, no border (no hairline either; owner decision 2026-10-15); on a
+`--panel` card or group the field and a secondary button take the page colour (`--bg`) instead (`.on-panel`, `.group`
+in `app.css`); the search field is a full-width panel pill with a
 leading magnifier; focus ring 2 px `--brand`; amount field uses `hero-num`
 size with the "Rp" prefix and live thousand separators.
 
@@ -309,6 +345,20 @@ with a soft pulse (none under reduced motion); error: one sentence in ink, a ret
 
 ## Change log
 
+- **v3.5 (2026-10-15)** — whole-app polish pass (`docs/design/POLISH_AUDIT.md`): fields and secondary buttons lose
+  their 1 px hairline (fills, not frames; `--bg` on a panel card), one `.text-link` style for standalone links, dark
+  and mono-dark heat steps raised to 32/48/68 % and dark `--chart-bar` to `#444444` so step 1 and short bars read,
+  dark `--scrim` 72 %, daily bars capped at 2× the median with a break mark on the outlier.
+- **v3.4 (2026-10-13)** — FN-56 ASCII field on sign-in and sign-up (`docs/features/fn-56-auth-ascii/`): a decorative
+  field of Montra's letters on a new `--brand-surface` card (electric blue in light, black in dark, near-black in mono;
+  `--on-brand-surface` glyphs in three opacity tiers), a 140 px band above the form below 1024 px and a 360 × 560 card
+  beside the form (Koko stays) from 1024 px; Geist Mono widened to this art; a rAF frame animation, 15 fps, finite.
+- **v3.3 (2026-10-13)** — FN-54 greeting hero and calendar (`docs/features/fn-54-greeting-calendar/`): the greeting
+  hero card, `CalendarBadge`, `/kalender` (HeatCalendar gains shape-coded marks: a ring for a closed day, a square for
+  something due), the once-a-day greeting sheet (one glass layer, the shared Sheet), `HeroScene`, and `FeatureChip`.
+  **Exception to "colour only for meaning":** feature chips carry feature identity with the existing category hues,
+  the same job category tiles do (owner decision 11); no new token, mono turns them grey, the glyph meets 3:1 and AA
+  on every tint in every theme (`test/contrast.test.ts`).
 - **v3.2 (2026-10-12)** — FN-51 more motion (`docs/features/fn-51-motion/`): route rise, chart draw-ins, skeleton
   shimmer, desktop hover lift and dialog scale-in, FAB turn, streak hop, banner enter, Koko welcome and
   pull-to-refresh in the installed app; one new token `--duration-loop`. Keyframes stay transform/opacity/

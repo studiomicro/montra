@@ -138,7 +138,7 @@ export async function fetchKeyMaterial(
 }
 
 /** How long a derivation may take before the form gives up with a clear message (QA note, cycle 1). */
-export const DERIVE_TIMEOUT_MS = 30_000;
+const DERIVE_TIMEOUT_MS = 30_000;
 
 /** The Web Worker did not answer within DERIVE_TIMEOUT_MS (a slow device, or a worker killed silently). */
 export class KeyDerivationTimeout extends Error {

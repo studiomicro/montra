@@ -44,7 +44,7 @@ import {
  */
 
 /** Deliveries of one step's message before a failing step fails the run (wrangler max_retries 3). */
-export const AGENT_STEP_MAX_DELIVERIES = 3;
+const AGENT_STEP_MAX_DELIVERIES = 3;
 
 export interface StepDeps {
 	db: Db;

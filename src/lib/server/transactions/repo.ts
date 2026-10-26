@@ -241,7 +241,7 @@ export interface TransactionOrigin {
 export const MANUAL: TransactionOrigin = { source: 'manual', dedupeKey: null, isDemo: false };
 
 /** The CSV template's extra columns (FN-18), stored as given (already cleaned); null when empty. */
-export interface TransactionExtras {
+interface TransactionExtras {
 	paymentMethod: string | null;
 	recurrence: string | null;
 	tag: string | null;

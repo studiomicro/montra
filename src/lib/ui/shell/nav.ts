@@ -12,10 +12,41 @@ export interface NavItem {
 	sheet?: 'fitur';
 }
 
+/**
+ * FN-54: the category hues a feature chip may take (`--cat-<tone>` in tokens.css). Chips carry feature identity,
+ * the job category hues already do (DESIGN_SYSTEM.md change log v3.3); mono turns them grey.
+ */
+export type ChipTone =
+	| 'pendidikan'
+	| 'makan'
+	| 'hiburan'
+	| 'gaji'
+	| 'belanja'
+	| 'tempat-tinggal'
+	| 'freelance'
+	| 'bunga'
+	| 'tagihan'
+	| 'kopi'
+	| 'hadiah'
+	| 'ojek-online'
+	| 'pajak'
+	| 'tarik-tunai'
+	| 'kartu-kredit'
+	| 'transfer';
+
+/**
+ * FN-54 feature registry: a sidebar entry with its chip hue and, for the Fitur group, a one-line hint. The
+ * sidebar, the Fitur sheet, Beranda's "Fitur" tiles and /pengaturan/fitur all read these, so they never drift.
+ */
+export interface FeatureItem extends NavItem {
+	tone: ChipTone;
+	hint?: string;
+}
+
 export interface NavSection {
 	/** Small grey label above the group. */
 	title: string;
-	items: readonly NavItem[];
+	items: readonly FeatureItem[];
 }
 
 export interface AddPath {
@@ -29,10 +60,11 @@ export interface AddPath {
 	unavailable?: string;
 }
 
-const DOMPET: NavItem = {
+const DOMPET: FeatureItem = {
 	href: '/dompet',
 	label: msg('Dompet'),
 	icon: 'wallet',
+	tone: 'belanja',
 	match: ['/kekayaan/tabungan']
 };
 
@@ -49,35 +81,88 @@ export const SIDEBAR_SECTIONS: readonly NavSection[] = [
 	{
 		title: msg('Uang'),
 		items: [
-			{ href: '/', label: msg('Ringkasan'), icon: 'home' },
-			{ href: '/riwayat', label: msg('Transaksi'), icon: 'list' },
-			{ href: '/laporan', label: msg('Laporan'), icon: 'chart' },
-			{ href: '/anggaran', label: msg('Anggaran'), icon: 'gauge' },
+			{ href: '/', label: msg('Ringkasan'), icon: 'home', tone: 'pendidikan' },
+			{ href: '/riwayat', label: msg('Transaksi'), icon: 'list', tone: 'makan' },
+			{ href: '/laporan', label: msg('Laporan'), icon: 'chart', tone: 'hiburan' },
+			{ href: '/anggaran', label: msg('Anggaran'), icon: 'gauge', tone: 'gaji' },
 			DOMPET
 		]
 	},
 	{
 		title: msg('Fitur'),
 		items: [
-			{ href: '/pengaturan/fitur', label: msg('Jelajahi fitur'), icon: 'grid', sheet: 'fitur' },
+			{
+				href: '/pengaturan/fitur',
+				label: msg('Jelajahi fitur'),
+				icon: 'grid',
+				tone: 'tempat-tinggal',
+				sheet: 'fitur'
+			},
 			// FN-35: a page for everyone, not a hideable module (owner decision B).
-			{ href: '/alur-uang', label: msg('Alur uang'), icon: 'flow' },
-			{ href: '/kekayaan', label: msg('Kekayaan bersih'), icon: 'star' },
-			{ href: '/langganan', label: msg('Langganan'), icon: 'repeat' },
-			{ href: '/barang', label: msg('Barang'), icon: 'box' },
-			{ href: '/koleksi', label: msg('Koleksi'), icon: 'sparkle' },
+			{
+				href: '/alur-uang',
+				label: msg('Alur uang'),
+				icon: 'flow',
+				tone: 'freelance',
+				hint: msg('Dari mana uang masuk dan ke mana keluar')
+			},
+			{
+				href: '/kekayaan',
+				label: msg('Kekayaan bersih'),
+				icon: 'trend',
+				tone: 'bunga',
+				hint: msg('Aset dan utang, dihitung jadi satu angka')
+			},
+			{
+				href: '/langganan',
+				label: msg('Langganan'),
+				icon: 'repeat',
+				tone: 'tagihan',
+				hint: msg('Tagihan rutin dan kapan ditagih berikutnya')
+			},
+			{
+				href: '/barang',
+				label: msg('Barang'),
+				icon: 'box',
+				tone: 'kopi',
+				hint: msg('Barang berharga dan perkiraan nilainya')
+			},
+			{
+				href: '/koleksi',
+				label: msg('Koleksi'),
+				icon: 'gem',
+				tone: 'hadiah',
+				hint: msg('Koleksi dengan nilai yang kamu isi sendiri')
+			},
 			// FN-49: split bills with friends (a hideable module).
-			{ href: '/patungan', label: msg('Patungan'), icon: 'people' },
+			{
+				href: '/patungan',
+				label: msg('Patungan'),
+				icon: 'people',
+				tone: 'ojek-online',
+				hint: msg('Bagi tagihan bersama dan catat siapa yang sudah lunas')
+			},
 			// FN-23: a plan feature, not a hideable module; shown to everyone (the locked page explains the plan).
-			{ href: '/agen', label: msg('Agen'), icon: 'bolt' }
+			{
+				href: '/agen',
+				label: msg('Agen'),
+				icon: 'bolt',
+				tone: 'pajak',
+				hint: msg('Minta laporan, Agen yang menyiapkannya.')
+			}
 		]
 	},
 	{
 		title: msg('Catat'),
 		items: [
-			{ href: '/impor', label: msg('Impor'), icon: 'file' },
-			{ href: '/kotak-masuk', label: msg('Kotak masuk'), icon: 'inbox' },
-			{ href: '/pengaturan/aplikasi', label: msg('Aplikasi terhubung'), icon: 'link' }
+			{ href: '/impor', label: msg('Impor'), icon: 'upload', tone: 'tarik-tunai' },
+			{ href: '/kotak-masuk', label: msg('Kotak masuk'), icon: 'inbox', tone: 'kartu-kredit' },
+			{
+				href: '/pengaturan/aplikasi',
+				label: msg('Aplikasi terhubung'),
+				icon: 'link',
+				tone: 'transfer'
+			}
 		]
 	}
 ];
@@ -102,6 +187,20 @@ export function visibleSections(hidden: readonly Module[]): NavSection[] {
 		...section,
 		items: section.items.filter((item) => !gone.has(item.href))
 	}));
+}
+
+/** FN-54: the registry entry of a sidebar path (the Fitur sheet and /pengaturan/fitur draw a module's chip from it). */
+export function featureItem(href: string): FeatureItem | undefined {
+	return SIDEBAR_SECTIONS.flatMap((s) => s.items).find((item) => item.href === href);
+}
+
+/**
+ * FN-54 Beranda "Fitur" tiles: the Fitur group's pages in sidebar order, without the sheet entry and without the
+ * pages of hidden modules (Alur uang and Agen are never hideable, so a user who hid everything still sees two).
+ */
+export function featureTiles(hidden: readonly Module[]): FeatureItem[] {
+	const fitur = visibleSections(hidden).find((s) => s.title === SIDEBAR_SECTIONS[1]?.title);
+	return (fitur?.items ?? []).filter((item) => !item.sheet);
 }
 
 export const ADD_PATHS: readonly AddPath[] = [

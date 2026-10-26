@@ -29,10 +29,10 @@ import { upsertMail, type MailRecord, type Recipient } from './repo';
  */
 
 /** Hours either side of a capture in which a live transaction with the same amount marks it `duplicate`. */
-export const DUPLICATE_WINDOW_MS = 12 * 60 * 60 * 1000;
+const DUPLICATE_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 /** Hex of the first 128 bits of SHA-256(`value`). */
-export const hex128 = async (value: string) => (await sha256Hex(value)).slice(0, 32);
+const hex128 = async (value: string) => (await sha256Hex(value)).slice(0, 32);
 
 /**
  * The ledger key of a mail: its Message-ID (case-folded), or, without one, its Date, From, Subject and cleaned
@@ -88,7 +88,7 @@ export interface Capture {
  * The note a capture carries: who sent it (trust), the masked reference and, when FN-20 cleaned the merchant
  * name into the title, the merchant text as the mail gave it (masked). Plain text, never HTML.
  */
-export function captureNote(
+function captureNote(
 	c: Pick<Capture, 'trust' | 'parser' | 'reference'>,
 	originalMerchant: string | null = null
 ): string {

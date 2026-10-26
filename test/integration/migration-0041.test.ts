@@ -3,8 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { signUp } from '#lib/server/auth/accounts';
 import { getDb, type Db } from '#lib/server/db';
 import { resolveCurrentSpace } from '#lib/server/spaces/access';
-import { createWallet } from '#lib/server/wallets/repo';
-import { applyMigration, openLocalD1 } from '../helpers/d1';
+import { applyMigration, insertLegacyWallet, openLocalD1 } from '../helpers/d1';
 
 /**
  * Migration 0041 (FN-49) on a local D1 migrated up to the one before it and filled first: `transactions` gains its two
@@ -70,8 +69,8 @@ beforeAll(async () => {
 	}
 	({ spaceId, userId } = people[0]!);
 	otherSpaceId = people[1]!.spaceId;
-	const w = await createWallet(
-		db,
+	const w = await insertLegacyWallet(
+		d1,
 		{ spaceId, userId },
 		{
 			name: 'BCA',

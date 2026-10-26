@@ -11,7 +11,7 @@ export interface QueueMessageLike {
 }
 
 /** A notification a trigger made or found (FN-24 `createIfAbsent`). */
-export interface Made {
+interface Made {
 	id: string;
 	created: boolean;
 }

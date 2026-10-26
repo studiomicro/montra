@@ -69,21 +69,29 @@ const MONTHS = [
 	'november',
 	'desember'
 ];
-/** Row month abbreviations (Indonesian; August printed `Agu` or `Agt`). */
+/**
+ * Row month abbreviations. Older statements print them in Indonesian (August as `Agu` or `Agt`); newer ones print
+ * English (`01 Aug 2026`), while the `Periode:` line stays Indonesian. Both are accepted; the four that differ are
+ * `May`, `Aug`, `Oct` and `Dec`.
+ */
 const MONTH_ABBR: Readonly<Record<string, number>> = {
 	jan: 1,
 	feb: 2,
 	mar: 3,
 	apr: 4,
 	mei: 5,
+	may: 5,
 	jun: 6,
 	jul: 7,
 	agu: 8,
 	agt: 8,
+	aug: 8,
 	sep: 9,
 	okt: 10,
+	oct: 10,
 	nov: 11,
-	des: 12
+	des: 12,
+	dec: 12
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');

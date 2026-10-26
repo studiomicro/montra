@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
-import type { WalletCurrency, WalletType } from '#lib/shared/wallets';
+import type { EmoneyIssuer, WalletCurrency, WalletType } from '#lib/shared/wallets';
 import type { Db } from '../db';
 import { spaces, wallets } from '../db/schema';
 import { isLiveMember } from '../spaces/access';
@@ -30,10 +30,22 @@ export interface WalletSummary {
 	createdAt: number;
 	updatedAt: number;
 	archived: boolean;
+	/** FN-55a, `kartu_kredit` only (null otherwise): the typed limit and the statement and due days. */
+	creditLimitMinor: number | null;
+	statementDay: number | null;
+	dueDay: number | null;
+	/** FN-58 pass 1, an `e_wallet` only (null otherwise): the e-money card's issuer ("Kartu e-money"). */
+	emoneyIssuer: EmoneyIssuer | null;
 }
 
-/** `missing`: no such wallet in this space (same answer for another space's id). `stale`: changed meanwhile. */
-export type WalletWriteResult = 'ok' | 'stale' | 'missing';
+/**
+ * `missing`: no such wallet in this space (same answer for another space's id). `stale`: changed meanwhile.
+ * `card_locked` (an edit only, FN-55a): a card wallet with live imported statements cannot change its type.
+ * `bank_statements_locked` (an edit only, FN-55 red team L2): a wallet holding live account-statement imports cannot
+ * become a card (their sign convention would flip).
+ */
+export type WalletWriteResult =
+	'ok' | 'stale' | 'missing' | 'card_locked' | 'bank_statements_locked';
 
 const columns = {
 	id: wallets.id,
@@ -45,7 +57,11 @@ const columns = {
 	lastFour: wallets.lastFour,
 	createdAt: wallets.createdAt,
 	updatedAt: wallets.updatedAt,
-	deletedAt: wallets.deletedAt
+	deletedAt: wallets.deletedAt,
+	creditLimitMinor: wallets.creditLimitMinor,
+	statementDay: wallets.statementDay,
+	dueDay: wallets.dueDay,
+	emoneyIssuer: wallets.emoneyIssuer
 };
 
 function summary(row: {
@@ -59,6 +75,10 @@ function summary(row: {
 	createdAt: number;
 	updatedAt: number;
 	deletedAt: number | null;
+	creditLimitMinor: number | null;
+	statementDay: number | null;
+	dueDay: number | null;
+	emoneyIssuer: EmoneyIssuer | null;
 }): WalletSummary {
 	const { deletedAt, currency, ...rest } = row;
 	// Every stored code passed the allow-list (validation.ts).
@@ -201,7 +221,11 @@ export async function createWallet(
 						createdAt: sql`${now}`.as('created_at'),
 						updatedAt: sql`${now}`.as('updated_at'),
 						deletedAt: sql`null`.as('deleted_at'),
-						seq: sql`${currentSpaceSeq(spaceId)}`.as('seq')
+						seq: sql`${currentSpaceSeq(spaceId)}`.as('seq'),
+						creditLimitMinor: sql`${input.creditLimitMinor ?? null}`.as('credit_limit_minor'),
+						statementDay: sql`${input.statementDay ?? null}`.as('statement_day'),
+						dueDay: sql`${input.dueDay ?? null}`.as('due_day'),
+						emoneyIssuer: sql`${input.emoneyIssuer ?? null}`.as('emoney_issuer')
 					})
 					.from(spaces)
 					.where(
@@ -225,6 +249,42 @@ export async function createWallet(
 /** After a guarded write changed nothing: `stale` when the wallet is still in this space, else `missing`. */
 async function whyNot(db: Db, spaceId: string, walletId: string): Promise<WalletWriteResult> {
 	return (await getWallet(db, spaceId, walletId, { includeArchived: true })) ? 'stale' : 'missing';
+}
+
+/** SQL: the wallet has a live imported card statement (FN-55b), so it must stay a `kartu_kredit` wallet. */
+const hasLiveCardStatement = (spaceId: string, walletId: string) =>
+	sql`exists (select 1 from card_statements s where s.space_id = ${spaceId} and s.wallet_id = ${walletId}
+		and s.deleted_at is null)`;
+
+/** SQL: the wallet holds a live account-statement import (a statement batch with no card statement). */
+const hasLiveBankStatement = (spaceId: string, walletId: string) =>
+	sql`exists (select 1 from import_batches b where b.space_id = ${spaceId} and b.wallet_id = ${walletId}
+		and b.source = 'statement' and b.undone_at is null and b.deleted_at is null
+		and not exists (select 1 from card_statements s where s.space_id = ${spaceId}
+			and s.import_batch_id = b.id and s.deleted_at is null))`;
+
+/** Whether `walletId` holds a live account-statement import (it cannot become a card, red team L2). */
+async function walletHasBankStatements(
+	db: Db,
+	spaceId: string,
+	walletId: string
+): Promise<boolean> {
+	const row = await db.get<{ n: number }>(
+		sql`select ${hasLiveBankStatement(spaceId, walletId)} as n`
+	);
+	return row?.n === 1;
+}
+
+/** Whether `walletId` has a live imported card statement (the edit form's "type locked" answer). */
+export async function walletHasCardStatements(
+	db: Db,
+	spaceId: string,
+	walletId: string
+): Promise<boolean> {
+	const row = await db.get<{ n: number }>(
+		sql`select ${hasLiveCardStatement(spaceId, walletId)} as n`
+	);
+	return row?.n === 1;
 }
 
 /**
@@ -254,6 +314,10 @@ export async function updateWallet(
 				currency: input.currency,
 				openingBalanceMinor: input.openingBalanceMinor,
 				lastFour: input.lastFour,
+				creditLimitMinor: input.creditLimitMinor ?? null,
+				statementDay: input.statementDay ?? null,
+				dueDay: input.dueDay ?? null,
+				emoneyIssuer: input.emoneyIssuer ?? null,
 				updatedAt: nextUpdatedAt(expectedUpdatedAt, now),
 				seq: currentSpaceSeq(spaceId)
 			})
@@ -270,13 +334,30 @@ export async function updateWallet(
 						sql`not exists (select 1 from transactions t where t.space_id = ${spaceId}
 							and (t.wallet_id = ${walletId} or t.transfer_to_wallet_id = ${walletId})
 							and t.deleted_at is null)`
-					)
+					),
+					// FN-55a: imported card statements need a card wallet: the type stays while one is live.
+					// Red team L2: account statements need a non-card wallet: it becomes a card only without one.
+					input.type === 'kartu_kredit'
+						? sql`(${wallets.type} = 'kartu_kredit' or not ${hasLiveBankStatement(spaceId, walletId)})`
+						: sql`not ${hasLiveCardStatement(spaceId, walletId)}`
 				)
 			)
 			.returning({ id: wallets.id }),
 		...(input.isFavourite ? [favouriteSwap(db, scope, walletId, now, written)] : [])
 	]);
-	return updated.length === 1 ? 'ok' : whyNot(db, spaceId, walletId);
+	if (updated.length === 1) return 'ok';
+	if (input.type !== 'kartu_kredit' && (await walletHasCardStatements(db, spaceId, walletId)))
+		return 'card_locked';
+	if (input.type === 'kartu_kredit') {
+		const current = await getWallet(db, spaceId, walletId);
+		if (
+			current &&
+			current.type !== 'kartu_kredit' &&
+			(await walletHasBankStatements(db, spaceId, walletId))
+		)
+			return 'bank_statements_locked';
+	}
+	return whyNot(db, spaceId, walletId);
 }
 
 /**
@@ -404,7 +485,7 @@ export function insertImportedWallets(
 	return [
 		db.insert(wallets).select(
 			sql`select json_extract(j.value, '$.id'), ${spaceId}, json_extract(j.value, '$.name'), 'lainnya',
-				'IDR', 0, 0, null, ${now}, ${now}, null, ${currentSpaceSeq(spaceId)}
+				'IDR', 0, 0, null, ${now}, ${now}, null, ${currentSpaceSeq(spaceId)}, null, null, null, null
 			from json_each(${json}) j
 			where ${missing} and ${isLiveMember(spaceId, userId)}
 				and (select count(*) from wallets w where w.space_id = ${spaceId})

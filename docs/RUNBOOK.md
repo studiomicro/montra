@@ -412,6 +412,24 @@ Each needs Playwright's Chromium (the existing devDependency).
   scripts/capture-store-screenshots.ts http://localhost:<port>`. The script refuses any address that is not this
   machine, signs up `demo-screens@montra.local`, adds a wallet and runs the local demo seed.
 
+### Replacing the app icon (FN-54 A6)
+
+The home-screen, favicon and splash images are Koko today; a new logo (owner request 2026-10-11) waits for the owner's
+image file and the decision whether it replaces Koko as the icon (`docs/TASKS.md`). Nothing is drawn as a placeholder.
+When the file arrives, the swap is one path:
+
+1. Put the source mark into `scripts/generate-mascot-icons.ts` (today it draws Koko's idle frame from
+   `src/lib/ui/kit/mascot/poses.ts` in the light theme's colours, and the Pro crown for `PRO_ICONS`). A raster or SVG
+   mark replaces the pose drawing there; keep the artwork inside the centre 80 % circle for the maskable icons.
+2. Run `node scripts/generate-mascot-icons.ts`: it rewrites `static/favicon.svg` and `static/icons/*` (any, maskable 192
+   and 512, monochrome, apple-touch, the four shortcut icons and the three Pro variants).
+3. Run `node scripts/generate-splash-screens.ts` for `static/splash/*` (iOS launch images).
+4. `npm test`: `test/icons.test.ts` checks every maskable icon keeps the artwork inside the safe zone, the monochrome
+   icon is alpha-only, the Pro twins exist and the favicon is inline; `test/manifest.test.ts` checks the manifest still
+   lists every icon at its size.
+5. An installed app never updates its icon live (FN-46): only then does the release note say "reinstall to see the new
+   icon".
+
 ## Release notes
 
 Users read release notes in the app (Pengaturan › Tentang › "Apa yang baru", the full list on
@@ -524,6 +542,37 @@ index kept; no table references it) and adds `gmail_connections.ai_window_start`
 L6, daily AI-read cap per connection) and `agent_runs.deleted_at` (FN-23 red team S2, "Hapus" tombstones). Record the
 row counts of `gmail_mail`, `gmail_connections` and `agent_runs` and keep the Time Travel bookmark before a remote
 apply; the rollback is the same restore. No new binding or secret.
+
+`0046_net_worth_snapshot_classes` (FN-53 period reports, 2026-10-13) adds the nullable `net_worth_snapshots.classes`
+JSON column with one `ALTER TABLE … ADD` and a column CHECK (no rebuild, no backfill: older rows stay null and
+/kekayaan/laporan says the group split starts later). Order for a remote rollout: take the Time Travel bookmark and
+record `select count(*) from net_worth_snapshots`, apply 0046 through `wrangler d1 migrations apply` (old code
+ignores the column), then deploy the app Worker **and the jobs Worker**: the jobs Worker's hourly snapshot tick
+(`writeSnapshots`) is what writes `classes`, so until it is redeployed every new snapshot keeps `classes` null. No
+binding, secret or cron change. A re-run stops at the ALTER with "duplicate column"; if an apply ever stops after the
+ALTER but before wrangler records 0046, check that `pragma table_info(net_worth_snapshots)` lists `classes`, record
+`0046_net_worth_snapshot_classes.sql` in `d1_migrations` by hand as for 0037 above, and re-run the apply. Rollback is
+the bookmark restore. Locally: `npm run db:migrate:local` only.
+
+`0047_credit_cards` (FN-55a/b, 2026-10-13) creates `card_statements` (IF NOT EXISTS, with its partial unique index on
+live space/wallet/statement date) and adds `wallets.credit_limit_minor`, `statement_day` and `due_day` with three
+`ALTER TABLE … ADD` and column CHECKs (null unless the wallet is a `kartu_kredit`; no rebuild, no backfill). Take the
+Time Travel bookmark and record `select count(*) from wallets` first; apply through `wrangler d1 migrations apply`,
+then deploy the app Worker and the jobs Worker (the snapshot tick's `classes` split now puts a card's owed balance on
+`debt` instead of `wallets`; the total is unchanged, so FN-53's per-group change shows a one-time Wallets-up/Debt-down
+move on the first snapshot after deploy). A re-run stops at the first ALTER with "duplicate column"; if an apply
+stops after the ALTERs but before wrangler records 0047, check `pragma table_info(wallets)` lists the three columns
+and `card_statements` exists, record `0047_credit_cards.sql` in `d1_migrations` by hand as for 0037, and re-run.
+Rollback is the bookmark restore. No binding, secret or cron change.
+
+`0049_emoney_cards` (FN-58 pass 1, 2026-10-26) adds the nullable `wallets.emoney_issuer` with one `ALTER TABLE … ADD`
+and a column CHECK (null unless the wallet is an `e_wallet`, then one of the seven issuer keys; no rebuild, no
+backfill: every existing wallet stays null). Take the Time Travel bookmark and record `select count(*) from wallets`
+first; apply through `wrangler d1 migrations apply`, then deploy the app Worker (old code ignores the column; the jobs
+Worker needs no redeploy, an e-money card is an e-wallet in every total). A re-run stops at the ALTER with "duplicate
+column"; if an apply stops after the ALTER but before wrangler records 0049, check `pragma table_info(wallets)` lists
+`emoney_issuer`, record `0049_emoney_cards.sql` in `d1_migrations` by hand as for 0037, and re-run. Rollback is the
+bookmark restore. No binding, secret or cron change. Locally: `npm run db:migrate:local` only.
 
 **Logs:** the app Worker has Workers Logs on but its invocation logs off (`observability.logs.invocation_logs:
 false`): they record every full request URL, invite tokens included (FN-03 red team L3). `src/hooks.server.ts`

@@ -9,7 +9,8 @@
 
 	// FN-25b: where the assets sit, as one stacked bar with a chip per class (name, amount, share of all assets).
 	// Figures and percentages arrive computed (allocationOf, server-side); this only draws them. Debts (and an
-	// overdrawn class) are never a segment: each is its own minus line under the bar (owner decision 1). While
+	// overdrawn class) are never a segment: each is its own minus line under the bar (owner decision 1), in ink: red
+	// is only for "more than" and errors (DESIGN_SYSTEM § Colour, POLISH_AUDIT B5). While
 	// amounts are hidden the shares hide too, and the bar is one plain segment (owner decision 2026-10-13: hiding
 	// covers everything that reveals an amount).
 	let { allocation }: { allocation: Allocation } = $props();
@@ -61,7 +62,7 @@
 	{#if allocation.outside.length > 0}
 		<ul class="outside">
 			{#each allocation.outside as o (o.cls)}
-				<li class:minus={o.minor !== null && o.minor < 0}>
+				<li>
 					<span>{name(o.cls)}</span>
 					<span class="num"
 						>{o.minor === null
@@ -168,9 +169,6 @@
 		justify-content: space-between;
 		gap: 12px;
 		font-weight: 600;
-	}
-	.outside li.minus .num {
-		color: var(--money-up);
 	}
 	.masked {
 		fill: var(--line);

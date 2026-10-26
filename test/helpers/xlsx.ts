@@ -46,7 +46,7 @@ const STYLE_INDEX = { date: 1, 'custom-date': 2, foreign: 3 } as const;
 const esc = (s: string) =>
 	s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export function columnName(i: number): string {
+function columnName(i: number): string {
 	let n = i + 1;
 	let out = '';
 	while (n > 0) {

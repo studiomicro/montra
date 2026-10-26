@@ -5,10 +5,10 @@
  * scaled to at most DESKEW_WORK_SIDE, so the cost is bounded whatever the photo's size. Pure over a typed array.
  */
 
-export const DESKEW_MAX_DEGREES = 15;
-export const DESKEW_STEP_DEGREES = 0.5;
+const DESKEW_MAX_DEGREES = 15;
+const DESKEW_STEP_DEGREES = 0.5;
 /** The caller rotates the page only from this estimate on. */
-export const DESKEW_MIN_DEGREES = 0.7;
+const DESKEW_MIN_DEGREES = 0.7;
 /** Longest side of the working copy. */
 export const DESKEW_WORK_SIDE = 800;
 /** Darker than this (0–255) counts as ink. */

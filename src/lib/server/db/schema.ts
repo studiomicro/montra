@@ -43,7 +43,7 @@ import {
 	CONNECTED_APP_PROVIDERS,
 	CONNECTED_APP_STATUSES
 } from '../../shared/connected-apps/providers';
-import { WALLET_TYPES } from '../../shared/wallets';
+import { EMONEY_ISSUERS, WALLET_TYPES } from '../../shared/wallets';
 import { PATUNGAN_MODES, PATUNGAN_PARTICIPANT_KINDS } from '../../shared/patungan';
 import {
 	AGENT_FAILURES,
@@ -510,10 +510,40 @@ export const wallets = sqliteTable(
 		createdAt: integer('created_at').notNull(),
 		updatedAt: integer('updated_at').notNull(),
 		deletedAt: integer('deleted_at'),
-		seq: integer('seq').notNull()
+		seq: integer('seq').notNull(),
+		/**
+		 * FN-55a, a `kartu_kredit` wallet only (null on every other type, CHECK): the typed credit limit (minor units of
+		 * the wallet's currency, 1 … 10^13), the day of the month the bill closes and the day payment is due (1-31; a
+		 * day past a month's length means that month's last day, shared/cards.ts). Added by ALTER (migration 0047).
+		 */
+		creditLimitMinor: integer('credit_limit_minor'),
+		statementDay: integer('statement_day'),
+		dueDay: integer('due_day'),
+		/**
+		 * FN-58 pass 1, an `e_wallet` only (null on every other type, CHECK): the issuer of a contactless e-money card
+		 * kept as a wallet ("Kartu e-money"), one of EMONEY_ISSUERS. Kept on an archived wallet like `last_four` (an
+		 * archived wallet can be restored). Added by ALTER (migration 0049).
+		 */
+		emoneyIssuer: text('emoney_issuer', { enum: EMONEY_ISSUERS })
 	},
 	(t) => [
 		index('wallets_space_idx').on(t.spaceId, t.deletedAt),
+		check(
+			'wallets_credit_limit_check',
+			sql`${t.creditLimitMinor} is null or (${t.type} = 'kartu_kredit' and ${t.creditLimitMinor} between 1 and 10000000000000)`
+		),
+		check(
+			'wallets_statement_day_check',
+			sql`${t.statementDay} is null or (${t.type} = 'kartu_kredit' and ${t.statementDay} between 1 and 31)`
+		),
+		check(
+			'wallets_due_day_check',
+			sql`${t.dueDay} is null or (${t.type} = 'kartu_kredit' and ${t.dueDay} between 1 and 31)`
+		),
+		check(
+			'wallets_emoney_issuer_check',
+			sql`${t.emoneyIssuer} is null or (${t.type} = 'e_wallet' and ${t.emoneyIssuer} in ('mandiri_emoney', 'bca_flazz', 'bri_brizzi', 'bni_tapcash', 'kmt', 'jakcard', 'megacash'))`
+		),
 		check(
 			'wallets_type_check',
 			sql`${t.type} in ('tunai', 'bank', 'e_wallet', 'kartu_kredit', 'lainnya')`
@@ -615,6 +645,65 @@ export const importBatches = sqliteTable(
 );
 
 /**
+ * FN-55b: one imported credit-card statement (one live row per card wallet and statement date): the figures the
+ * statement printed, in the wallet's convention (owed is negative) and its currency, written in the same `db.batch`
+ * as its import batch and tombstoned with it ("Urungkan"). No text, no file, no card number. A tombstone keeps only
+ * its ids, timestamps and seq (CHECK). The partial unique index refuses a second live copy of the same statement.
+ */
+export const cardStatements = sqliteTable(
+	'card_statements',
+	{
+		id: text('id').primaryKey(),
+		spaceId: text('space_id')
+			.notNull()
+			.references(() => spaces.id, { onDelete: 'cascade' }),
+		walletId: text('wallet_id')
+			.notNull()
+			.references(() => wallets.id),
+		importBatchId: text('import_batch_id')
+			.notNull()
+			.references(() => importBatches.id),
+		/** WIB dates `YYYY-MM-DD` as printed; content, null on a tombstone. */
+		statementDate: text('statement_date'),
+		dueDate: text('due_date'),
+		periodFrom: text('period_from'),
+		periodTo: text('period_to'),
+		previousBalanceMinor: integer('previous_balance_minor'),
+		newBalanceMinor: integer('new_balance_minor'),
+		/** Printed only, never computed; null when the statement printed none. */
+		minimumPaymentMinor: integer('minimum_payment_minor'),
+		limitMinor: integer('limit_minor'),
+		currency: text('currency'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull(),
+		deletedAt: integer('deleted_at'),
+		seq: integer('seq').notNull()
+	},
+	(t) => [
+		index('card_statements_wallet_idx').on(t.spaceId, t.walletId, t.deletedAt),
+		uniqueIndex('card_statements_live_uq')
+			.on(t.spaceId, t.walletId, t.statementDate)
+			.where(sql`deleted_at is null`),
+		check(
+			'card_statements_content_check',
+			sql`(${t.deletedAt} is null and ${t.statementDate} is not null and length(${t.statementDate}) = 10 and date(${t.statementDate}) is ${t.statementDate}
+				and (${t.dueDate} is null or (length(${t.dueDate}) = 10 and date(${t.dueDate}) is ${t.dueDate}))
+				and (${t.periodFrom} is null or (length(${t.periodFrom}) = 10 and date(${t.periodFrom}) is ${t.periodFrom}))
+				and (${t.periodTo} is null or (length(${t.periodTo}) = 10 and date(${t.periodTo}) is ${t.periodTo}))
+				and ${t.previousBalanceMinor} is not null and abs(${t.previousBalanceMinor}) <= 9007199254740991
+				and ${t.newBalanceMinor} is not null and abs(${t.newBalanceMinor}) <= 9007199254740991
+				and (${t.minimumPaymentMinor} is null or ${t.minimumPaymentMinor} between 0 and 10000000000000)
+				and (${t.limitMinor} is null or ${t.limitMinor} between 1 and 10000000000000)
+				and ${t.currency} is not null and length(${t.currency}) = 3)
+			or (${t.deletedAt} is not null and ${t.statementDate} is null and ${t.dueDate} is null
+				and ${t.periodFrom} is null and ${t.periodTo} is null and ${t.previousBalanceMinor} is null
+				and ${t.newBalanceMinor} is null and ${t.minimumPaymentMinor} is null and ${t.limitMinor} is null
+				and ${t.currency} is null)`
+		)
+	]
+);
+
+/**
  * The ledger (FN-05). A deleted row is a content-free tombstone (every content column null). Sign convention: `amount_minor` is always a positive magnitude in `currency` (the wallet's
  * currency) and the direction comes from `type`; a transfer (`transfer_to_wallet_id` set, no category) never
  * counts as income or expense. `occurred_on` is the WIB calendar date every day/month bucket uses;
@@ -700,6 +789,10 @@ export const transactions = sqliteTable(
 		index('transactions_space_day_idx').on(t.spaceId, t.deletedAt, t.occurredOn),
 		index('transactions_wallet_idx').on(t.spaceId, t.walletId, t.deletedAt),
 		index('transactions_transfer_to_idx').on(t.spaceId, t.transferToWalletId, t.deletedAt),
+		// FN-48d: the auto-match pass looks up a batch's own amounts among the space's live rows (migration 0048).
+		index('transactions_space_amount_idx')
+			.on(t.spaceId, t.amountMinor, t.currency)
+			.where(sql`deleted_at is null`),
 		// The file sweep's "a row still holds this key" check (photos/store.ts), without a table scan.
 		index('transactions_photo_idx')
 			.on(t.photoKey)
@@ -943,6 +1036,9 @@ export const categoryCleanupItems = sqliteTable(
 	]
 );
 
+/** FN-48d: who merged a transfer pair — the user (`manual`) or the statement import's auto-match pass (`auto`). */
+export const TRANSFER_LINK_SOURCES = ['manual', 'auto'] as const;
+
 /**
  * FN-48 Part C "Cocokkan transfer": one row per confirmed merge of an own-transfer pair (a "Transfer keluar"
  * expense in one wallet and the same-amount "Transfer masuk" income in another, within a day) into one FN-05
@@ -967,9 +1063,15 @@ export const transferLinks = sqliteTable(
 		createdAt: integer('created_at').notNull(),
 		updatedAt: integer('updated_at').notNull(),
 		undoneAt: integer('undone_at'),
-		seq: integer('seq').notNull()
+		seq: integer('seq').notNull(),
+		/**
+		 * FN-48d: `auto` when the statement import's auto-match pass merged the pair, `manual` when the user confirmed
+		 * it. An `auto` row, live or undone, keeps that pass from ever merging either of its rows again (migration 0048).
+		 */
+		source: text('source', { enum: TRANSFER_LINK_SOURCES }).notNull().default('manual')
 	},
 	(t) => [
+		check('transfer_links_source_check', sql`${t.source} in ('manual', 'auto')`),
 		index('transfer_links_space_idx').on(t.spaceId, t.createdAt),
 		uniqueIndex('transfer_links_debit_live_uq')
 			.on(t.debitTransactionId)
@@ -1645,6 +1747,13 @@ export const netWorthSnapshots = sqliteTable(
 		 * against for the 30-day change; a complete figure of the same day is never overwritten by a partial one.
 		 */
 		partial: integer('partial', { mode: 'boolean' }).notNull().default(false),
+		/**
+		 * FN-53 (0046): the run's `summary.classes` as a JSON object `{ "<NetWorthClass>": <IDR sen> }` (only classes
+		 * that hold something, debt negative), so a period report can show the change per group. Null on rows written
+		 * before 0046 (never backfilled: a value would have to be invented) and when a class was too large. The
+		 * migration adds it with a column CHECK (no rebuild); stated here at table level.
+		 */
+		classes: text('classes'),
 		createdAt: integer('created_at').notNull(),
 		updatedAt: integer('updated_at').notNull(),
 		deletedAt: integer('deleted_at'),
@@ -1652,6 +1761,10 @@ export const netWorthSnapshots = sqliteTable(
 	},
 	(t) => [
 		primaryKey({ columns: [t.spaceId, t.date] }),
+		check(
+			'net_worth_snapshots_classes_check',
+			sql`${t.classes} is null or (${t.deletedAt} is null and json_valid(${t.classes}) and json_type(${t.classes}) = 'object')`
+		),
 		check(
 			'net_worth_snapshots_total_check',
 			sql`(${t.deletedAt} is null and ${t.totalMinor} is not null and abs(${t.totalMinor}) <= 9007199254740991 and length(${t.date}) = 10)

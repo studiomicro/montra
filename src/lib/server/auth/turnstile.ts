@@ -18,7 +18,7 @@ export const TURNSTILE_FIELD = 'cf-turnstile-response';
 /** Longest token read; anything longer is refused before any call. */
 export const TURNSTILE_TOKEN_MAX_LENGTH = 2048;
 /** How long siteverify may take before the attempt is refused. */
-export const TURNSTILE_TIMEOUT_MS = 5000;
+const TURNSTILE_TIMEOUT_MS = 5000;
 /** The widget actions the two pages render and the server expects back. */
 export type TurnstileAction = 'sign-in' | 'sign-up';
 
@@ -39,7 +39,7 @@ export function turnstileSiteKey(env: TurnstileEnv | undefined): { siteKey: stri
 	return isTurnstileConfigured(env) ? { siteKey: env!.TURNSTILE_SITE_KEY!.trim() } : null;
 }
 
-export type TurnstileRefusal =
+type TurnstileRefusal =
 	| 'missing'
 	| 'too_long'
 	| 'timeout'

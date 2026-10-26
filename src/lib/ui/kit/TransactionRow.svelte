@@ -114,6 +114,10 @@
 		:global(.records) .kind {
 			display: block;
 		}
+		/* The title and meta get the room; a long amount still shows whole (it never wraps). */
+		:global(.records) .end {
+			max-width: 44%;
+		}
 		:global(.records) .amount {
 			font-size: 17px;
 		}

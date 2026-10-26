@@ -5,6 +5,8 @@ import {
 	activeHref,
 	ADD_PATHS,
 	addPaths,
+	featureItem,
+	featureTiles,
 	FORWARDING_UNAVAILABLE,
 	RECEIPT_UNAVAILABLE,
 	isActive,
@@ -206,5 +208,66 @@ describe('visibleSections (FN-12)', () => {
 		expect(nav).not.toMatch(/<span>/);
 		expect(nav).not.toMatch(/<button/);
 		expect(svelte).toMatch(/<button[^>]*class="fab"[^>]*aria-label=\{tr\('Tambah'\)\}/);
+	});
+});
+
+describe('feature registry (FN-54 Part A)', () => {
+	const tokens = readFileSync('docs/design/tokens.css', 'utf8');
+	const chipCss = readFileSync('src/lib/ui/kit/FeatureChip.svelte', 'utf8');
+
+	it('no two sidebar or feature items share a glyph; Impor, Kekayaan bersih and Koleksi have their own', () => {
+		const icons = allItems.map((i) => i.icon);
+		expect(new Set(icons).size).toBe(icons.length);
+		expect(featureItem('/impor')?.icon).toBe('upload');
+		expect(featureItem('/kekayaan')?.icon).toBe('trend');
+		expect(featureItem('/koleksi')?.icon).toBe('gem');
+		// `sparkle` is the AI mark (Tanya and Pro), `star` the Emas theme: neither is a feature's glyph.
+		expect(icons).not.toContain('sparkle');
+		expect(icons).not.toContain('star');
+		expect(icons).not.toContain('calendar');
+	});
+
+	it('every item has a hue that tokens.css defines and FeatureChip maps', () => {
+		for (const item of allItems) {
+			expect(tokens, item.href).toContain(`--cat-${item.tone}:`);
+			expect(chipCss, item.href).toContain(`.t-${item.tone} {\n\t\t--c: var(--cat-${item.tone});`);
+		}
+	});
+
+	it('the Fitur pages carry a one-line hint (the tiles and the sheet show it)', () => {
+		for (const item of featureTiles([])) expect(item.hint, item.href).toBeTruthy();
+	});
+
+	it('tiles: the Fitur pages in sidebar order without the sheet entry; hidden modules drop out', () => {
+		expect(featureTiles([]).map((i) => i.href)).toEqual([
+			'/alur-uang',
+			'/kekayaan',
+			'/langganan',
+			'/barang',
+			'/koleksi',
+			'/patungan',
+			'/agen'
+		]);
+		expect(featureTiles(['langganan', 'koleksi']).map((i) => i.href)).toEqual([
+			'/alur-uang',
+			'/kekayaan',
+			'/barang',
+			'/patungan',
+			'/agen'
+		]);
+		// Everything hidden: Alur uang and Agen are never hideable.
+		expect(featureTiles([...MODULES]).map((i) => i.href)).toEqual(['/alur-uang', '/agen']);
+	});
+
+	it('the sidebar, the Fitur sheet, /pengaturan/fitur and the tiles draw the chip from the registry', () => {
+		const read = (f: string) => readFileSync(f, 'utf8');
+		expect(read('src/lib/ui/shell/Sidebar.svelte')).toMatch(
+			/<FeatureChip icon=\{item\.icon\} tone=\{item\.tone\}/
+		);
+		const sheet = read('src/lib/ui/shell/FiturSheet.svelte');
+		expect(sheet).toMatch(/featureItem\(/);
+		expect(sheet).not.toMatch(/icon: '/);
+		expect(read('src/routes/(app)/pengaturan/fitur/+page.svelte')).toMatch(/featureItem\(/);
+		expect(read('src/lib/ui/home/FeatureTiles.svelte')).toMatch(/featureTiles\(/);
 	});
 });

@@ -27,7 +27,7 @@ export const SESSION_TOUCH_MS = 60 * 60 * 1000;
  * it is Secure, Path=/ and has no Domain, so no subdomain or plain-http origin can plant one. Local dev over
  * `http://` cannot set a `__Host-` cookie, so there the name is plain.
  */
-export const SESSION_COOKIE = 'financer_session';
+const SESSION_COOKIE = 'financer_session';
 export const sessionCookieName = (secure: boolean) => hostCookieName(SESSION_COOKIE, secure);
 
 /**

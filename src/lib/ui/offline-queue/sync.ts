@@ -23,8 +23,8 @@ import type { OfflineQueue } from './store.svelte';
  * - Items not kept for QUEUE_STALE_MS wait for the user (stale), never retried forever.
  */
 export const PUSH_URL = '/api/v1/sync/push';
-export const DRAIN_CONCURRENCY = 4;
-export const BACKOFF_STEPS_MS = [2_000, 4_000, 8_000, 16_000, 30_000] as const;
+const DRAIN_CONCURRENCY = 4;
+const BACKOFF_STEPS_MS = [2_000, 4_000, 8_000, 16_000, 30_000] as const;
 const TRANSIENT = new Set([0, 408, 429, 502, 503, 504]);
 const MESSAGE_MAX = 300;
 

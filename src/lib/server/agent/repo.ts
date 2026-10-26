@@ -34,7 +34,7 @@ import { releaseAgentKeys } from './keys';
  */
 
 /** How long one delivery holds a step. */
-export const AGENT_LEASE_MS = 120_000;
+const AGENT_LEASE_MS = 120_000;
 /** No progress for this long (lease expired): the cron sweep re-sends the run once. */
 export const AGENT_STALL_RESEND_MS = 5 * 60 * 1000;
 /** No progress for this long after a re-send or a failed delivery: the run is failed. */
@@ -42,8 +42,8 @@ export const AGENT_STALL_FAIL_MS = 30 * 60 * 1000;
 /** Failed step deliveries (any step) before the run is failed. */
 export const AGENT_MAX_ATTEMPTS = 6;
 /** Most runs one sweep deletes, fails or re-sends per kind. */
-export const AGENT_SWEEP_EXPIRE_MAX = 100;
-export const AGENT_SWEEP_STALL_MAX = 50;
+const AGENT_SWEEP_EXPIRE_MAX = 100;
+const AGENT_SWEEP_STALL_MAX = 50;
 
 /** The run's id for one form submission: a resubmitted form names the same row (and never another user's). */
 export async function agentRunId(userId: string, requestId: string): Promise<string> {

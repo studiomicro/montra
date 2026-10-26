@@ -57,11 +57,11 @@ export const SPLASH_DEVICES: readonly SplashDevice[] = [
 	{ width: 810, height: 1080, scale: 2, devices: 'iPad 7th, 8th, 9th gen' }
 ];
 
-export const SCHEMES = ['light', 'dark'] as const;
+const SCHEMES = ['light', 'dark'] as const;
 export type Scheme = (typeof SCHEMES)[number];
 
 /** `--bg` per scheme, as in src/lib/shared/theme.ts. */
-export const SPLASH_BG: Record<Scheme, string> = { light: '#ffffff', dark: '#111112' };
+const SPLASH_BG: Record<Scheme, string> = { light: '#ffffff', dark: '#111112' };
 
 /** Everything in static/splash/ together stays within this (a unit test checks it). */
 export const SPLASH_BUDGET_BYTES = 1_500_000;
@@ -73,13 +73,13 @@ export const splashFile = (d: SplashDevice, scheme: Scheme) =>
  * The icon tile: 32 cells wide (the 512 px icon has 16 px cells), about 30 % of the short side, a whole number
  * of device pixels per cell so Koko's edges stay crisp.
  */
-export function splashIcon(d: SplashDevice): IconSpec {
+function splashIcon(d: SplashDevice): IconSpec {
 	const cell = Math.max(2, Math.round((0.3 * Math.min(d.width, d.height) * d.scale) / 32));
 	return { file: '', size: cell * 32, cell, background: 'rounded' };
 }
 
 /** The generated table: points, scale and one file per scheme, in the order the head lists them. */
-export function splashTable(): string {
+function splashTable(): string {
 	const rows = SPLASH_DEVICES.map(
 		(d) =>
 			`\t{ width: ${d.width}, height: ${d.height}, scale: ${d.scale}, light: '/${splashFile(d, 'light')}', dark: '/${splashFile(d, 'dark')}' }`

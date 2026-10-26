@@ -13,7 +13,7 @@ import { billingEvents, billingRefunds } from '../db/schema';
 /** Most rows `pendingRefunds` lists (the count is exact regardless). */
 export const REFUND_LIST_LIMIT = 100;
 /** Most rows `refundsForUser` lists. */
-export const USER_REFUND_LIST_LIMIT = 20;
+const USER_REFUND_LIST_LIMIT = 20;
 /** A provider's refund id as stored: what the table's CHECK allows. */
 const PROVIDER_REFUND_ID = /^[A-Za-z0-9_.:-]{1,100}$/;
 

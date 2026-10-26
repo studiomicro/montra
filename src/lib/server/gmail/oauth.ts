@@ -239,11 +239,11 @@ export async function revokeGmailToken(
 }
 
 /** Rows of `gmail_revocations` one jobs tick works on (each is one call to Google). */
-export const GMAIL_REVOKE_BATCH = 20;
+const GMAIL_REVOKE_BATCH = 20;
 /** Tries per queued grant (hourly ticks, about three days) before it is dropped. */
-export const GMAIL_REVOKE_ATTEMPTS = 48;
+const GMAIL_REVOKE_ATTEMPTS = 48;
 /** A queued grant older than this is dropped whatever happened (key missing, Google down): no sealed token lingers. */
-export const GMAIL_REVOKE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const GMAIL_REVOKE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface GmailRevocationRun {
 	revoked: number;

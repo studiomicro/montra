@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, readTokens } from '#lib/shared/contrast';
 import { themeColors } from '#lib/server/prefs';
+import { SIDEBAR_SECTIONS } from '#lib/ui/shell/nav';
 
 const css = readFileSync('docs/design/tokens.css', 'utf8');
 const LIGHT = ':root {';
@@ -79,7 +80,9 @@ const TEXT_PAIRS: [string, string][] = [
 	['--muted', '--pro-soft'],
 	['--money-in', '--pro-soft'],
 	['--money-up', '--pro-soft'],
-	['--same', '--pro-soft']
+	['--same', '--pro-soft'],
+	// FN-56: the brightest glyph tier of the sign-in/sign-up ASCII field on its card (decorative, still AA).
+	['--on-brand-surface', '--brand-surface']
 ];
 
 describe('contrastRatio', () => {
@@ -234,9 +237,13 @@ describe('Pro themes (FN-46)', () => {
 		const lightHalf = declarations(lo);
 		const darkHalf = declarations(hi);
 		expect(Object.keys(lightHalf).filter((name) => !(name in darkHalf))).toEqual([]);
-		// Where the dark scheme differs from light, the theme's dark half differs from its light half too.
+		// Where the dark scheme differs from light, the theme's dark half differs from its light half too. A var()
+		// reference (FN-57 `--action: var(--ink)`) follows the half's own values, so the same text is no leak.
 		const leaked = Object.keys(lightHalf).filter(
-			(name) => raw.darkMedia[name] !== raw.light[name] && darkHalf[name] === lightHalf[name]
+			(name) =>
+				raw.darkMedia[name] !== raw.light[name] &&
+				darkHalf[name] === lightHalf[name] &&
+				!lightHalf[name]!.startsWith('var(')
 		);
 		expect(leaked).toEqual([]);
 		expect(t.light['--bg']).not.toBe(light['--bg']);
@@ -323,5 +330,96 @@ describe.each(THEMES)('AA heatmap day numbers (%s)', (_name, tokens) => {
 		expect(a, `text ${fg}`).toBeDefined();
 		expect(b, `fill ${bg}`).toBeDefined();
 		expect(contrastRatio(tokens[a!] as string, tokens[b!] as string)).toBeGreaterThanOrEqual(4.5);
+	});
+});
+
+/**
+ * FN-54: the feature chips (the glyph in --ink-2 on `color-mix(--cat-<tone> 16%, --bg)`, FeatureChip.svelte) for every
+ * hue the registry uses, and the calendar badge (the month in --bg on the --ink band, the day in --ink on --bg).
+ */
+const mix = (a: string, b: string, share: number) => {
+	const ch = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+	return (
+		'#' +
+		[0, 1, 2]
+			.map((i) =>
+				Math.round(ch(a, i) * share + ch(b, i) * (1 - share))
+					.toString(16)
+					.padStart(2, '0')
+			)
+			.join('')
+	);
+};
+const CHIP_TONES = [
+	...new Set(SIDEBAR_SECTIONS.flatMap((s) => s.items.map((i) => `--cat-${i.tone}`)))
+];
+
+describe.each(THEMES)('FN-54 feature chips and the calendar badge (%s)', (_name, tokens) => {
+	it('the registry uses sixteen hues', () => {
+		expect(CHIP_TONES).toHaveLength(16);
+	});
+	it.each(CHIP_TONES)(
+		'--ink-2 glyph on the %s tint ≥ 3 (and ≥ 4.5, it is AA as text too)',
+		(hue) => {
+			const tint = mix(tokens[hue] as string, tokens['--bg'] as string, 0.16);
+			expect(contrastRatio(tokens['--ink-2'] as string, tint)).toBeGreaterThanOrEqual(4.5);
+		}
+	);
+	it('badge: --bg month on the --ink band and --ink day on --bg ≥ 4.5', () => {
+		expect(
+			contrastRatio(tokens['--bg'] as string, tokens['--ink'] as string)
+		).toBeGreaterThanOrEqual(4.5);
+		expect(
+			contrastRatio(tokens['--ink'] as string, tokens['--bg'] as string)
+		).toBeGreaterThanOrEqual(4.5);
+	});
+});
+
+/**
+ * FN-57: the action fill (`--action`, `--on-action`) refers to other tokens with `var()`, which readTokens skips, so
+ * these layers are read with the references resolved against the theme's final values (all on :root, as in CSS).
+ */
+function resolvedTokens(selectors: string[]): Record<string, string> {
+	const raw: Record<string, string> = {};
+	for (const selector of selectors) {
+		const start = css.indexOf(selector);
+		const body = css.slice(start, css.indexOf('}', start));
+		for (const m of body.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6}\b|var\(--[\w-]+\))/g))
+			raw[m[1] as string] = (m[2] as string).toLowerCase();
+	}
+	const resolve = (value: string, depth = 0): string => {
+		const ref = /^var\((--[\w-]+)\)$/.exec(value)?.[1];
+		if (!ref || depth > 4) return value;
+		return resolve(raw[ref] ?? value, depth + 1);
+	};
+	return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, resolve(v)]));
+}
+const ACTION_THEMES: [string, string[]][] = [
+	['light', [LIGHT]],
+	['dark', [LIGHT, DARK]],
+	['dark-media', [LIGHT, DARK_MEDIA]],
+	['mono-light', [LIGHT, MONO]],
+	['mono-dark', [LIGHT, DARK_MEDIA, MONO, MONO_DARK]],
+	['gold', [LIGHT, GOLD]],
+	['gold-dark', [LIGHT, DARK_MEDIA, GOLD, GOLD_DARK]],
+	['emerald', [LIGHT, EMERALD]],
+	['emerald-dark', [LIGHT, DARK_MEDIA, EMERALD, EMERALD_DARK]]
+];
+
+describe.each(ACTION_THEMES)('FN-57 action fill (%s)', (name, selectors) => {
+	const tokens = resolvedTokens(selectors);
+	it('--on-action on --action ≥ 4.5, --action on --bg and --panel ≥ 3', () => {
+		expect(contrastRatio(tokens['--on-action']!, tokens['--action']!)).toBeGreaterThanOrEqual(4.5);
+		expect(contrastRatio(tokens['--action']!, tokens['--bg']!)).toBeGreaterThanOrEqual(3);
+		expect(contrastRatio(tokens['--action']!, tokens['--panel']!)).toBeGreaterThanOrEqual(3);
+	});
+	it('electric blue only in the default light theme; ink with the page colour everywhere else', () => {
+		if (name === 'light') {
+			expect(tokens['--action']).toBe('#0b3df5');
+			expect(tokens['--on-action']).toBe('#ffffff');
+		} else {
+			expect(tokens['--action']).toBe(tokens['--ink']);
+			expect(tokens['--on-action']).toBe(tokens['--bg']);
+		}
 	});
 });

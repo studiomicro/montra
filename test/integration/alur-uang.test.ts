@@ -193,7 +193,7 @@ describe('/alur-uang load', () => {
 		await ledger(p.scope);
 		const r = await flowOf(p);
 		expect(r).toMatchObject({
-			month: monthOf(wibTodayString()),
+			period: { kind: 'bulan', month: monthOf(wibTodayString()) },
 			currency: 'IDR',
 			income: [],
 			wallets: [],
@@ -209,8 +209,11 @@ describe('/alur-uang load', () => {
 	it('reads ?p=YYYY-MM and clamps a future month to this month', async () => {
 		const p = await person();
 		const month = shiftMonth(monthOf(wibTodayString()), -2);
-		expect((await flowOf(p, `/alur-uang?p=${month}`)).month).toBe(month);
-		expect((await flowOf(p, '/alur-uang?p=2999-01')).month).toBe(monthOf(wibTodayString()));
+		expect((await flowOf(p, `/alur-uang?p=${month}`)).period).toEqual({ kind: 'bulan', month });
+		expect((await flowOf(p, '/alur-uang?p=2999-01')).period).toEqual({
+			kind: 'bulan',
+			month: monthOf(wibTodayString())
+		});
 	});
 });
 
@@ -331,7 +334,12 @@ describe('only income and expense rows enter the flow (AC 12, coordination with 
 
 		const { rows } = await moneyFlowTotals(db, p.scope.spaceId, filterOf(month));
 		expect(rows.map((r) => [r.type, r.amountMinor])).toEqual([['expense', 1_000]]);
-		const r = await moneyFlowReport(db, p.scope.spaceId, month);
+		const r = await moneyFlowReport(
+			db,
+			p.scope.spaceId,
+			{ kind: 'bulan', month: month },
+			wibTodayString()
+		);
 		expect(r.outMinor).toBe(1_000);
 		expect(r.inMinor).toBe(0);
 		expect(r.links).toEqual([
@@ -371,7 +379,12 @@ describe('bounded result (red team FN-35 L1)', () => {
 		// The smallest group (1000) is the one left out; the largest is kept.
 		expect(rows.some((r) => r.category?.id === 'cap-c-0')).toBe(false);
 		expect(rows[0]?.amountMinor).toBe(1000 + over - 1);
-		const report = await moneyFlowReport(db, p.scope.spaceId, month);
+		const report = await moneyFlowReport(
+			db,
+			p.scope.spaceId,
+			{ kind: 'bulan', month: month },
+			wibTodayString()
+		);
 		expect(report.truncated).toBe(true);
 	});
 
@@ -379,7 +392,12 @@ describe('bounded result (red team FN-35 L1)', () => {
 		const p = await person();
 		const l = await ledger(p.scope);
 		await l.tx({});
-		const report = await moneyFlowReport(db, p.scope.spaceId, monthOf(wibTodayString()));
+		const report = await moneyFlowReport(
+			db,
+			p.scope.spaceId,
+			{ kind: 'bulan', month: monthOf(wibTodayString()) },
+			wibTodayString()
+		);
 		expect(report.truncated).toBe(false);
 	});
 });
@@ -390,8 +408,26 @@ describe('WIB month boundaries (pre-handoff probe)', () => {
 		const l = await ledger(p.scope);
 		await l.tx({ occurredOn: '2026-10-31', occurredTime: '23:30', amountMinor: 300 });
 		await l.tx({ occurredOn: '2026-11-01', occurredTime: '00:30', amountMinor: 500 });
-		expect((await moneyFlowReport(db, p.scope.spaceId, '2026-10')).outMinor).toBe(300);
-		expect((await moneyFlowReport(db, p.scope.spaceId, '2026-11')).outMinor).toBe(500);
+		expect(
+			(
+				await moneyFlowReport(
+					db,
+					p.scope.spaceId,
+					{ kind: 'bulan', month: '2026-10' },
+					wibTodayString()
+				)
+			).outMinor
+		).toBe(300);
+		expect(
+			(
+				await moneyFlowReport(
+					db,
+					p.scope.spaceId,
+					{ kind: 'bulan', month: '2026-11' },
+					wibTodayString()
+				)
+			).outMinor
+		).toBe(500);
 	});
 });
 

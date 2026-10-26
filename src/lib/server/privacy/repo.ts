@@ -10,7 +10,7 @@ import { newId } from '../util';
  */
 
 /** Most consent rows read for one account: three per sign-up, so far above any real account. */
-export const CONSENT_LIST_LIMIT = 100;
+const CONSENT_LIST_LIMIT = 100;
 
 /** The three consent rows a sign-up writes, one per kind with the current text's version, for its batch. */
 export function consentInserts(db: Db, userId: string, now: number) {

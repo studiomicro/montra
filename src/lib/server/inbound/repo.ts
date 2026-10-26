@@ -163,7 +163,7 @@ export interface MailView {
 	confirmationCode: string | null;
 }
 
-export const MAIL_LIST_MAX = 20;
+const MAIL_LIST_MAX = 20;
 
 /** The user's most recent mail (their own rows only), newest first, at most MAIL_LIST_MAX. */
 export async function listRecentMail(db: Db, userId: string, now: number): Promise<MailView[]> {
@@ -305,9 +305,9 @@ export async function hasAnthropicKey(db: Db, userId: string): Promise<boolean> 
 /** Rows one sweep step touches per tick. */
 export const INBOUND_SWEEP_BATCH = 200;
 /** Most reads re-sent per tick (one Queues `sendBatch` holds at most 100 messages). */
-export const INBOUND_REQUEUE_BATCH = 100;
+const INBOUND_REQUEUE_BATCH = 100;
 /** A queued read older than this is sent to the queue again (its first send may have failed). */
-export const INBOUND_REQUEUE_AFTER_MS = 10 * 60 * 1000;
+const INBOUND_REQUEUE_AFTER_MS = 10 * 60 * 1000;
 
 export interface InboundSweep {
 	expired: number;

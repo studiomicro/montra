@@ -33,7 +33,7 @@ export const PRICE_HOSTS: readonly string[] = [
 	'api.gold-api.com',
 	'api.frankfurter.dev'
 ];
-export const FETCH_TIMEOUT_MS = 8_000;
+const FETCH_TIMEOUT_MS = 8_000;
 /** Body caps: ticker_all is ~75 KB (2026-10-08); the single-price answers are under 300 bytes. */
 const MAX_TICKER_ALL_BYTES = 512 * 1024;
 const MAX_SMALL_BYTES = 8 * 1024;
@@ -50,7 +50,7 @@ export const KV_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const PRICE_STALE_AFTER_MS = 8 * 60 * 60 * 1000;
 /** A price (or rate) older than this is not used at all: the item falls back to its manual value. */
 export const PRICE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
-export const FX_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const FX_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Sanity bounds: a value outside them is refused as a bad payload, never stored. */
 const MAX_COIN_PRICE_IDR = 10n ** 13n;
@@ -155,7 +155,7 @@ async function readCapped(response: Response, maxBytes: number): Promise<string>
 }
 
 /** A JSON number as plain decimal text (`4105.299805`); null for exponent forms, non-finite or too precise. */
-export function numberText(value: number, maxDecimals: number): string | null {
+function numberText(value: number, maxDecimals: number): string | null {
 	if (!Number.isFinite(value) || value <= 0) return null;
 	const text = String(value);
 	return parseDecimal(text, maxDecimals) ? text : null;
@@ -209,7 +209,7 @@ const JUMP_NUM = 3n;
 const JUMP_DEN = 2n;
 
 /** True when `next` differs from `prev` by more than JUMP_NUM/JUMP_DEN either way (exact). */
-export function isPriceJump(prev: Decimal, next: Decimal): boolean {
+function isPriceJump(prev: Decimal, next: Decimal): boolean {
 	const e = Math.max(prev.exp, next.exp);
 	const a = prev.n * 10n ** BigInt(e - prev.exp);
 	const b = next.n * 10n ** BigInt(e - next.exp);

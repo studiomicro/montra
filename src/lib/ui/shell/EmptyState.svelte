@@ -62,8 +62,8 @@
 		min-height: 44px;
 		padding: 0 20px;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		font-weight: 600;
 		text-decoration: none;
 	}

@@ -1,5 +1,3 @@
-import { msg } from '../i18n.ts';
-
 /**
  * FN-19 Gmail auto-capture (docs/features/fn-19-gmail/PRD.md): the states and limits of a user's Gmail
  * connection, its scans and its per-mail ledger. Shared by the app Worker (settings page) and the jobs Worker
@@ -30,7 +28,6 @@ export const GMAIL_MAIL_STATUSES = [
 	'not_payment',
 	'unreadable'
 ] as const;
-export type GmailMailStatus = (typeof GMAIL_MAIL_STATUSES)[number];
 
 export const GMAIL_MAIL_REASONS = [
 	'malformed',
@@ -97,21 +94,3 @@ export const GMAIL_SCAN_STALE_MS = 6 * 60 * 60 * 1000;
 export const GMAIL_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 /** Rows "Baca ulang yang tertunda" re-queues at most. */
 export const GMAIL_REREAD_MAX = 200;
-
-/** The settings page's words for each ledger reason (translated with tr()). */
-export const GMAIL_REASON_LABELS: Readonly<Record<GmailMailReason, string>> = {
-	malformed: msg('E-mail rusak atau tidak bisa dibaca.'),
-	too_large: msg('E-mail terlalu besar untuk dibaca.'),
-	gone: msg('E-mail sudah tidak ada di Gmail.'),
-	fetch_failed: msg('Gmail menolak membuka e-mail ini.'),
-	no_ai_key: msg('Belum ada kunci Anthropic untuk membaca e-mail ini.'),
-	ai_unconfigured: msg('Pembacaan AI belum dikonfigurasi di server ini.'),
-	ai_failed: msg('Pembacaan AI gagal. Periksa kunci Anthropic-mu di Integrasi AI.'),
-	ai_invalid: msg('AI tidak bisa membaca nominal dan tanggalnya.'),
-	expired: msg('Terlalu lama menunggu dibaca.'),
-	inbox_full: msg('Kotak masuk penuh (1.000 draf). Tinjau draf dulu.'),
-	currency: msg('Mata uang selain rupiah belum didukung.'),
-	unparsed: msg('Isi e-mail kosong atau tidak terbaca.'),
-	key: msg('Sambungan Gmail perlu dihubungkan ulang.'),
-	ai_limit: msg('Batas baca AI harian Gmail tercapai. Baca ulang besok.')
-};

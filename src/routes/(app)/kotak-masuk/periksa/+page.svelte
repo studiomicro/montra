@@ -4,7 +4,7 @@
 	import { enhance, type SubmitFunction } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { navigating } from '$app/state';
-	import { addDays, formatDayLabel } from '#lib/shared/dates';
+	import { addDays, formatDayHeader } from '#lib/shared/dates';
 	import { DRAFT_BATCH_MAX, draftToken, selectionKind } from '#lib/shared/drafts';
 	import { CATEGORY_KIND_LABELS, categoryLabel } from '#lib/shared/transactions';
 	import FormBanner from '#lib/ui/auth/FormBanner.svelte';
@@ -51,7 +51,7 @@
 	function dayLabel(date: string): string {
 		if (date === data.today) return tr('Hari ini');
 		if (date === addDays(data.today, -1)) return tr('Kemarin');
-		return formatDayLabel(date, locale);
+		return formatDayHeader(date, data.today, locale);
 	}
 
 	let categoryOpen = $state(false);

@@ -4,7 +4,7 @@ import type { MappedRow } from '../csv.ts';
  * E-statement reading (FN-16a), shared by the app Worker and the local compatibility harness. A statement row is
  * FN-18's `MappedRow`/`RawCsvTransaction` with a different reader in front of it, never a second row type.
  */
-export type { MappedRow, RawCsvTransaction, SkipReason } from '../csv.ts';
+export type { MappedRow } from '../csv.ts';
 
 /** What a statement file was read into before an institution parser sees it. */
 export type StatementDocument =
@@ -25,7 +25,7 @@ export interface PageLayout {
 	lineX: readonly (number | null)[];
 }
 
-export type StatementDocumentFormat = StatementDocument['format'];
+type StatementDocumentFormat = StatementDocument['format'];
 
 /** One institution parser's reading of a statement. */
 export interface StatementParse {
@@ -45,6 +45,42 @@ export interface StatementParse {
 	 * present, the top-level rows are empty and one section is imported at a time (read.ts picks it).
 	 */
 	sections?: readonly StatementSection[];
+	/**
+	 * FN-55b, a card parser only: what the card statement printed (balances in the wallet's convention, owed
+	 * negative) and each row's class. Built only by `buildCardStatement` (card-rows.ts), which also sets
+	 * `inconsistent` when any of its self-checks fails.
+	 */
+	card?: CardStatementFigures;
+	/** FN-55b: why the statement is refused although it reads (a layout not supported yet), with `inconsistent`. */
+	unsupported?: 'multiple_cards';
+}
+
+/** FN-55b: how a card statement row is counted and categorised (card-rows.ts `classifyCardRow`). */
+export type CardRowClass =
+	'purchase' | 'installment' | 'fee' | 'interest' | 'tax' | 'payment' | 'credit';
+
+/** FN-55b: the figures a card statement printed, as stored on `card_statements` (IDR minor units). */
+export interface CardStatementFigures {
+	/** WIB date `YYYY-MM-DD`. */
+	statementDate: string;
+	dueDate: string | null;
+	/** The printed period, when the statement prints one. */
+	periodFrom: string | null;
+	periodTo: string | null;
+	/** The earliest printed posting date (null when none is printed); a span fallback (continuity.ts). */
+	firstPostingDate: string | null;
+	/** Wallet convention: owed is negative, a printed credit (CR) balance positive. */
+	previousBalanceMinor: number;
+	newBalanceMinor: number;
+	/** As printed, never computed; null when not printed. */
+	minimumPaymentMinor: number | null;
+	limitMinor: number | null;
+	/** Last 4 digits of the one printed card number; null when the statement prints none. */
+	cardLast4: string | null;
+	/** Row sums per class (positive magnitudes): payments, other credits, purchases (with installments), fees (with tax), interest. */
+	totals: { payments: number; credits: number; purchases: number; fees: number; interest: number };
+	/** Each row's class, by its position in `rows`. */
+	classes: readonly CardRowClass[];
 }
 
 /** One account of a statement that holds several (FN-16e). */
@@ -70,6 +106,17 @@ export interface StatementSection {
 export interface StatementParser {
 	/** Stable id (`bca`, `bri`): the picker's value and the harness's institution column. */
 	id: string;
+	/**
+	 * FN-55b: `card` reads a credit-card statement into a `kartu_kredit` wallet (its own id, e.g. `bca-card`, never
+	 * a layout inside the bank's parser); absent or `bank`: an account statement. The wallet picked decides which
+	 * kind is offered and detected (read.ts).
+	 */
+	kind?: 'bank' | 'card';
+	/**
+	 * A `msg()` phrase shown with the "needs password" and "wrong password" answers, written only from the issuer's
+	 * own e-statement e-mail or cover text (FN-55 B6); absent: the generic answer.
+	 */
+	passwordHint?: string;
 	/** Name shown to the user (a bank's own name, not translated). */
 	label: string;
 	formats: readonly StatementDocumentFormat[];

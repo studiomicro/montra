@@ -18,10 +18,10 @@ export const OCR_MAX_DECLARED_PIXELS = 64_000_000;
  * Largest declared PNG, WebP or HEIC image (red team L3). The browser may decode these at full size before any
  * scaling (RGBA, 4 bytes a pixel), so the cap keeps that to about 100 MB; a JPEG is cut down while decoding.
  */
-export const OCR_MAX_FULL_DECODE_PIXELS = 24_000_000;
+const OCR_MAX_FULL_DECODE_PIXELS = 24_000_000;
 /** What one page is scaled to before reading: long side and pixel count. */
-export const OCR_MAX_LONG_SIDE = 3000;
-export const OCR_MAX_PAGE_PIXELS = 6_000_000;
+const OCR_MAX_LONG_SIDE = 3000;
+const OCR_MAX_PAGE_PIXELS = 6_000_000;
 /** Time budget of a whole run and of one page. */
 export const OCR_RUN_TIMEOUT_MS = 5 * 60_000;
 export const OCR_PAGE_TIMEOUT_MS = 60_000;

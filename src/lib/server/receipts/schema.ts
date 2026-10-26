@@ -24,7 +24,7 @@ const FIELD_MAX = 500;
 const text = z.string().max(FIELD_MAX);
 const nullableText = text.nullable();
 
-export const receiptOutputSchema = z
+const receiptOutputSchema = z
 	.object({
 		is_receipt: z.boolean(),
 		shop: nullableText,
@@ -38,7 +38,6 @@ export const receiptOutputSchema = z
 		payment_method: nullableText
 	})
 	.strict();
-export type ReceiptOutput = z.infer<typeof receiptOutputSchema>;
 
 /**
  * A printed amount → IDR minor units, or null when it is missing, not one amount, has sen (the review form

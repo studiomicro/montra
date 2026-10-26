@@ -15,6 +15,7 @@
 		type TransactionFormValues
 	} from '#lib/shared/transactions';
 	import Field from '#lib/ui/auth/Field.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
 	import AmountInput from '#lib/ui/kit/AmountInput.svelte';
 	import Badge from '#lib/ui/kit/Badge.svelte';
@@ -145,32 +146,38 @@
 
 	<div class="field">
 		<label for="{uid}-wallet">{type === 'transfer' ? tr('Dari dompet') : tr('Dompet')}</label>
-		<select
-			id="{uid}-wallet"
-			name="walletId"
-			bind:value={walletId}
-			aria-invalid={error('walletId') ? 'true' : undefined}
-		>
-			{#each wallets as wallet (wallet.id)}
-				<option value={wallet.id}>{wallet.name} · {wallet.currency}</option>
-			{/each}
-		</select>
+		<span class="select">
+			<select
+				id="{uid}-wallet"
+				name="walletId"
+				bind:value={walletId}
+				aria-invalid={error('walletId') ? 'true' : undefined}
+			>
+				{#each wallets as wallet (wallet.id)}
+					<option value={wallet.id}>{wallet.name} · {wallet.currency}</option>
+				{/each}
+			</select>
+			<Icon name="chevron-down" size={16} />
+		</span>
 		{#if error('walletId')}<p class="error">{error('walletId')}</p>{/if}
 	</div>
 
 	<div class="field to-field">
 		<label for="{uid}-to">{tr('Ke dompet')}</label>
-		<select
-			id="{uid}-to"
-			name="transferToWalletId"
-			bind:value={transferToWalletId}
-			aria-invalid={error('transferToWalletId') ? 'true' : undefined}
-		>
-			<option value="">{tr('Pilih dompet tujuan')}</option>
-			{#each destinations as wallet (wallet.id)}
-				<option value={wallet.id}>{wallet.name} · {wallet.currency}</option>
-			{/each}
-		</select>
+		<span class="select">
+			<select
+				id="{uid}-to"
+				name="transferToWalletId"
+				bind:value={transferToWalletId}
+				aria-invalid={error('transferToWalletId') ? 'true' : undefined}
+			>
+				<option value="">{tr('Pilih dompet tujuan')}</option>
+				{#each destinations as wallet (wallet.id)}
+					<option value={wallet.id}>{wallet.name} · {wallet.currency}</option>
+				{/each}
+			</select>
+			<Icon name="chevron-down" size={16} />
+		</span>
 		{#if error('transferToWalletId')}<p class="error">{error('transferToWalletId')}</p>{/if}
 	</div>
 
@@ -287,9 +294,23 @@
 		font-size: 15px;
 		font-weight: 600;
 	}
+	/* The app's own chevron instead of the browser's (POLISH_AUDIT A8): same panel fill as every field. */
+	.select {
+		position: relative;
+		display: grid;
+		align-items: center;
+	}
+	.select :global(svg) {
+		position: absolute;
+		right: 14px;
+		color: var(--muted);
+		pointer-events: none;
+	}
 	select {
+		appearance: none;
+		width: 100%;
 		min-height: 48px;
-		padding: 0 14px;
+		padding: 0 40px 0 14px;
 		border: 0;
 		border-radius: var(--r-s);
 		background: var(--panel);
@@ -340,7 +361,7 @@
 		cursor: pointer;
 	}
 	.tile:has(input:checked) {
-		outline: 2px solid var(--ink);
+		outline: 2px solid var(--action);
 		outline-offset: -2px;
 	}
 	.tile:has(input:focus-visible) {

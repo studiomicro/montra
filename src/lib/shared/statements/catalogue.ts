@@ -5,7 +5,12 @@ import { brandById } from '../brands.ts';
  * today. `brimo_screenshot`: a BRImo screenshot (Foto) or CSV/Spreadsheet; `app_screenshot`: a screenshot of the
  * app (Foto); `csv_or_sheet`: not read yet, use CSV or Spreadsheet.
  */
-export type StatementAlternative = 'brimo_screenshot' | 'app_screenshot' | 'csv_or_sheet';
+export type StatementAlternative =
+	| 'brimo_screenshot'
+	| 'app_screenshot'
+	| 'csv_or_sheet'
+	/** FN-55b: a card issuer whose parser waits for the owner's real sample: Spreadsheet/CSV or manual entry. */
+	| 'card_waiting';
 
 /** One row of the statement picker: selectable when a parser reads it, else disabled with its alternative. */
 export type CatalogueRow =
@@ -23,11 +28,13 @@ export type CatalogueRow =
  * never written here: `statementCatalogue` takes it from the parser list, so the two cannot drift.
  * `other` is "Lainnya" (its label is translated on the page).
  */
-const INSTITUTIONS: readonly {
+interface Institution {
 	id: string;
 	label: string;
 	alternative: StatementAlternative;
-}[] = [
+}
+
+const INSTITUTIONS: readonly Institution[] = [
 	{ id: 'bca', label: 'BCA', alternative: 'csv_or_sheet' },
 	{ id: 'mandiri', label: 'Mandiri', alternative: 'csv_or_sheet' },
 	{ id: 'bri', label: 'BRI', alternative: 'brimo_screenshot' },
@@ -47,32 +54,52 @@ const INSTITUTIONS: readonly {
 ];
 
 /**
- * The statement picker's rows: every parser first (selectable, in the catalogue's order, a parser the catalogue
+ * FN-55b: the card issuers the owner holds a card from (owner decision 2026-10-13), each with its own card parser
+ * id. A card parser is written only from that issuer's real sample (FN-55c); until then the issuer is "waiting for
+ * sample" and never selectable. Labels are the issuers' own names, not translated.
+ */
+export const CARD_INSTITUTIONS: readonly Institution[] = [
+	{ id: 'bca-card', label: 'BCA Kartu Kredit', alternative: 'card_waiting' },
+	{ id: 'mandiri-card', label: 'Mandiri Kartu Kredit', alternative: 'card_waiting' },
+	{ id: 'bri-card', label: 'BRI Kartu Kredit', alternative: 'card_waiting' },
+	{ id: 'bni-card', label: 'BNI Kartu Kredit', alternative: 'card_waiting' },
+	{ id: 'cimb-card', label: 'CIMB Niaga Kartu Kredit', alternative: 'card_waiting' },
+	{ id: 'ocbc-card', label: 'OCBC Kartu Kredit', alternative: 'card_waiting' }
+];
+
+/**
+ * The statement picker's rows (`institutions`: the bank list, or CARD_INSTITUTIONS for a card wallet): every parser first (selectable, in the catalogue's order, a parser the catalogue
  * does not name yet at the end of them), then every other institution disabled with its alternative.
  */
 export function statementCatalogue(
-	parsers: readonly { id: string; label: string }[]
+	parsers: readonly { id: string; label: string }[],
+	institutions: readonly Institution[] = INSTITUTIONS
 ): CatalogueRow[] {
-	const known = new Set(INSTITUTIONS.map((i) => i.id));
+	const known = new Set(institutions.map((i) => i.id));
 	const readable = new Map(parsers.map((p) => [p.id, p.label]));
-	const brand = (id: string) => brandById(id)?.id ?? null;
+	// A card issuer (`bca-card`) shows its bank's mark.
+	const brand = (id: string) => brandById(id.replace(/-card$/, ''))?.id ?? null;
 	const supported: CatalogueRow[] = [
-		...INSTITUTIONS.filter((i) => readable.has(i.id)).map((i) => ({
-			id: i.id,
-			label: readable.get(i.id) ?? i.label,
-			brand: brand(i.id),
-			supported: true as const
-		})),
+		...institutions
+			.filter((i) => readable.has(i.id))
+			.map((i) => ({
+				id: i.id,
+				label: readable.get(i.id) ?? i.label,
+				brand: brand(i.id),
+				supported: true as const
+			})),
 		...parsers
 			.filter((p) => !known.has(p.id))
 			.map((p) => ({ id: p.id, label: p.label, brand: brand(p.id), supported: true as const }))
 	];
-	const unsupported: CatalogueRow[] = INSTITUTIONS.filter((i) => !readable.has(i.id)).map((i) => ({
-		id: i.id,
-		label: i.label,
-		brand: brand(i.id),
-		supported: false as const,
-		alternative: i.alternative
-	}));
+	const unsupported: CatalogueRow[] = institutions
+		.filter((i) => !readable.has(i.id))
+		.map((i) => ({
+			id: i.id,
+			label: i.label,
+			brand: brand(i.id),
+			supported: false as const,
+			alternative: i.alternative
+		}));
 	return [...supported, ...unsupported];
 }

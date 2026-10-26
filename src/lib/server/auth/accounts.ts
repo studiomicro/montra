@@ -18,7 +18,7 @@ import { newSession } from './session';
 
 export const NAME_MAX_LENGTH = 80;
 /** Stored name of every personal space; the UI shows `kind = 'personal'` through tr('Pribadi'). */
-export const PERSONAL_SPACE_NAME = 'Pribadi';
+const PERSONAL_SPACE_NAME = 'Pribadi';
 
 export const SIGN_UP_ERRORS = {
 	nameRequired: msg('Isi namamu.'),
@@ -28,8 +28,8 @@ export const SIGN_UP_ERRORS = {
 	consentRequired: msg('Centang persetujuan ketentuan dan kebijakan privasi untuk melanjutkan.')
 } as const;
 
-export type SignUpField = 'name' | 'email' | 'password' | 'adult' | 'consent';
-export type SignUpErrors = Partial<Record<SignUpField, string>>;
+type SignUpField = 'name' | 'email' | 'password' | 'adult' | 'consent';
+type SignUpErrors = Partial<Record<SignUpField, string>>;
 
 export interface SignUpInput {
 	name: string;
@@ -48,7 +48,7 @@ export interface SignUpInput {
 }
 
 /** The cleaned fields, or one message per invalid field. No database access. */
-export function validateSignUp(input: SignUpInput) {
+function validateSignUp(input: SignUpInput) {
 	const name = cleanText(input.name, NAME_MAX_LENGTH);
 	const email = normalizeEmail(input.email);
 	const errors: SignUpErrors = {};

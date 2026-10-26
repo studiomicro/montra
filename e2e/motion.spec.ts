@@ -84,8 +84,8 @@ test.describe('motion', () => {
 			'ul[aria-label="Stagger"] > li',
 			'.bar',
 			'polyline',
-			'.illustration .float',
-			'.illustration .shadow'
+			// The blueprint illustrations (1c93349) have one moving part, the floating scene; no shadow.
+			'.illustration .float'
 		])
 			expect((await animationOf(page, selector)).name, selector).toBe('none');
 		await context.close();
@@ -628,6 +628,111 @@ test.describe('illustrations', () => {
 			await expect(desk.locator('.hero-art svg.mascot.pose-wave')).toBeVisible();
 			await expect(desk.locator('.hero-art svg')).toHaveAttribute('aria-hidden', 'true');
 			await wide.close();
+		}
+	});
+
+	// FN-56: the decorative ASCII field. A band above the form below 1024 px, a 360 x 560 card left of the form (and of
+	// Koko, who stays) from 1024 px; a still frame under reduced motion; script frames only while visible.
+	test('sign-in and sign-up: the ASCII field never moves, covers or takes focus from the form', async ({
+		browser
+	}) => {
+		const fieldText = (page: Page, grid: 'phone' | 'desktop') =>
+			page.locator(`[data-testid="ascii-field"] .${grid}`).evaluate((el) => el.textContent);
+		for (const path of ['/masuk', '/daftar']) {
+			// Phone, reduced motion: the still frame, above the form, nothing focusable, no shift.
+			const still = await browser.newContext({
+				storageState: SIGNED_OUT,
+				viewport: { width: 360, height: 640 },
+				reducedMotion: 'reduce'
+			});
+			const page = await open(still);
+			await page.goto(`${APP_ORIGIN}${path}`);
+			await waitForHydration(page);
+			const field = page.getByTestId('ascii-field');
+			await expect(field).toHaveAttribute('aria-hidden', 'true');
+			const band = (await field.boundingBox())!;
+			expect(band.height).toBeGreaterThanOrEqual(120);
+			expect(band.height).toBeLessThanOrEqual(160);
+			const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+			expect(band.y + band.height).toBeLessThanOrEqual(heading.y);
+			const email = (await page.getByLabel('E-mail').boundingBox())!;
+			expect(email.y + email.height).toBeLessThanOrEqual(640);
+			const before = await fieldText(page, 'phone');
+			await page.waitForTimeout(1000);
+			expect(await fieldText(page, 'phone')).toBe(before);
+			await expectNoHorizontalScroll(page);
+			// Focus: the wordmark first, then the form; Shift+Tab from the first field goes back to the wordmark.
+			await page.keyboard.press('Tab');
+			await expect(page.locator('a.brand')).toBeFocused();
+			await page.keyboard.press('Tab');
+			expect(
+				await page.evaluate(() => !!document.activeElement?.closest('[data-testid="ascii-field"]'))
+			).toBe(false);
+			expect(await page.evaluate(() => document.activeElement?.closest('main') !== null)).toBe(
+				true
+			);
+			await page.keyboard.press('Shift+Tab');
+			await expect(page.locator('a.brand')).toBeFocused();
+			expect(await page.locator('body').ariaSnapshot()).not.toContain('MONTRA0');
+			await still.close();
+
+			// Phone, motion on: the text changes, the box does not; a hidden tab stops it.
+			const moving = await browser.newContext({
+				storageState: SIGNED_OUT,
+				viewport: { width: 360, height: 640 },
+				reducedMotion: 'no-preference'
+			});
+			const live = await open(moving);
+			await live.goto(`${APP_ORIGIN}${path}`);
+			await waitForHydration(live);
+			const liveField = live.getByTestId('ascii-field');
+			const box = await liveField.boundingBox();
+			const formTop = (await live.locator('main').boundingBox())!.y;
+			const first = await fieldText(live, 'phone');
+			await expect.poll(() => fieldText(live, 'phone'), { timeout: 1000 }).not.toBe(first);
+			expect(await liveField.boundingBox()).toEqual(box);
+			expect((await live.locator('main').boundingBox())!.y).toBe(formTop);
+			await live.evaluate(() => {
+				Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+				document.dispatchEvent(new Event('visibilitychange'));
+			});
+			const paused = await fieldText(live, 'phone');
+			await live.waitForTimeout(500);
+			expect(await fieldText(live, 'phone')).toBe(paused);
+			await moving.close();
+
+			// Desktop: the card left of the 400 px form column, beside Koko, no overlap and no horizontal scroll.
+			for (const viewport of [
+				{ width: 1024, height: 768 },
+				{ width: 1280, height: 800 },
+				{ width: 1440, height: 900 }
+			]) {
+				const wide = await browser.newContext({
+					storageState: SIGNED_OUT,
+					viewport,
+					reducedMotion: 'no-preference'
+				});
+				const desk = await open(wide);
+				await desk.goto(`${APP_ORIGIN}${path}`);
+				await waitForHydration(desk);
+				const card = (await desk.getByTestId('ascii-field').boundingBox())!;
+				expect([card.width, card.height]).toEqual([360, 560]);
+				const main = (await desk.locator('main').boundingBox())!;
+				const brand = (await desk.locator('.top').boundingBox())!;
+				expect(main.width).toBe(400);
+				expect(brand.x).toBe(main.x);
+				expect(brand.y + brand.height).toBeLessThanOrEqual(main.y);
+				expect(card.x + card.width).toBeLessThan(main.x);
+				await expect(desk.locator('.hero-art svg.mascot.pose-wave')).toBeVisible();
+				const koko = (await desk.locator('.hero-art').boundingBox())!;
+				expect(koko.x).toBeGreaterThanOrEqual(main.x);
+				const top = main.y;
+				const text = await fieldText(desk, 'desktop');
+				await expect.poll(() => fieldText(desk, 'desktop'), { timeout: 1000 }).not.toBe(text);
+				expect((await desk.locator('main').boundingBox())!.y).toBe(top);
+				await expectNoHorizontalScroll(desk);
+				await wide.close();
+			}
 		}
 	});
 

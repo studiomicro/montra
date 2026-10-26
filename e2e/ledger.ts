@@ -12,10 +12,16 @@ import {
 
 export const BASE = APP_ORIGIN;
 export const PASSWORD = 'terang-benderang-8';
-export const NBSP = ' ';
+const NBSP = ' ';
 export const rp = (text: string) => `Rp${NBSP}${text}`;
 
-export async function freshUser(browser: Browser, testInfo: TestInfo, prefix = 'fn05') {
+export async function freshUser(
+	browser: Browser,
+	testInfo: TestInfo,
+	prefix = 'fn05',
+	/** FN-54: keep the once-a-day greeting sheet on (only e2e/sapaan.spec.ts tests it; it would cover Beranda). */
+	{ sapaan = false }: { sapaan?: boolean } = {}
+) {
 	const context = await browser.newContext({
 		storageState: SIGNED_OUT,
 		extraHTTPHeaders: { 'cf-connecting-ip': simulatedClientIp(testInfo, 1) }
@@ -24,14 +30,16 @@ export async function freshUser(browser: Browser, testInfo: TestInfo, prefix = '
 	await page.goto('/daftar');
 	await waitForHydration(page);
 	await page.getByLabel('Nama').fill('Pencatat');
-	await page
-		.getByLabel('E-mail')
-		.fill(`${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
+	// Returned, so a spec that seeds the local D1 directly can find this user's own space (never "the newest
+	// space", which a test running in parallel may own).
+	const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
+	await page.getByLabel('E-mail').fill(email);
 	await page.getByLabel('Kata sandi').fill(PASSWORD);
 	await tickSignUpBoxes(page);
 	await page.getByRole('button', { name: 'Daftar' }).click();
 	await page.waitForURL(`${BASE}/`);
-	return { context, page };
+	if (!sapaan) await context.addCookies([{ name: 'montra-sapaan-off', value: '1', url: BASE }]);
+	return { context, page, email };
 }
 
 /** A plain (no-JavaScript-style) form post through the page's own session. */

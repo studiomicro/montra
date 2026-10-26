@@ -68,26 +68,27 @@ textarea {
 }
 
 /*
- * Fields sit on --panel, and so do the cards and groups they live in (Impor, Tanya, a sign-in form on a panel
- * card), where a fill alone vanishes (1.1:1). One rule for every field and kit secondary button: the --panel fill
- * plus a 1px inset ink hairline (a shadow, so the box never grows). `:where()` keeps it at zero specificity, so a
- * component still wins when it needs its own edge (the invalid red ring, a field inside a bordered wrapper).
+ * Fields and secondary buttons are fills, not frames (DESIGN_SYSTEM § Inputs, § Button; owner decision
+ * 2026-10-15): a --panel fill on the page. On a --panel card or group a panel fill would vanish (1.1:1), so
+ * there they take the page colour instead: a container that is a panel carries `on-panel` (a GroupList is
+ * `.group`, handled with the buttons below). Focus stays the global 2 px --brand ring (`:focus-visible`).
  */
-:where(
-	input:not(
-		[type='checkbox'],
-		[type='radio'],
-		[type='range'],
-		[type='file'],
-		[type='color'],
-		[type='hidden'],
-		[type='submit'],
-		[type='button']
-	),
-	select,
-	textarea
-) {
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
+.on-panel
+	:is(
+		input:not(
+			[type='checkbox'],
+			[type='radio'],
+			[type='range'],
+			[type='file'],
+			[type='color'],
+			[type='hidden'],
+			[type='submit'],
+			[type='button']
+		),
+		select,
+		textarea
+	) {
+	background-color: var(--bg);
 }
 
 /*
@@ -121,13 +122,33 @@ select {
 	outline-offset: 2px;
 }
 
+/*
+ * The one section/standalone text link (POLISH_AUDIT A5, APP_PARITY § 3b.1): ink, 15 px, underlined, a 44 px
+ * row. `--brand` blue stays for links inside running text only (DESIGN_SYSTEM principle 6).
+ */
+.text-link {
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	color: var(--ink-2);
+	font-size: 15px;
+	font-weight: 500;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+.text-link:hover {
+	color: var(--ink);
+}
+
 .num {
 	font-variant-numeric: tabular-nums;
 }
 
-/* § 3a: a panel pill (secondary or destructive button) inside a panel GroupedList sits on the page colour. */
+/* § 3a: a panel pill (secondary or destructive button) inside a panel GroupedList or card sits on the page colour. */
 .group .btn.secondary,
-.group .btn.destructive {
+.group .btn.destructive,
+.on-panel .btn.secondary,
+.on-panel .btn.destructive {
 	background: var(--bg);
 }
 
@@ -141,8 +162,16 @@ select {
 	--glass-fill: var(--glass-bg);
 	--glass-fallback: var(--glass-solid);
 	--glass-filter: var(--glass-blur);
-	background: var(--glass-fill);
+	/*
+	 * Liquid glass: a clearer fill over a deeper blur, a sheen that catches light along the top, and a specular rim
+	 * (a bright top edge, a faint lower edge where the light leaves the lens). Light only, never a hue, so the
+	 * colour-for-meaning rule holds in every theme.
+	 */
+	background:
+		linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 48%), var(--glass-fill);
 	box-shadow:
+		inset 0 1px 0.5px 0 var(--glass-border),
+		inset 0 -1px 1px 0 rgb(255 255 255 / 0.06),
 		inset 0 0 0 1px var(--glass-border),
 		var(--glass-shadow);
 	-webkit-backdrop-filter: var(--glass-filter);
@@ -152,6 +181,7 @@ select {
 	--glass-fill: var(--glass-bg-soft);
 	--glass-fallback: var(--bg);
 	--glass-filter: var(--glass-blur-soft);
+	background: var(--glass-fill);
 	box-shadow: none;
 }
 

@@ -13,7 +13,7 @@ import {
 /** An `updated_at` (epoch ms) as the form carries it. */
 const UPDATED_AT = /^\d{1,15}$/;
 
-export const budgetInputSchema = z.object({
+const budgetInputSchema = z.object({
 	amountMinor: z
 		.number()
 		.int(BUDGET_AMOUNT_INVALID)

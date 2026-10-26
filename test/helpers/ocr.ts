@@ -13,7 +13,7 @@ import {
  */
 export type ConfOf = number | ((word: string, line: number) => number);
 
-export function ocrLine(text: string, index: number, conf: ConfOf = 96): OcrLine {
+function ocrLine(text: string, index: number, conf: ConfOf = 96): OcrLine {
 	const words = [...text.matchAll(/\S+/g)].map((m) => ({
 		t: m[0],
 		c: typeof conf === 'number' ? conf : conf(m[0], index),
@@ -23,7 +23,7 @@ export function ocrLine(text: string, index: number, conf: ConfOf = 96): OcrLine
 	return { y: index * 30, x: words[0]?.x0 ?? 0, text: lineText(words), words };
 }
 
-export function ocrPage(lines: readonly string[], conf: ConfOf = 96): OcrPage {
+function ocrPage(lines: readonly string[], conf: ConfOf = 96): OcrPage {
 	const built = lines.filter((l) => l.trim() !== '').map((l, i) => ocrLine(l, i, conf));
 	return { widthPx: 1080, heightPx: 2400, meanConf: meanConfidence(built), lines: built };
 }

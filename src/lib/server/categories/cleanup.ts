@@ -52,7 +52,7 @@ interface Candidate {
 }
 
 /** One row the review proposes to change. */
-export interface CleanupProposal {
+interface CleanupProposal {
 	id: string;
 	type: CategoryKind;
 	/** The stored title with any long digit run masked (display only). */

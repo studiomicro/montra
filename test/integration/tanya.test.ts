@@ -40,9 +40,11 @@ import { base64urlEncode } from '#lib/shared/base64url';
 import { monthOf, monthRange, wibTodayString } from '#lib/shared/dates';
 import { formatMoney } from '#lib/shared/money-format';
 import {
+	cleanQuestion,
 	parseCards,
 	TANYA_ASKS_PER_WINDOW,
 	TANYA_CARD_ROWS_MAX,
+	TANYA_QUESTION_MAX,
 	TANYA_RETENTION_MS
 } from '#lib/shared/tanya';
 import { openLocalD1 } from '../helpers/d1';
@@ -852,5 +854,51 @@ describe('retention and deletion (criteria 22–24)', () => {
 			sql`select count(*) as n from tanya_messages where space_id = ${spaceId}`
 		);
 		expect(left!.n).toBe(2);
+	});
+});
+
+describe('FN-54 ?q= prefill from Beranda’s ask field (criterion 10)', () => {
+	const loadAt = async (who: Person, path: string) =>
+		run(async () => (page.load as unknown as Action)(await ev(who, { path })));
+
+	it('prefills the composer only: no fetch, no message row, no credit', async () => {
+		const p = await person();
+		const q = 'Bulan lalu habis berapa buat kopi?';
+		const r = await loadAt(p, `/tanya?q=${encodeURIComponent(q)}`);
+		expect(r).toMatchObject({ kind: 'ok', value: { ready: 'ok', prefill: q } });
+		expect(fakeFetch).not.toHaveBeenCalled();
+		expect(await rowsOf(p.user.id)).toEqual([]);
+	});
+
+	it('a 600-character or control-character q is capped and cleaned (text only, never HTML)', async () => {
+		const p = await person();
+		const long = await loadAt(p, `/tanya?q=${'a'.repeat(600)}`);
+		expect(
+			Array.from((long as unknown as { value: { prefill: string } }).value.prefill)
+		).toHaveLength(TANYA_QUESTION_MAX);
+		const dirty = await loadAt(
+			p,
+			`/tanya?q=${encodeURIComponent('  Kopi\u0000\u200b <b>bulan</b>\n ini? ')}`
+		);
+		expect((dirty as unknown as { value: { prefill: string } }).value.prefill).toBe(
+			cleanQuestion('  Kopi\u0000\u200b <b>bulan</b>\n ini? ')
+		);
+		expect((dirty as unknown as { value: { prefill: string } }).value.prefill).not.toContain(
+			'\u0000'
+		);
+		expect((dirty as unknown as { value: { prefill: string } }).value.prefill).not.toContain(
+			'\u200b'
+		);
+		expect(await loadAt(p, '/tanya')).toMatchObject({ value: { prefill: '' } });
+		expect(fakeFetch).not.toHaveBeenCalled();
+	});
+
+	it('without the gateway the prefill still loads and nothing is sent', async () => {
+		configure({ gateway: false });
+		const p = await person();
+		expect(await loadAt(p, '/tanya?q=Halo')).toMatchObject({
+			value: { ready: 'no_gateway', prefill: 'Halo' }
+		});
+		expect(fakeFetch).not.toHaveBeenCalled();
 	});
 });

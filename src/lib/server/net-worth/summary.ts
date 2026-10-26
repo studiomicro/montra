@@ -2,7 +2,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { netWorthSnapshots, spaces } from '../db/schema';
 import { addDays, wibDateString } from '#lib/shared/dates';
 import { currencyExponent } from '#lib/shared/money-format';
-import type { WalletType } from '#lib/shared/wallets';
+import type { EmoneyIssuer, WalletType } from '#lib/shared/wallets';
 import {
 	CLASS_OF_KIND,
 	convertToIdrMinor,
@@ -56,6 +56,8 @@ export interface NetWorthSummary {
 export interface WalletBalance {
 	currency: string;
 	balanceMinor: number | null;
+	/** FN-55a: a `kartu_kredit` wallet that owes money counts on the Utang line; absent: any other wallet. */
+	type?: WalletType;
 }
 
 /** The exact unit price for a priced item from the cache, or null (no price: the item falls back). */
@@ -99,7 +101,14 @@ export function summarizeNetWorth(
 
 	for (const w of wallets) {
 		if (w.balanceMinor === null) tooLarge = true;
-		else add('wallets', w.currency, BigInt(w.balanceMinor));
+		// FN-55a A4: a card's owed balance is a liability (the `debt` class, never a bar segment); the total is the
+		// same either way, only the class split moves. A card at zero or in credit stays with the wallets.
+		else
+			add(
+				w.type === 'kartu_kredit' && w.balanceMinor < 0 ? 'debt' : 'wallets',
+				w.currency,
+				BigInt(w.balanceMinor)
+			);
 	}
 
 	const usedRates = new Map<string, { currency: string; rate: string; date: string }>();
@@ -182,6 +191,11 @@ export interface WalletLine extends WalletBalance {
 	name: string;
 	type: WalletType;
 	lastFour: string | null;
+	/** FN-55a, a card only: its typed limit and due day (the card's available credit and due chip). */
+	creditLimitMinor: number | null;
+	dueDay: number | null;
+	/** FN-58 pass 1, an e-money card only: its issuer (the row's "Kartu e-money · BCA Flazz"). */
+	emoneyIssuer: EmoneyIssuer | null;
 }
 
 /** The space's live wallets with their balances (FN-04's contract), as the total and the page need them. */
@@ -196,7 +210,10 @@ async function walletLines(db: Db, spaceId: string): Promise<WalletLine[]> {
 		type: w.type,
 		lastFour: w.lastFour,
 		currency: w.currency,
-		balanceMinor: shownBalance(w, sums.get(w.id))
+		balanceMinor: shownBalance(w, sums.get(w.id)),
+		creditLimitMinor: w.creditLimitMinor,
+		dueDay: w.dueDay,
+		emoneyIssuer: w.emoneyIssuer
 	}));
 }
 
@@ -220,7 +237,7 @@ export async function netWorthSummary(
 
 // ---- Daily snapshots and the 30-day change ----
 
-export const CHANGE_DAYS = 30;
+const CHANGE_DAYS = 30;
 
 /**
  * The change shown under the total: against the snapshot of exactly 30 WIB days ago (`days30`); against an
@@ -265,7 +282,7 @@ export async function netWorthChange(
 }
 
 /** Most due spaces one page query returns. */
-export const SNAPSHOT_PAGE_SIZE = 100;
+const SNAPSHOT_PAGE_SIZE = 100;
 /**
  * Worst-case D1 statements of one space's snapshot: its wallets, their transaction sums and its items
  * (`netWorthSummary`), then the seq bump and the upsert (`upsertSnapshot`). A test measures it.
@@ -274,7 +291,7 @@ export const SNAPSHOT_SPACE_STATEMENTS = 5;
 /** A snapshot written more recently than this is current for this tick. */
 const SNAPSHOT_REFRESH_MS = 30 * 60 * 1000;
 /** `app_meta` key of the rotating cursor: the id of the last space a tick handled. */
-export const SNAPSHOT_CURSOR_KEY = 'net_worth_snapshot_cursor';
+const SNAPSHOT_CURSOR_KEY = 'net_worth_snapshot_cursor';
 
 /**
  * Live spaces holding a live wallet or item whose snapshot for `date` (WIB) is missing or older than
@@ -303,9 +320,36 @@ export async function spacesDueForSnapshot(
 }
 
 /**
+ * The summary's per-class figures as the snapshot stores them (FN-53, `classes`): a JSON object of the classes that
+ * hold something, in IDR sen. Null when a class is too large to store exactly (then no group split, never a guess).
+ */
+function snapshotClasses(
+	classes: readonly { cls: NetWorthClass; minor: number | null }[]
+): string | null {
+	const record: Partial<Record<NetWorthClass, number>> = {};
+	for (const c of classes) {
+		if (c.minor === null) return null;
+		record[c.cls] = c.minor;
+	}
+	return JSON.stringify(record);
+}
+
+/**
+ * The summary left something out: an item without a price, a priced item on its manual fallback (red team L5)
+ * or a currency without a rate. Such a total is never an opening or closing value of a comparison.
+ */
+export function summaryIsPartial(summary: NetWorthSummary): boolean {
+	return (
+		summary.missingCount > 0 ||
+		summary.unconverted.length > 0 ||
+		summary.items.some((i) => i.basis === 'fallback')
+	);
+}
+
+/**
  * Writes (or overwrites) the space's snapshot for WIB `date` in one batch with its seq bump; nothing for a
  * space deleted meanwhile (the insert selects from the live space row). A partial figure never replaces a
- * complete one of the same day (red team L2).
+ * complete one of the same day (red team L2), its `classes` (FN-53) included.
  */
 export async function upsertSnapshot(
 	db: Db,
@@ -313,7 +357,8 @@ export async function upsertSnapshot(
 	date: string,
 	totalMinor: number,
 	now: number,
-	partial = false
+	partial = false,
+	classes: string | null = null
 ): Promise<void> {
 	await db.batch([
 		bumpSpaceSeq(db, spaceId),
@@ -327,6 +372,7 @@ export async function upsertSnapshot(
 						totalMinor: sql`${totalMinor}`.as('total_minor'),
 						currency: sql`'IDR'`.as('currency'),
 						partial: sql`${partial ? 1 : 0}`.as('partial'),
+						classes: sql`${classes}`.as('classes'),
 						createdAt: sql`${now}`.as('created_at'),
 						updatedAt: sql`${now}`.as('updated_at'),
 						deletedAt: sql`null`.as('deleted_at'),
@@ -340,6 +386,7 @@ export async function upsertSnapshot(
 				set: {
 					totalMinor: sql`excluded.total_minor`,
 					partial: sql`excluded.partial`,
+					classes: sql`excluded.classes`,
 					updatedAt: sql`excluded.updated_at`,
 					seq: sql`excluded.seq`,
 					deletedAt: null
@@ -419,12 +466,16 @@ async function snapshotSpace(
 			counts.skipped++;
 			return;
 		}
-		// A priced item on its manual fallback is not a like-for-like figure either (red team L5).
-		const partial =
-			summary.missingCount > 0 ||
-			summary.unconverted.length > 0 ||
-			summary.items.some((i) => i.basis === 'fallback');
-		await upsertSnapshot(db, spaceId, date, summary.totalMinor, now, partial);
+		const partial = summaryIsPartial(summary);
+		await upsertSnapshot(
+			db,
+			spaceId,
+			date,
+			summary.totalMinor,
+			now,
+			partial,
+			snapshotClasses(summary.classes)
+		);
 		counts.written++;
 		if (partial) counts.partial++;
 	} catch (e) {

@@ -2,7 +2,7 @@
  * Photos the user keeps (FN-27 belongings; FN-28 collectibles reuse this): the accepted types, sniffed from the
  * bytes on the server, never taken from the file name or the browser's type.
  */
-export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type PhotoType = (typeof PHOTO_TYPES)[number];
 /** Largest photo file accepted (FN-27 Owner decision 4: 8 MiB). */
 export const PHOTO_MAX_BYTES = 8 * 1024 * 1024;

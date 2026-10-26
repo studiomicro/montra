@@ -41,11 +41,11 @@ import { listWallets } from '../wallets/repo';
  */
 
 /** Most currencies a monthly or annual report reports separately (never summed across). */
-export const REPORT_CURRENCIES = 3;
+const REPORT_CURRENCIES = 3;
 /** Categories and merchants listed per currency. */
-export const REPORT_TOP = 10;
+const REPORT_TOP = 10;
 /** Longest name kept in the facts. */
-export const NAME_MAX = 80;
+const NAME_MAX = 80;
 
 const date = z.string().refine(isDateString);
 const month = z.string().regex(/^\d{4}-\d{2}$/);
@@ -68,7 +68,7 @@ const asset = z.object({
 });
 export type AssetFact = z.infer<typeof asset>;
 
-export const ASSET_GROUPS = ['items', 'debts', 'belongings', 'collectibles'] as const;
+const ASSET_GROUPS = ['items', 'debts', 'belongings', 'collectibles'] as const;
 export type AssetGroup = (typeof ASSET_GROUPS)[number];
 
 export const agentFacts = z.object({
@@ -161,7 +161,7 @@ export const agentFacts = z.object({
 export type AgentFacts = z.infer<typeof agentFacts>;
 
 /** Stored text as a report shows it: invisible characters stripped, capped, account-number digits masked. */
-export function reportName(text: string): string {
+function reportName(text: string): string {
 	return maskAccountNumbers(cleanText(text, NAME_MAX));
 }
 
@@ -471,7 +471,7 @@ export async function assetsStep(ctx: FactsContext, facts: AgentFacts): Promise<
 }
 
 /** Exact per-currency sums of the priced rows of one group (IDR first); null when a value or the sum is too large. */
-export function subtotalsOf(group: AssetGroup, rows: readonly AssetFact[]) {
+function subtotalsOf(group: AssetGroup, rows: readonly AssetFact[]) {
 	const sums = new Map<string, bigint | null>();
 	for (const r of rows) {
 		if (r.unpriced) continue;

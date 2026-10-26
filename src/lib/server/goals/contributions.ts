@@ -9,7 +9,7 @@ import type { GoalScope } from './repo';
 import type { ContributionInput } from './validation';
 
 /** Contributions shown per page of a goal's history (newest first). */
-export const CONTRIBUTIONS_PAGE_SIZE = 50;
+const CONTRIBUTIONS_PAGE_SIZE = 50;
 /** Most live contributions one goal holds (deleted ones do not count); bounds the rows each sum scans. */
 export const MAX_CONTRIBUTIONS_PER_GOAL = 10_000;
 

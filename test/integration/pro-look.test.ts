@@ -145,7 +145,7 @@ async function postTheme(token: string, theme: string) {
 	await handle({
 		event,
 		resolve: async (e) => {
-			result = await (tampilan.actions.default as Action)(e as never);
+			result = await (tampilan.actions.theme as Action)(e as never);
 			return new Response('ok');
 		}
 	});

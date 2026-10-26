@@ -4,7 +4,7 @@
 	import type { IconName } from '#lib/ui/icons';
 
 	/**
-	 * A page's primary action (§ 3a): an ink pill in the header row on desktop (`at="header"`, inside
+	 * A page's primary action (§ 3a): an `--action` pill in the header row on desktop (`at="header"`, inside
 	 * ScreenTitle's actions) and full-width at the bottom of the page on a phone (`at="bottom"`). Render both;
 	 * each shows only at its own width, so the action exists once for assistive tech and tests.
 	 */

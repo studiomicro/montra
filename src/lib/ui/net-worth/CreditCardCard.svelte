@@ -1,14 +1,16 @@
 <script lang="ts">
+	import type { DueChip as DueChipValue } from '#lib/shared/cards';
 	import { formatMoney } from '#lib/shared/money-format';
 	import { riwayatHref } from '#lib/shared/riwayat-query';
 	import { maskedLastFour } from '#lib/shared/wallets';
 	import Icon from '#lib/ui/Icon.svelte';
+	import DueChip from '#lib/ui/cards/DueChip.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
 	import { shown } from '#lib/ui/kit/amounts.svelte';
 
 	// FN-25b: one credit-card wallet with what was spent from it in the last 30 WIB days (creditCardSpend). The
 	// card links to that exact Riwayat list (same wallet, type and period), so the figure reconciles with it.
-	// Statement and due days come with FN-25c.
+	// FN-55a: plus the card's available credit (money, never a percent) and its in-app due chip.
 	let {
 		card
 	}: {
@@ -20,9 +22,11 @@
 			from: string;
 			to: string;
 			totals: { currency: string; outMinor: number | null }[];
+			available?: { kind: 'available'; minor: number | null } | { kind: 'over' } | null;
+			due?: DueChipValue | null;
 		};
 	} = $props();
-	const { tr, locale } = useI18n();
+	const { tr, trf, locale } = useI18n();
 
 	const href = $derived(
 		riwayatHref({
@@ -57,7 +61,20 @@
 					: shown(formatMoney(l.outMinor, l.currency, 'auto', locale))}
 			</span>
 		{/each}
+		{#if card.available}
+			<span class="label num">
+				{card.available.kind === 'over'
+					? tr('Melebihi limit')
+					: trf('Kredit tersedia {jumlah}', {
+							jumlah:
+								card.available.minor === null
+									? tr('Total terlalu besar untuk ditampilkan')
+									: shown(formatMoney(card.available.minor, card.currency, 'auto', locale))
+						})}
+			</span>
+		{/if}
 	</span>
+	{#if card.due}<span class="due"><DueChip due={card.due} /></span>{/if}
 	<span class="chev" aria-hidden="true"><Icon name="chevron-right" size={18} /></span>
 </a>
 
@@ -129,6 +146,9 @@
 	.amount {
 		font-size: 19px;
 		font-weight: 700;
+	}
+	.due {
+		display: flex;
 	}
 	.chev {
 		position: absolute;

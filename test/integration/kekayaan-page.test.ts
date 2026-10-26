@@ -364,7 +364,10 @@ describe('credit cards: 30-day spend', () => {
 				currency: 'IDR',
 				from: addDays(today, -29),
 				to: today,
-				totals: [{ currency: 'IDR', outMinor: 2_330_000_00 }]
+				totals: [{ currency: 'IDR', outMinor: 2_330_000_00 }],
+				// FN-55a: no limit and no due day typed: no available line and no chip.
+				available: null,
+				due: null
 			},
 			{
 				walletId: other,
@@ -373,7 +376,9 @@ describe('credit cards: 30-day spend', () => {
 				currency: 'IDR',
 				from: addDays(today, -29),
 				to: today,
-				totals: []
+				totals: [],
+				available: null,
+				due: null
 			}
 		]);
 		const riwayat = await periodTotals(db, p.scope.spaceId, {

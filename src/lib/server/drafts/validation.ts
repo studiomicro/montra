@@ -8,7 +8,7 @@ export interface DraftRef {
 }
 
 /** Name of the checkbox field that carries the selection (`<id>:<updated_at>` tokens, `draftToken`). */
-export const SELECTION_FIELD = 'd';
+const SELECTION_FIELD = 'd';
 /** Most tokens read from one body before any work (the 8 KiB body cap already bounds it). */
 const TOKENS_READ_MAX = 200;
 

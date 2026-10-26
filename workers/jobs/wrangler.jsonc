@@ -45,7 +45,7 @@
 			"account_id": "00000000000000000000000000000000",
 			"workers_dev": true,
 			"observability": { "enabled": true },
-			"vars": { "APP_VERSION": "0.11.0", "APP_ENV": "staging" },
+			"vars": { "APP_VERSION": "0.17.0", "APP_ENV": "staging" },
 			"triggers": { "crons": ["0 23,0-16 * * *"] },
 			"d1_databases": [
 				{

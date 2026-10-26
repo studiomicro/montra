@@ -85,11 +85,11 @@ describe('flowLayout (money flow, FN-35)', () => {
 	};
 
 	it('places the bars across the width: first after its labels, last before its labels, the middle between', () => {
-		const l = flowLayout(columns, links, 360);
+		const l = flowLayout(columns, links, 640);
 		expect(l.barX).toHaveLength(3);
-		const label = Math.max(76, Math.round(360 * 0.24));
+		const label = Math.max(76, Math.round(640 * 0.24));
 		expect(l.barX[0]).toBe(label);
-		expect(l.barX[2]).toBe(360 - label - FLOW_BAR);
+		expect(l.barX[2]).toBe(640 - label - FLOW_BAR);
 		expect(l.barX[1]).toBeCloseTo((l.barX[0]! + l.barX[2]!) / 2, 1);
 		// Labels sit beside the bar, inside the width: first column on the left, the others on the right.
 		for (const node of l.nodes) {
@@ -99,12 +99,32 @@ describe('flowLayout (money flow, FN-35)', () => {
 			} else {
 				expect(node.label.anchor).toBe('start');
 				expect(node.label.x).toBeGreaterThan(node.bar.x + node.bar.width);
-				expect(node.label.x + node.label.width).toBeLessThanOrEqual(360.01);
+				expect(node.label.x + node.label.width).toBeLessThanOrEqual(640.01);
 			}
 		}
 		// The middle labels end before the next column's bar.
 		for (const node of l.nodes.filter((x) => x.column === 1))
 			expect(node.label.x + node.label.width).toBeLessThan(l.barX[2]!);
+	});
+
+	it('on a phone the right labels get a fixed column and the middle labels sit centred on their bar', () => {
+		const W = 320;
+		const l = flowLayout(columns, links, W);
+		expect(l.barX[0]).toBe(Math.max(76, Math.round(W * 0.24)));
+		expect(l.barX[2]).toBe(W - 104 - FLOW_BAR);
+		for (const node of l.nodes.filter((x) => x.column === 2)) {
+			expect(node.label.anchor).toBe('start');
+			expect(node.label.width).toBeGreaterThanOrEqual(90);
+			expect(node.label.x + node.label.width).toBeLessThanOrEqual(W + 0.01);
+		}
+		for (const node of l.nodes.filter((x) => x.column === 1)) {
+			expect(node.label.anchor).toBe('middle');
+			expect(node.label.x).toBeCloseTo(node.bar.x + FLOW_BAR / 2, 1);
+			// Wider than the old squeeze between two bars, and clear of both neighbouring bars.
+			expect(node.label.width).toBeGreaterThan(80);
+			expect(node.label.x - node.label.width / 2).toBeGreaterThan(l.barX[0]! + FLOW_BAR);
+			expect(node.label.x + node.label.width / 2).toBeLessThan(l.barX[2]!);
+		}
 	});
 
 	it('two columns give their labels a wider share of the width', () => {

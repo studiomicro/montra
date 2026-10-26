@@ -65,7 +65,7 @@ export async function berandaSummary(
 }
 
 /** Rows in Beranda's "Terbaru" list. */
-export const RECENT_ROWS = 3;
+const RECENT_ROWS = 3;
 /** "Akan datang": bills due within this many days (today included), at most UPCOMING_ROWS of them. */
 export const UPCOMING_DAYS = 7;
 export const UPCOMING_ROWS = 3;

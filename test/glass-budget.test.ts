@@ -107,4 +107,19 @@ describe('glass material (FN-40)', () => {
 			expect(outside).not.toMatch(lift);
 		}
 	);
+
+	it('FN-54: the daily greeting is one blurred layer, the shared Sheet; the hero card and calendar are flat', () => {
+		const story = markupOf('src/lib/ui/home/DailyStory.svelte');
+		expect(story).toMatch(/<Sheet\b/);
+		for (const file of [
+			'src/lib/ui/home/DailyStory.svelte',
+			'src/lib/ui/home/GreetingHero.svelte',
+			'src/lib/ui/home/HeroScene.svelte',
+			'src/lib/ui/kit/CalendarBadge.svelte',
+			'src/routes/(app)/kalender/+page.svelte'
+		]) {
+			expect(markupOf(file), file).not.toMatch(/class="[^"]*\bglass\b/);
+			expect(styleOf(file), file).not.toMatch(/backdrop-filter|box-shadow:(?!\s*none)/);
+		}
+	});
 });

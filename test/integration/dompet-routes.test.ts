@@ -9,6 +9,8 @@ import {
 	BALANCE_INVALID,
 	BALANCE_INVALID_CENTS,
 	CURRENCY_INVALID,
+	EMONEY_FIELD_ONLY,
+	EMONEY_ISSUER_REQUIRED,
 	LAST_FOUR_INVALID,
 	LOAD_FAILED,
 	NAME_REQUIRED,
@@ -137,6 +139,7 @@ interface LoadedWallet {
 	currency: string;
 	archived: boolean;
 	lastFour: string | null;
+	emoneyIssuer: string | null;
 }
 async function walletsOf(who: Person, path = '/dompet', spaceCookie?: string) {
 	const r = await load(who, path, spaceCookie);
@@ -359,6 +362,82 @@ describe('createWallet', () => {
 		);
 		expect(plain).toMatchObject({ kind: 'error', status: 415 });
 		expect(await rowCount()).toBe(before);
+	});
+});
+
+describe('FN-58 pass 1: "Kartu e-money"', () => {
+	it('an e-money pick link prefills only a new wallet, only with a known issuer', async () => {
+		const p = await person();
+		expect(await load(p, '/dompet?tambah=1&kartu=bca_flazz')).toMatchObject({
+			value: { open: 'add', emoneyPick: 'bca_flazz' }
+		});
+		for (const path of [
+			'/dompet?tambah=1&kartu=gopay',
+			'/dompet?tambah=1&kartu=__proto__',
+			'/dompet?ubah=abc&kartu=kmt',
+			'/dompet?kartu=kmt'
+		])
+			expect(await load(p, path)).toMatchObject({ value: { emoneyPick: null } });
+	});
+
+	it('saves an e_wallet with its issuer and last 4; refuses the choice without an issuer, writing nothing', async () => {
+		const p = await person();
+		const before = await rowCount();
+		expect(
+			await post(p, 'createWallet', valid({ name: 'Flazz', type: 'e_money', emoneyIssuer: '' }))
+		).toMatchObject({
+			kind: 'fail',
+			status: 400,
+			data: { errors: { emoneyIssuer: EMONEY_ISSUER_REQUIRED }, values: { type: 'e_money' } }
+		});
+		expect(await rowCount()).toBe(before);
+		expect(
+			await post(
+				p,
+				'createWallet',
+				valid({
+					name: 'Flazz',
+					type: 'e_money',
+					emoneyIssuer: 'bca_flazz',
+					lastFour: '0042',
+					openingBalance: '150.000'
+				})
+			)
+		).toEqual({ kind: 'ok', value: { saved: 'created' } });
+		const [w] = await walletsOf(p);
+		expect(w).toMatchObject({
+			name: 'Flazz',
+			type: 'e_wallet',
+			emoneyIssuer: 'bca_flazz',
+			lastFour: '0042',
+			balanceMinor: 15_000_000
+		});
+		// The edit form posts the same choice back; another type clears the issuer.
+		expect(
+			await post(
+				p,
+				'updateWallet',
+				valid({
+					walletId: w!.id,
+					updatedAt: String(w!.updatedAt),
+					name: 'Flazz',
+					type: 'e_wallet',
+					emoneyIssuer: 'bca_flazz'
+				})
+			)
+		).toMatchObject({
+			kind: 'fail',
+			status: 400,
+			data: { errors: { emoneyIssuer: EMONEY_FIELD_ONLY } }
+		});
+		expect(
+			await post(
+				p,
+				'updateWallet',
+				valid({ walletId: w!.id, updatedAt: String(w!.updatedAt), name: 'Flazz', type: 'e_wallet' })
+			)
+		).toEqual({ kind: 'ok', value: { saved: 'updated' } });
+		expect((await walletsOf(p))[0]).toMatchObject({ type: 'e_wallet', emoneyIssuer: null });
 	});
 });
 

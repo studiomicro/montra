@@ -19,7 +19,7 @@ import type { SubscriptionInput } from './validation';
 /** Most live subscriptions one space holds (owner decision 5); also the list's row cap. */
 export const MAX_SUBSCRIPTIONS_PER_SPACE = 100;
 /** How many recent expenses "hubungkan transaksi" offers. */
-export const PAYABLE_EXPENSES_LIMIT = 30;
+const PAYABLE_EXPENSES_LIMIT = 30;
 
 // Every function here runs only after `requireSpaceAccess` admitted `scope.userId` to `scope.spaceId`; each
 // write repeats that membership (`isLiveMember`) inside its own statement, so a removal in between changes

@@ -9,7 +9,7 @@ import type { ToolDefinition } from './anthropic.ts';
 /** Longest category, wallet or subscription name in a tool input or result. */
 export const NAME_MAX = 60;
 /** Most merchants `top_merchants` returns (aggregate.ts MAX_MERCHANTS). */
-export const MERCHANTS_MAX = 10;
+const MERCHANTS_MAX = 10;
 export const PERIOD_PATTERN =
 	'^(this_month|last_month|last_3_months|this_year|month:[0-9]{4}-(0[1-9]|1[0-2]))$';
 
@@ -105,7 +105,5 @@ export const DEFINITIONS = {
 		input_schema: NO_INPUT_DOC
 	}
 } as const satisfies Record<string, ToolDefinition>;
-
-export type ToolName = keyof typeof DEFINITIONS;
 
 export const TOOL_DEFINITIONS: readonly ToolDefinition[] = Object.values(DEFINITIONS);

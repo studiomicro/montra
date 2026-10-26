@@ -38,7 +38,7 @@ const FIELD_CAP = 64;
  * MAX_PARTICIPANTS rows before any work. Guests are two aligned lists (`guestName`, `guestShare`), one pair per
  * row; a row with an empty name is no guest.
  */
-export function splitFormValues(form: FormData): PatunganFormValues {
+function splitFormValues(form: FormData): PatunganFormValues {
 	const strings = (name: string) =>
 		form
 			.getAll(name)

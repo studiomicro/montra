@@ -77,15 +77,18 @@
 			box-shadow: var(--glass-shadow);
 		}
 	}
-	/* The current tab is the ink icon, the others stay grey, `--muted` for 3:1 icon contrast (colour is not the only cue: aria-current). */
+	/*
+	 * The current tab is the --action icon (FN-57: blue in light, ink in dark), the others stay grey, `--muted` for
+	 * 3:1 icon contrast (colour is not the only cue: aria-current).
+	 */
 	.tab[aria-current='page'] {
 		background: var(--on-glass-active);
-		color: var(--ink);
+		color: var(--action);
 	}
 	.tab[aria-current='page'] :global(svg) {
 		stroke-width: 2.4;
 	}
-	/* Tambah: a round ink button, bottom-right, solid (not glass: one blurred layer fewer). */
+	/* Tambah: a round --action button (FN-57), bottom-right, solid (not glass: one blurred layer fewer). */
 	.fab {
 		position: fixed;
 		right: max(16px, var(--sai-right));
@@ -98,8 +101,8 @@
 		padding: 0;
 		border: 0;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		box-shadow: var(--shadow-float);
 		transition: transform 0.15s var(--ease);
 	}

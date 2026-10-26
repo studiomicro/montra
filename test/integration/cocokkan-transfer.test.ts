@@ -249,6 +249,7 @@ describe('proposeTransferMatches (AC-1, AC-7, AC-9, AC-11, AC-12, AC-19)', () =>
 		});
 		const [pair] = preview.groups[0]!.pairs;
 		expect(pair).toEqual({
+			kind: 'own',
 			debit: {
 				id: debit,
 				title: 'SWITCHING DB TRF BUDI SANTOSO 009 BANK CENTRA ••••7890',
@@ -442,7 +443,9 @@ describe('applyTransferMatch (AC-2, AC-3, AC-8, AC-10, AC-14 … AC-16)', () => 
 				currency: 'IDR',
 				occurredOn: '2026-07-10',
 				fromWalletId: a.A,
-				toWalletId: a.B
+				toWalletId: a.B,
+				// FN-48d: a confirm without a source is the user's own merge.
+				source: 'manual'
 			}
 		]);
 	});

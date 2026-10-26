@@ -20,7 +20,7 @@ export interface GmailKeyEnv {
 }
 
 /** Largest refresh token sealed (UTF-8 bytes); Google's are a few hundred. */
-export const REFRESH_TOKEN_MAX_BYTES = 4000;
+const REFRESH_TOKEN_MAX_BYTES = 4000;
 const VERIFIER_MAX_BYTES = 128;
 
 const TOKEN_LABELS = { aad: 'financer/gmail/token/v1', keyId: 'financer/gmail/key-id/v1' };

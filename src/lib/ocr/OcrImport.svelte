@@ -967,17 +967,16 @@
 		padding: 0 16px;
 		border: 0;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		font: inherit;
 		font-weight: 600;
 		white-space: nowrap;
 	}
-	/* Panel pill with the kit's hairline, on the --bg capture box. */
+	/* A panel pill on the --bg capture box (fills, not frames). */
 	.capture-btn.secondary {
 		background: var(--panel);
 		color: var(--ink);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
 	}
 	.capture-btn:focus-visible {
 		outline: 2px solid var(--brand);

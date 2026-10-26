@@ -260,7 +260,7 @@ export function coseAlgorithm(coseKey: Uint8Array): PasskeyAlgorithm | null {
 }
 
 /** A COSE key (ES256 or RS256) as a WebCrypto verify key; null when it is not one we accept. */
-export async function importCoseKey(coseKey: Uint8Array): Promise<CryptoKey | null> {
+async function importCoseKey(coseKey: Uint8Array): Promise<CryptoKey | null> {
 	const alg = coseAlgorithm(coseKey);
 	if (alg === null) return null;
 	const map = decodeCbor(coseKey).value as Map<CborValue, CborValue>;

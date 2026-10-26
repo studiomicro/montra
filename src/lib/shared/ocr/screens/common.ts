@@ -38,7 +38,7 @@ export interface ScreenParser {
 }
 
 /** Lines at the top of a page that count as its header (status bar, app bar, screen title). */
-export const HEADER_LINES = 6;
+const HEADER_LINES = 6;
 
 /** Status words of a row that did not complete: skipped and counted, never imported. */
 const NOT_COMPLETED = /\b(gagal|dibatalkan|batal|menunggu|failed|cancel(?:l)?ed|pending)\b/i;
@@ -164,12 +164,12 @@ const NAMED_DATE = new RegExp(
 const RELATIVE_DATE = /^(hari ini|kemarin)(?=[\s,]|$)/i;
 const TIME = /(?<![\p{Nd}:])([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?(?:\s?WIB)?(?![\p{Nd}:])/u;
 
-export type PrintedDate =
+type PrintedDate =
 	| { kind: 'dated'; day: number; month: number; year: number | null; length: number; conf: number }
 	| { kind: 'relative'; phrase: string; length: number; conf: number };
 
 /** A date at the start of a line (`10/10`, `10/10/2026`, `10 Okt 2026`, `Senin, 10 Okt`, `Hari ini`). */
-export function dateAtStart(view: { text: string; words: LineView['words'] }): PrintedDate | null {
+function dateAtStart(view: { text: string; words: LineView['words'] }): PrintedDate | null {
 	const conf = (length: number) => minConf(view as LineView, 0, length);
 	const relative = RELATIVE_DATE.exec(view.text);
 	if (relative)
@@ -213,7 +213,7 @@ export function dateAtStart(view: { text: string; words: LineView['words'] }): P
 }
 
 /** A printed period (`Periode 01/10/2026 - 10/10/2026`, `1 Okt 2026 - 10 Okt 2026`), else null. */
-export function periodIn(text: string): StatementPeriod | null {
+function periodIn(text: string): StatementPeriod | null {
 	const body = text.replace(/^.*?(?:periode|period)\s*:?\s*/i, '');
 	const [a = '', b = ''] = body.split(/\s[-–]\s|\s(?:s\/d|sd|sampai|to)\s/i);
 	const view = (t: string) => ({ text: t.trim(), words: [] });
@@ -244,7 +244,7 @@ interface RawScreenRow {
 	ambiguous: boolean;
 }
 
-export interface ScreenRow {
+interface ScreenRow {
 	row: MappedRow;
 	page: number;
 	/** The dedupe key's distinguishing part: printed balance after the row, else its time, else ''. */

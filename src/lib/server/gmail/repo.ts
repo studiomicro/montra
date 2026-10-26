@@ -48,7 +48,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 
 /** The look-back scan the settings page shows (the running one, else the latest). */
-export interface ScanView {
+interface ScanView {
 	id: string;
 	status: GmailScanStatus;
 	days: number | null;

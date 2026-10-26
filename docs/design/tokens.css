@@ -29,10 +29,25 @@
 	--on-dark: #f5f5f7;
 	--on-dark-muted: #a1a1a6;
 
-	/* brand — ours, owner may change the hue; never another product's brand colour */
-	--brand: #1f6feb;
-	--brand-deep: #1558c0;
-	--brand-soft: #e8f0fe;
+	/*
+	 * brand — ours, never another product's brand colour. FN-57 (owner decision 2026-10-26): electric blue, the FN-56
+	 * auth-card hue, for links and the focus ring (7.0:1 on --bg).
+	 */
+	--brand: #0b3df5;
+	--brand-deep: #0832c4;
+	--brand-soft: #e7ecfe;
+	/*
+	 * FN-56 brand surface: the electric-blue card behind the sign-in/sign-up ASCII field (black in dark, near-black
+	 * in mono), with its glyph colour (AA at full strength).
+	 */
+	--brand-surface: #0b3df5;
+	--on-brand-surface: #ffffff;
+	/*
+	 * FN-57 action fill: primary buttons, Tambah, the current tab, switched-on toggles and selected pills. Electric
+	 * blue with white (7.0:1) in the default light theme; ink with the page colour in dark, mono, gold and emerald.
+	 */
+	--action: var(--brand);
+	--on-action: #ffffff;
 
 	/* meaning */
 	--money-in: #16813a; /* income, "lebih hemat" (spent less); AA on bg and panel */
@@ -174,13 +189,13 @@
 	 * `-soft` is the lighter, page-coloured frost for sticky bars and cards over colour. --glass-solid is the
 	 * opaque fallback that text contrast is tested against (reduced transparency, no backdrop-filter, under a sheet).
 	 */
-	--glass-bg: rgba(255, 255, 255, 0.78);
+	--glass-bg: rgba(255, 255, 255, 0.64);
 	--glass-solid: #ffffff;
 	--glass-border: rgba(255, 255, 255, 0.7);
 	--glass-shadow:
 		0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 6px -2px rgba(0, 0, 0, 0.08),
 		0 12px 32px -12px rgba(0, 0, 0, 0.24);
-	--glass-blur: blur(16px) saturate(180%);
+	--glass-blur: blur(24px) saturate(200%);
 	--glass-bg-soft: rgba(255, 255, 255, 0.72);
 	--glass-blur-soft: blur(10px) saturate(150%);
 	--on-glass-active: rgba(0, 0, 0, 0.06);
@@ -207,17 +222,20 @@
 		--brand: #4c8dff;
 		--brand-deep: #2f74f0;
 		--brand-soft: #14223d;
+		--brand-surface: #000000;
+		--action: var(--ink);
+		--on-action: var(--bg);
 		--money-in: #3dbe68;
 		--money-up: #ff6b70;
 		--same: #8a81f8;
 		--same-soft: #24223f;
 		--ok: #3dbe68;
-		--chart-bar: #3a3a3a;
+		--chart-bar: #444444;
 		--chart-track: #303030;
 		--accent: #8b85f5;
-		--heat-1: #34334d;
-		--heat-2: #484674;
-		--heat-3: #615da3;
+		--heat-1: #403e63;
+		--heat-2: #514e85;
+		--heat-3: #6763b0;
 		--heat-4: #8b85f5;
 		--warn: #e0a032;
 		--warn-text: #e8aa45;
@@ -227,7 +245,7 @@
 		--pro-soft: #2a2312;
 		--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
 		--shadow-float: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
-		--glass-bg: rgba(28, 28, 30, 0.78);
+		--glass-bg: rgba(28, 28, 30, 0.64);
 		--glass-solid: #1c1c1e;
 		--glass-border: rgba(255, 255, 255, 0.1);
 		--glass-shadow:
@@ -235,7 +253,7 @@
 			0 12px 32px -12px rgba(0, 0, 0, 0.6);
 		--glass-bg-soft: rgba(17, 17, 18, 0.72);
 		--on-glass-active: rgba(255, 255, 255, 0.1);
-		--scrim: rgba(0, 0, 0, 0.55);
+		--scrim: rgba(0, 0, 0, 0.72);
 		--nw-wallets: #2fb3a4;
 		--nw-cash: #9aa7b6;
 		--nw-investment: #e46ba5;
@@ -263,17 +281,20 @@
 	--brand: #4c8dff;
 	--brand-deep: #2f74f0;
 	--brand-soft: #14223d;
+	--brand-surface: #000000;
+	--action: var(--ink);
+	--on-action: var(--bg);
 	--money-in: #3dbe68;
 	--money-up: #ff6b70;
 	--same: #8a81f8;
 	--same-soft: #24223f;
 	--ok: #3dbe68;
-	--chart-bar: #3a3a3a;
+	--chart-bar: #444444;
 	--chart-track: #303030;
 	--accent: #8b85f5;
-	--heat-1: #34334d;
-	--heat-2: #484674;
-	--heat-3: #615da3;
+	--heat-1: #403e63;
+	--heat-2: #514e85;
+	--heat-3: #6763b0;
 	--heat-4: #8b85f5;
 	--warn: #e0a032;
 	--warn-text: #e8aa45;
@@ -283,7 +304,7 @@
 	--pro-soft: #2a2312;
 	--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
 	--shadow-float: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
-	--glass-bg: rgba(28, 28, 30, 0.78);
+	--glass-bg: rgba(28, 28, 30, 0.64);
 	--glass-solid: #1c1c1e;
 	--glass-border: rgba(255, 255, 255, 0.1);
 	--glass-shadow:
@@ -291,7 +312,7 @@
 		0 12px 32px -12px rgba(0, 0, 0, 0.6);
 	--glass-bg-soft: rgba(17, 17, 18, 0.72);
 	--on-glass-active: rgba(255, 255, 255, 0.1);
-	--scrim: rgba(0, 0, 0, 0.55);
+	--scrim: rgba(0, 0, 0, 0.72);
 	--nw-wallets: #2fb3a4;
 	--nw-cash: #9aa7b6;
 	--nw-investment: #e46ba5;
@@ -322,6 +343,9 @@
 	--dark-line: #2c2c2c;
 	--on-dark: #f5f5f5;
 	--on-dark-muted: #a3a3a3;
+	--brand-surface: #141414;
+	--action: var(--ink);
+	--on-action: var(--bg);
 	--same: #4d4d4d;
 	--same-soft: #ededed;
 	--ok: #393939;
@@ -395,13 +419,13 @@
 	--badge-maxim: #8e8e8e;
 	--badge-shopeefood: #858585;
 	--badge-indrive: #7f7f7f;
-	--glass-bg: rgba(255, 255, 255, 0.78);
+	--glass-bg: rgba(255, 255, 255, 0.64);
 	--glass-solid: #ffffff;
 	--glass-border: rgba(255, 255, 255, 0.7);
 	--glass-shadow:
 		0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 6px -2px rgba(0, 0, 0, 0.08),
 		0 12px 32px -12px rgba(0, 0, 0, 0.24);
-	--glass-blur: blur(16px);
+	--glass-blur: blur(24px);
 	--glass-bg-soft: rgba(255, 255, 255, 0.72);
 	--glass-blur-soft: blur(10px);
 }
@@ -423,15 +447,18 @@
 		--dark-line: #262626;
 		--on-dark: #f5f5f5;
 		--on-dark-muted: #a3a3a3;
+		--brand-surface: #000000;
+		--action: var(--ink);
+		--on-action: var(--bg);
 		--same: #bdbdbd;
 		--same-soft: #262626;
 		--ok: #d2d2d2;
-		--chart-bar: #3a3a3a;
+		--chart-bar: #444444;
 		--chart-track: #303030;
 		--accent: #d6d6d6;
-		--heat-1: #2e2e2e;
-		--heat-2: #444444;
-		--heat-3: #5e5e5e;
+		--heat-1: #424242;
+		--heat-2: #575757;
+		--heat-3: #6e6e6e;
 		--heat-4: #d6d6d6;
 		--warn: #9c9c9c;
 		--warn-text: #b4b4b4;
@@ -439,7 +466,7 @@
 		--pro: #a6a6a6;
 		--pro-text: #d0d0d0;
 		--pro-soft: #262626;
-		--glass-bg: rgba(29, 29, 29, 0.78);
+		--glass-bg: rgba(29, 29, 29, 0.64);
 		--glass-solid: #1d1d1d;
 		--glass-border: rgba(255, 255, 255, 0.1);
 		--glass-shadow:
@@ -462,6 +489,8 @@
  * data accent take the hue; ink, money in/out and the brand focus colour stay as they are (colour only for meaning).
  */
 :root[data-theme='gold'] {
+	--action: var(--ink);
+	--on-action: var(--bg);
 	--bg: #fffdf8;
 	--bg-soft: #fdf8ee;
 	--panel: #faf5ea;
@@ -476,13 +505,15 @@
 	--heat-4: #946603;
 	--raised: #fffdf8;
 	--pro-soft: #fcf5e3;
-	--glass-bg: rgba(255, 253, 248, 0.78);
+	--glass-bg: rgba(255, 253, 248, 0.64);
 	--glass-solid: #fffdf8;
 	--glass-bg-soft: rgba(255, 253, 248, 0.72);
 }
 
 @media (prefers-color-scheme: dark) {
 	:root[data-theme='gold'] {
+		--action: var(--ink);
+		--on-action: var(--bg);
 		--bg: #14120d;
 		--bg-soft: #17150f;
 		--panel: #201c13;
@@ -497,13 +528,15 @@
 		--heat-4: #ddb04a;
 		--raised: #3b3527;
 		--pro-soft: #302814;
-		--glass-bg: rgba(32, 28, 19, 0.78);
+		--glass-bg: rgba(32, 28, 19, 0.64);
 		--glass-solid: #201c13;
 		--glass-bg-soft: rgba(20, 18, 13, 0.72);
 	}
 }
 
 :root[data-theme='emerald'] {
+	--action: var(--ink);
+	--on-action: var(--bg);
 	--bg: #fbfefc;
 	--bg-soft: #f5fbf8;
 	--panel: #f1f8f4;
@@ -517,13 +550,15 @@
 	--heat-3: #62bba7;
 	--heat-4: #0b6f6a;
 	--raised: #fbfefc;
-	--glass-bg: rgba(251, 254, 252, 0.78);
+	--glass-bg: rgba(251, 254, 252, 0.64);
 	--glass-solid: #fbfefc;
 	--glass-bg-soft: rgba(251, 254, 252, 0.72);
 }
 
 @media (prefers-color-scheme: dark) {
 	:root[data-theme='emerald'] {
+		--action: var(--ink);
+		--on-action: var(--bg);
 		--bg: #0d1311;
 		--bg-soft: #101714;
 		--panel: #16201c;
@@ -537,7 +572,7 @@
 		--heat-3: #27706a;
 		--heat-4: #4dc2b6;
 		--raised: #2d3c36;
-		--glass-bg: rgba(22, 32, 28, 0.78);
+		--glass-bg: rgba(22, 32, 28, 0.64);
 		--glass-solid: #16201c;
 		--glass-bg-soft: rgba(13, 19, 17, 0.72);
 	}

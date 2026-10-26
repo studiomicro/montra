@@ -31,7 +31,10 @@ import type { StatementParse, StatementSection } from './types.ts';
  *   line `<debet> <kredit> <saldo>` is its start line or a wrapped line after it, and is followed by the row's
  *   `Berita : …` note and its wrapped lines; the note can continue at the top of the next page's table;
  * - no closing line in the table: the last page's summary prints per currency `<ISO> <rate, 3 decimals>
- *   <balance> <balance in IDR>` and `Total Saldo Dalam IDR / Balance Total in IDR <amount>`;
+ *   <balance> <balance in IDR>` and `Total Saldo Dalam IDR / Balance Total in IDR <amount>`. The summary opens
+ *   with `Mata Uang /`, `Currency`, `Tunggakan Bunga /` (the overdue table). It sits on a page of its own when
+ *   the rows fill the previous page, or right after the last row on the last table page, before the legal text;
+ *   there that opening closes the table;
  * - amounts as `1,234,567.89` (the Konsolidasi grammar, ocbc-text.ts).
  *
  * A section is one currency block; only the IDR one is importable, any other is listed (`unsupported_currency`).
@@ -41,8 +44,9 @@ import type { StatementParse, StatementSection } from './types.ts';
  * legal text on a page, or one currency printed as two blocks refuses the whole file. A section is only imported
  * when it checks out against itself: every row's printed running balance from `Beginning Balance` to the
  * summary's own-currency balance (never the IDR column), exactly one of debet/kredit per row, the one printed
- * period every row date lies in. The summary must list exactly the file's currencies, IDR at rate 1.000, and its
- * total must equal its IDR column; a foreign block must also check out. Otherwise the file is refused whole.
+ * period every row date lies in. The summary must list every currency of the file (it may list more: a currency
+ * with no movement prints no table block), IDR at rate 1.000, and its total must equal its IDR column; a foreign
+ * block must also check out. Otherwise the file is refused whole.
  * The rate and the IDR column are read for these checks only, never stored (owner decision C).
  *
  * As for the Konsolidasi layout (red team L1), a `DD/MM/YYYY DD/MM/YYYY` line starts a row only in the column the
@@ -75,6 +79,9 @@ const isAccountLabel = (line: string, next: string | undefined) =>
 	line === 'NOMOR REKENING /' && next === 'ACCOUNT NUMBER';
 const isTableHeaderEnd = (line: string, next: string | undefined) =>
 	line === 'SALDO /' && next === 'BALANCE';
+/** The summary's opening: the overdue table's first labels. Inside a table it ends the table. */
+const isSummaryStart = (lines: readonly string[], i: number) =>
+	lines[i] === 'Mata Uang /' && lines[i + 1] === 'Currency' && lines[i + 2] === 'Tunggakan Bunga /';
 
 /** A page carries this layout's own header: the title, the branch line and the account number label. */
 const headerPage = (lines: readonly string[]) =>
@@ -162,6 +169,11 @@ function segment({ pages, canStart }: PositionedPages): Segmented {
 				if (LEGAL.test(line)) {
 					legal++;
 					inTable = false;
+				} else if (isSummaryStart(lines, i)) {
+					// The summary right after the last row: the table ends here. A note imitating it cuts its own
+					// row, and any row after it then sits outside a table, which refuses the whole file below.
+					inTable = false;
+					row = null;
 				} else if (isHeaderLine(line, next) || BEGINNING.test(line)) out.broken = true;
 				else if (CURRENCY_CODE.test(line)) {
 					const currency = CURRENCY_CODE.exec(line)![1]!;
@@ -263,12 +275,14 @@ function readRow(index: number, lines: readonly string[], period: Period | null)
 	};
 }
 
-/** The summary lists exactly the file's currencies, IDR at 1.000 to itself, and its total is its IDR column. */
+/**
+ * The summary lists every currency block of the file, IDR at 1.000 to itself, and its total is its IDR column.
+ * It may list more: a currency sub-account with no movement in the period prints no table block, only its
+ * summary line (a September 2026 sample: an SGD line, no SGD table).
+ */
 function summaryChecksOut(s: Segmented): boolean {
 	if (s.totals.length !== 1 || s.totals[0] === null) return false;
-	const currencies = s.blocks.map((b) => b.currency);
-	if (s.summary.size !== currencies.length || !currencies.every((c) => s.summary.has(c)))
-		return false;
+	if (!s.blocks.every((b) => s.summary.has(b.currency))) return false;
 	let idrTotal = 0;
 	for (const [currency, row] of s.summary) {
 		if (row.balance === null || row.idr === null) return false;

@@ -13,7 +13,7 @@ import type { NetWorthClass, NetWorthKind } from './net-worth.ts';
 /** The chart's ranges, as the `rentang` query parameter carries them. */
 export const TREND_RANGES = ['1m', '3m', '1y', 'all'] as const;
 export type TrendRange = (typeof TREND_RANGES)[number];
-export const DEFAULT_TREND_RANGE: TrendRange = '1m';
+const DEFAULT_TREND_RANGE: TrendRange = '1m';
 
 export const TREND_RANGE_LABELS: Readonly<Record<TrendRange, string>> = {
 	'1m': msg('1 bln'),
@@ -51,7 +51,7 @@ export function trendRangeStart(range: TrendRange, today: string): string | null
 // ---- Allocation bar ----
 
 /** One bar segment: an asset class holding a positive amount, with its whole-percent share of all assets. */
-export interface AllocationSlice {
+interface AllocationSlice {
 	cls: NetWorthClass;
 	minor: number;
 	pct: number;
@@ -107,7 +107,7 @@ export function allocationOf(
 // ---- Grouped sections ----
 
 /** The item kinds listed in the page's own Investasi and Kripto sections (the other kinds stay per kind). */
-export const SECTION_KINDS = {
+const SECTION_KINDS = {
 	investment: ['investment_stock', 'investment_gold'],
 	crypto: ['investment_crypto']
 } as const satisfies Record<string, readonly NetWorthKind[]>;
@@ -125,7 +125,7 @@ export function sectionOfKind(kind: NetWorthKind): WealthSection | null {
 export type WealthSuggestion = 'gold' | 'pension';
 
 /** Words that mark an item as a pension fund (case-insensitive). A display heuristic only, never stored. */
-export const PENSION_KEYWORDS = ['bpjs', 'jht', 'dplk', 'pensiun', 'pension'] as const;
+const PENSION_KEYWORDS = ['bpjs', 'jht', 'dplk', 'pensiun', 'pension'] as const;
 
 /**
  * The classes the space has not recorded yet, from a fixed list of two: gold (no gold item) and a pension fund

@@ -31,7 +31,7 @@ export const MAX_SERIES_PER_SPACE = 100;
 /** Most instances one `runDueSeries` call attempts (one queue message); a follow-up message continues. */
 export const MAX_INSTANCES_PER_RUN = 100;
 /** Generated transactions the series page lists. */
-export const SERIES_INSTANCES_LIMIT = 12;
+const SERIES_INSTANCES_LIMIT = 12;
 
 export interface RecurringSeries {
 	id: string;

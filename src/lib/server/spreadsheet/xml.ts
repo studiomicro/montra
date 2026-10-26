@@ -97,7 +97,7 @@ function parseAttrs(source: string): Record<string, string> {
 }
 
 /** Whether the part declares a DTD or an entity anywhere (checked before scanning). */
-export function hasDeclaration(xml: string): boolean {
+function hasDeclaration(xml: string): boolean {
 	return /<!(?:DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)/i.test(xml);
 }
 

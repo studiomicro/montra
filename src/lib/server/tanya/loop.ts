@@ -23,7 +23,7 @@ export const TANYA_MAX_TOOL_ROUNDS = 4;
 /** Most tool calls one round runs (a model asking for more gets an error result for the rest). */
 const MAX_CALLS_PER_ROUND = 8;
 /** The whole question's deadline (owner decision 5). */
-export const TANYA_TOTAL_TIMEOUT_MS = 55_000;
+const TANYA_TOTAL_TIMEOUT_MS = 55_000;
 
 export type LoopFailure =
 	| Exclude<AskOutcome['kind'], 'end_turn' | 'tool_use'>

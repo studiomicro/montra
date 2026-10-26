@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { useI18n } from '#lib/ui/i18n-context';
-	import Badge from '#lib/ui/kit/Badge.svelte';
 	import Button from '#lib/ui/kit/Button.svelte';
+	import StatusTag from '#lib/ui/kit/StatusTag.svelte';
 	import GroupList from '#lib/ui/kit/GroupList.svelte';
 	import GroupRow from '#lib/ui/kit/GroupRow.svelte';
 	import InitialsTile from '#lib/ui/kit/InitialsTile.svelte';
@@ -50,7 +50,8 @@
 					</span>
 				</a>
 				{#if space.id === data.currentId}
-					<Badge>{tr('Sedang dipakai')}</Badge>
+					<!-- A state, not an action: the status tag, so it never reads as a smaller twin of "Pakai" (POLISH_AUDIT B14). -->
+					<StatusTag>{tr('Sedang dipakai')}</StatusTag>
 				{:else}
 					<form
 						method="POST"

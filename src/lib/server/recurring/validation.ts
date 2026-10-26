@@ -73,7 +73,7 @@ const draftSchema = z
 	});
 /** `locale`: the UI language the form was shown in, whose separators the amount is read with (FN-47). */
 export type RecurringDraft = z.infer<typeof draftSchema> & { locale: Locale };
-export type RecurringField = Exclude<keyof RecurringDraft, 'locale'> | 'amountMinor';
+type RecurringField = Exclude<keyof RecurringDraft, 'locale'> | 'amountMinor';
 export type RecurringErrors = Partial<Record<RecurringField, string>>;
 
 /** A validated series template and schedule, its ids resolved inside the space. */
@@ -91,7 +91,7 @@ export interface RecurringInput {
 }
 
 /** The form's fields as typed, each cut to a bounded length before any work. */
-export function recurringFormValues(form: FormData): RecurringFormValues {
+function recurringFormValues(form: FormData): RecurringFormValues {
 	return {
 		type: textField(form, 'type').slice(0, 16),
 		amount: textField(form, 'amount').slice(0, 64),

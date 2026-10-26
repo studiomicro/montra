@@ -1,19 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { barHeights, linePoints, stackSegments } from './chart-scale';
+import { cappedBars, linePoints, stackSegments } from './chart-scale';
 
-describe('barHeights', () => {
+describe('cappedBars', () => {
 	it('handles empty and all-zero data', () => {
-		expect(barHeights([], 100)).toEqual([]);
-		expect(barHeights([0, 0, 0], 100)).toEqual([0, 0, 0]);
+		expect(cappedBars([], 100)).toEqual({ heights: [], clipped: [] });
+		expect(cappedBars([0, 0], 100)).toEqual({ heights: [0, 0], clipped: [false, false] });
 	});
-	it('scales to the max and keeps small values visible', () => {
-		expect(barHeights([50, 100, 1], 100, 2)).toEqual([50, 100, 2]);
+	it('scales like barHeights when no day is an outlier', () => {
+		expect(cappedBars([50, 100, 80], 100)).toEqual({
+			heights: [50, 100, 80],
+			clipped: [false, false, false]
+		});
+	});
+	it('caps one outlier at twice the median so the other days stay readable', () => {
+		// Median of the non-zero days is 100: the scale tops out at 200; the 3.5 jt rent day is clipped.
+		const { heights, clipped } = cappedBars([100, 0, 3_500, 50, 150, 100], 120);
+		expect(heights).toEqual([60, 0, 120, 30, 90, 60]);
+		expect(clipped).toEqual([false, false, true, false, false, false]);
+	});
+	it('uses the mean of the two middle days for an even count', () => {
+		// Non-zero sorted: 10, 20, 30, 1000 → median 25, cap 50.
+		expect(cappedBars([10, 20, 30, 1_000], 100).heights).toEqual([20, 40, 60, 100]);
+	});
+	it('keeps every non-zero day at least minVisible tall', () => {
+		expect(cappedBars([1, 100, 100], 120).heights).toEqual([6, 120, 120]);
+		expect(cappedBars([1, 100, 100], 120, { minVisible: 4 }).heights[0]).toBe(4);
 	});
 	it('treats negative values as zero', () => {
-		expect(barHeights([-5, 10], 100)).toEqual([0, 100]);
-	});
-	it('works for a single day', () => {
-		expect(barHeights([7], 80)).toEqual([80]);
+		expect(cappedBars([-5, 10], 100)).toEqual({ heights: [0, 100], clipped: [false, false] });
 	});
 });
 

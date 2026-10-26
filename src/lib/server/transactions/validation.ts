@@ -87,7 +87,7 @@ export type TransactionDraft = z.infer<typeof draftSchema> & {
 	locale: Locale;
 	exactAmountMinor?: number;
 };
-export type TransactionField = Exclude<keyof TransactionDraft, 'locale'> | 'amountMinor';
+type TransactionField = Exclude<keyof TransactionDraft, 'locale'> | 'amountMinor';
 export type FieldErrors = Partial<Record<TransactionField, string>>;
 
 export type ParsedTransactionForm =
@@ -164,7 +164,7 @@ export function parseTransactionForm(
  * The rule for an amount given exactly in minor units (a stored capture, FN-11; a public-API write, FN-38):
  * a safe integer from 1 to MAX_AMOUNT_MINOR. Sen are kept, never re-read from whole units. Null when it holds.
  */
-export function exactAmountError(amount: number): string | null {
+function exactAmountError(amount: number): string | null {
 	if (!Number.isSafeInteger(amount) || amount <= 0) return AMOUNT_INVALID;
 	if (amount > MAX_AMOUNT_MINOR) return AMOUNT_TOO_LARGE;
 	return null;
@@ -340,7 +340,7 @@ export type AdjustmentDraft = z.infer<typeof adjustmentSchema> & {
 };
 
 /** The adjustment form's fields as typed, each cut to a bounded length before any work. */
-export function adjustmentFormValues(form: FormData): AdjustmentFormValues {
+function adjustmentFormValues(form: FormData): AdjustmentFormValues {
 	return {
 		walletId: textField(form, 'walletId').slice(0, ID_MAX_LENGTH + 1),
 		balance: textField(form, 'balance').slice(0, 64),

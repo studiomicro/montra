@@ -30,7 +30,7 @@ export interface RkRow {
 }
 
 /** Opens a currency block: `Currency Code : <ISO>` and `Beginning Balance <opening>`. */
-export interface RkBlock {
+interface RkBlock {
 	currency: string;
 	opening: string;
 	/** Summary rate, three decimals (`12,000.000`); IDR prints `1.000`. */
@@ -55,6 +55,8 @@ export interface RkFixture {
 	noFooter?: boolean;
 	/** Leave the legal text off this page (0-based). */
 	noLegalOnPage?: number;
+	/** Print the summary after the last table page's rows (before its legal text), not on a page of its own. */
+	summaryAfterRows?: boolean;
 }
 
 const toMinor = (printed: string) => Number(printed.replace(/[,.]/g, ''));
@@ -105,7 +107,7 @@ export function rkPages(f: RkFixture): string[] {
 	const period = f.period ?? '01 July 2026 - 31 July 2026';
 	const account = f.account ?? '700100200300';
 	const product = f.product ?? 'Tabungan Fiktif';
-	const total = f.pages.length + 1;
+	const total = f.summaryAfterRows ? f.pages.length : f.pages.length + 1;
 	const header = (n: number) => {
 		const printed = f.pagePeriods && n in f.pagePeriods ? f.pagePeriods[n] : period;
 		return [
@@ -136,6 +138,7 @@ export function rkPages(f: RkFixture): string[] {
 	];
 	const blocks: { currency: string; rate: string; running: number }[] = [];
 	const out: string[] = [];
+	const pageLines: string[][] = [];
 	f.pages.forEach((items, n) => {
 		const lines = [...header(n), ...TABLE_HEADER];
 		for (const item of items) {
@@ -162,7 +165,7 @@ export function rkPages(f: RkFixture): string[] {
 				lines.push(...printed, ...(item.after ?? []));
 			} else lines.push(...item);
 		}
-		out.push([...lines, ...tail(n)].join('\n'));
+		pageLines.push(lines);
 	});
 	const summary =
 		f.summaryRows ??
@@ -174,34 +177,35 @@ export function rkPages(f: RkFixture): string[] {
 		(sum, b) => sum + Math.round((b.running * rateMilli(b.rate)) / 1000),
 		0
 	);
-	const last = f.pages.length;
-	out.push(
-		[
-			...header(last),
-			'Mata Uang /',
-			'Currency',
-			'Tunggakan Bunga /',
-			'Overdue Interest',
-			'Tunggakan Denda /',
-			"Overdue Penalty Overdue Other's",
-			'Liabilities',
-			'Total Tunggakan /',
-			'Total Overdue Amount',
-			...blocks.map((b) => `${b.currency} 0.00 0.00 0.00 0.00`),
-			'Mata Uang /',
-			'Currency',
-			'Kurs Valas IDR /',
-			'IDR Exchange Rate',
-			'Saldo /',
-			'Balance',
-			'Saldo Dalam IDR /',
-			'Balance in IDR',
-			...summary,
-			`Total Saldo Dalam IDR / Balance Total in IDR ${f.total ?? usd(idrTotal)}`,
-			'Catatan : Teks catatan kurs fiktif.',
-			...tail(last)
-		].join('\n')
-	);
+	const summaryLines = [
+		'Mata Uang /',
+		'Currency',
+		'Tunggakan Bunga /',
+		'Overdue Interest',
+		'Tunggakan Denda /',
+		"Overdue Penalty Overdue Other's",
+		'Liabilities',
+		'Total Tunggakan /',
+		'Total Overdue Amount',
+		...blocks.map((b) => `${b.currency} 0.00 0.00 0.00 0.00`),
+		'Mata Uang /',
+		'Currency',
+		'Kurs Valas IDR /',
+		'IDR Exchange Rate',
+		'Saldo /',
+		'Balance',
+		'Saldo Dalam IDR /',
+		'Balance in IDR',
+		...summary,
+		`Total Saldo Dalam IDR / Balance Total in IDR ${f.total ?? usd(idrTotal)}`,
+		'Catatan : Teks catatan kurs fiktif.'
+	];
+	if (f.summaryAfterRows) pageLines[pageLines.length - 1]!.push(...summaryLines);
+	pageLines.forEach((lines, n) => out.push([...lines, ...tail(n)].join('\n')));
+	if (!f.summaryAfterRows) {
+		const last = f.pages.length;
+		out.push([...header(last), ...summaryLines, ...tail(last)].join('\n'));
+	}
 	return out;
 }
 

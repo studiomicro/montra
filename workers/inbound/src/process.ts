@@ -72,7 +72,7 @@ export type InboundOutcome =
 	| 'repeat';
 
 /** Processes one parsed mail for `recipient` (already admitted and counted). Unit-testable without a queue. */
-export async function processInboundMail(
+async function processInboundMail(
 	deps: InboundDeps,
 	recipient: Recipient,
 	mail: InboundMail

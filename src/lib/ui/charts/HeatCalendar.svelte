@@ -11,7 +11,9 @@
 		today,
 		currency = 'IDR',
 		label,
-		hrefFor
+		hrefFor,
+		marks,
+		selected = null
 	}: {
 		/** Every day of one month, in order; `level` 0–4 is the shade, `future` days are blank. */
 		days: { date: string; minor: number | null; level: 0 | 1 | 2 | 3 | 4; future: boolean }[];
@@ -20,6 +22,14 @@
 		label: string;
 		/** Where tapping a day goes: that day's transactions. */
 		hrefFor: (date: string) => string;
+		/**
+		 * FN-54 /kalender: shape-coded marks per date (a ring for a closed day, a square for a bill or recurring item
+		 * still to come), each also named for assistive tech, plus their legend. A future day with a mark is a link
+		 * too (its detail lists what is due).
+		 */
+		marks?: Readonly<Record<string, { closed?: boolean; due?: boolean }>>;
+		/** FN-54: the day whose detail is shown under the grid. */
+		selected?: string | null;
 	} = $props();
 
 	const { tr, locale } = useI18n();
@@ -36,24 +46,51 @@
 	const TOO_LARGE = msg('Total terlalu besar untuk ditampilkan');
 	const amount = (minor: number | null) =>
 		minor === null ? tr(TOO_LARGE) : shown(formatMoney(minor, currency, 'auto', locale));
+	const CLOSED = msg('Hari ditutup');
+	const DUE = msg('Ada tagihan atau transaksi berulang');
+	/** The marks of `date` as words, after the figure ("…: Rp 25.000, Hari ditutup"). */
+	const markWords = (date: string) => {
+		const m = marks?.[date];
+		return [m?.closed ? tr(CLOSED) : '', m?.due ? tr(DUE) : ''].filter(Boolean);
+	};
 </script>
+
+{#snippet markShapes(date: string)}
+	{#if marks?.[date]?.closed}<span class="mark ring" aria-hidden="true"></span>{/if}
+	{#if marks?.[date]?.due}<span class="mark square" aria-hidden="true"></span>{/if}
+{/snippet}
 
 <figure class="heat">
 	<div class="grid" role="group" aria-label={label}>
 		{#each weekdays as w, i (i)}<span class="wd" aria-hidden="true">{w}</span>{/each}
 		{#each Array.from({ length: lead }, (_, i) => i) as i (i)}<span class="blank"></span>{/each}
 		{#each days as d (d.date)}
-			{#if d.future}
+			{#if d.future && marks?.[d.date]?.due}
+				<a
+					class="cell future"
+					class:selected={d.date === selected}
+					href={hrefFor(d.date)}
+					aria-label="{formatShortDay(d.date, locale)}: {markWords(d.date).join(', ')}"
+				>
+					<span class="day">{Number(d.date.slice(8))}</span>
+					{@render markShapes(d.date)}
+				</a>
+			{:else if d.future}
 				<span class="cell future" aria-hidden="true">{Number(d.date.slice(8))}</span>
 			{:else}
 				<a
 					class="cell l{d.level}"
 					class:today={d.date === today}
+					class:selected={d.date === selected}
 					href={hrefFor(d.date)}
-					aria-label="{formatShortDay(d.date, locale)}: {amount(d.minor)}"
+					aria-label="{formatShortDay(d.date, locale)}: {[
+						amount(d.minor),
+						...markWords(d.date)
+					].join(', ')}"
 					aria-current={d.date === today ? 'date' : undefined}
 				>
 					<span class="day">{Number(d.date.slice(8))}</span>
+					{@render markShapes(d.date)}
 				</a>
 			{/if}
 		{/each}
@@ -65,6 +102,10 @@
 		<span class="swatch l3" aria-hidden="true"></span>
 		<span class="swatch l4" aria-hidden="true"></span>
 		<span>{tr('banyak')}</span>
+		{#if marks}
+			<span class="key"><span class="mark ring" aria-hidden="true"></span>{tr(CLOSED)}</span>
+			<span class="key"><span class="mark square" aria-hidden="true"></span>{tr(DUE)}</span>
+		{/if}
 	</figcaption>
 </figure>
 
@@ -87,6 +128,7 @@
 		text-align: center;
 	}
 	.cell {
+		position: relative;
 		display: grid;
 		place-items: center;
 		min-height: 44px;
@@ -135,6 +177,46 @@
 	.today {
 		box-shadow: inset 0 0 0 2px var(--ink);
 	}
+	/* FN-54: the day shown under the grid (/kalender): a second, outer ring, so today's inset ring stays readable. */
+	.selected {
+		outline: 2px solid var(--ink-2);
+		outline-offset: 1px;
+	}
+	a.future {
+		color: var(--ink-2);
+	}
+	/* FN-54 marks: shape, not colour, tells them apart (a ring = closed day, a square = something due). */
+	.mark {
+		display: inline-block;
+		flex: none;
+		width: 7px;
+		height: 7px;
+		border: 1.5px solid var(--ink);
+		background: var(--bg);
+	}
+	.cell .mark {
+		position: absolute;
+		top: 4px;
+	}
+	.cell .ring {
+		left: 4px;
+	}
+	.cell .square {
+		right: 4px;
+	}
+	.ring {
+		border-radius: 50%;
+	}
+	.square {
+		border-radius: 1px;
+		background: var(--ink);
+	}
+	.key {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		margin-left: 8px;
+	}
 	/* FN-40: the month's days fade in when the calendar appears. */
 	@media (prefers-reduced-motion: no-preference) {
 		.cell {
@@ -149,6 +231,7 @@
 	}
 	.legend {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: flex-end;
 		gap: 4px;

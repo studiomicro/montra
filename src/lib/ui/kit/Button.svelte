@@ -55,7 +55,7 @@
 {/if}
 
 <style>
-	/* § 3a: ink is the only action colour; fills, never borders. The panel fills below add a 1px inset hairline. */
+	/* § 3a: ink is the only action colour; fills, never borders (owner decision 2026-10-15: no hairline either). */
 	.btn {
 		display: inline-flex;
 		align-items: center;
@@ -104,16 +104,15 @@
 		width: 100%;
 	}
 	.primary {
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 	}
 	.primary:hover:not(:disabled) {
 		opacity: 0.88;
 	}
-	/* The hairline keeps a panel pill readable on a --panel card (same ring as the global field rule in app.css). */
+	/* A panel pill; on a --panel card or group it takes the page colour (app.css `.group`/`.on-panel` rule). */
 	.secondary {
 		background: var(--panel);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
 		color: var(--ink);
 	}
 	.secondary:hover:not(:disabled) {
@@ -128,7 +127,6 @@
 	}
 	.destructive {
 		background: var(--panel);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
 		color: var(--money-up);
 	}
 </style>
