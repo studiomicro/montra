@@ -75,7 +75,7 @@
 		"tesseract.js": "7.0.0",
 		"tesseract.js-core": "7.0.0",
 		"unpdf": "1.8.1",
-		"zod": "^4.6.5"
+		"zod": "^4.6.6"
 	},
 	"overrides": {
 		"@esbuild-kit/core-utils": {
