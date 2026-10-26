@@ -55,7 +55,7 @@ const answerSchema = z.object({
 	})
 });
 
-export interface Usage {
+interface Usage {
 	inputTokens: number;
 	outputTokens: number;
 }

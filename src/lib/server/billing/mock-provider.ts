@@ -30,7 +30,7 @@ const eventSchema = z.strictObject({
 		currency: z.string().regex(/^[A-Z]{3}$/)
 	})
 });
-export type MockEventBody = z.infer<typeof eventSchema>;
+type MockEventBody = z.infer<typeof eventSchema>;
 
 async function hmacHex(secret: string, message: Uint8Array): Promise<string> {
 	const key = await crypto.subtle.importKey(
@@ -117,7 +117,7 @@ export const mockProvider: PaymentProvider = {
 };
 
 /** The app's own webhook path (the mock "provider" delivers there). */
-export const WEBHOOK_PATH = '/api/v1/billing/webhook';
+const WEBHOOK_PATH = '/api/v1/billing/webhook';
 
 /**
  * Plays the provider for a mock checkout: signs a payment event with the webhook secret and POSTs it to the

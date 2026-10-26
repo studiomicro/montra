@@ -67,7 +67,7 @@ export const linesOf = (page: string) =>
  * A row's date sits in the table's first column; description and note text, which other people write, sits in a
  * column further right (FN-16f/16h red team L1).
  */
-export const ROW_START_TOLERANCE = 0.02;
+const ROW_START_TOLERANCE = 0.02;
 
 /** A document's pages as `linesOf` lines, and which of those lines may start a row (`canStart(page, line)`). */
 export interface PositionedPages {

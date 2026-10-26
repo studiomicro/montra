@@ -163,7 +163,6 @@ export const agentForm = z.object({
 	narrative: z.boolean(),
 	requestId: z.string().regex(/^[0-9a-f-]{36}$/)
 });
-export type AgentForm = z.infer<typeof agentForm>;
 
 /** A file name piece per type (never user text). */
 export const AGENT_FILE_SLUGS: Readonly<Record<AgentType, string>> = {

@@ -237,7 +237,7 @@ export async function periodTotals(
 /** `occurred_on.occurred_at.id` of the last row shown: the keyset the next page continues after. */
 const CURSOR = /^(\d{4}-\d{2}-\d{2})\.(\d{1,15})\.([0-9A-Za-z-]{1,64})$/;
 
-export function encodeCursor(row: { occurredOn: string; occurredAt: number; id: string }): string {
+function encodeCursor(row: { occurredOn: string; occurredAt: number; id: string }): string {
 	return `${row.occurredOn}.${row.occurredAt}.${row.id}`;
 }
 
@@ -563,7 +563,7 @@ export async function categoryMonthlyTotals(
 }
 
 /** Most rows `largestTransactions` returns. */
-export const MAX_LARGEST = 5;
+const MAX_LARGEST = 5;
 
 /**
  * The `limit` (at most MAX_LARGEST) largest single rows of one direction in one currency, for the same filter
@@ -587,7 +587,7 @@ export async function largestTransactions(
 }
 
 /** Days "Catat lagi" looks back (FN-14): a bounded period, like every other scan here. */
-export const FREQUENT_LOOKBACK_DAYS = 90;
+const FREQUENT_LOOKBACK_DAYS = 90;
 /** Most "Catat lagi" buttons (FN-14). */
 export const MAX_FREQUENT = 5;
 
@@ -662,7 +662,7 @@ export async function frequentManualTransactions(
 }
 
 /** Rows one export page reads (FN-18): a one-year export of a full space is at most 100 pages. */
-export const EXPORT_PAGE_SIZE = 1000;
+const EXPORT_PAGE_SIZE = 1000;
 
 interface ExportSqlRow {
 	id: string;

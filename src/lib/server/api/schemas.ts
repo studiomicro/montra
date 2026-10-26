@@ -10,8 +10,6 @@ import {
 	TRANSACTION_TYPES
 } from '#lib/shared/transactions';
 import { WALLET_TYPES } from '#lib/shared/wallets';
-import { API_TOKEN_SCOPES } from '#lib/shared/api-tokens';
-import { PAGE_SIZE } from '../transactions/aggregate';
 import { MAX_AMOUNT_MINOR } from '../transactions/validation';
 
 /**
@@ -313,7 +311,7 @@ export const apiLaporanSummary = z.object({
 	other_currencies: z.array(currency)
 });
 
-export const ERROR_CODES = [
+const ERROR_CODES = [
 	'invalid_request',
 	'invalid_json',
 	'validation_failed',
@@ -361,8 +359,3 @@ export const transactionResponse = z.object({ data: apiTransaction });
 export const budgetResponse = z.object({ data: apiBudget.nullable() });
 export const laporanResponse = z.object({ data: apiLaporanSummary });
 export const deletedResponse = z.object({ data: z.object({ id, deleted: z.literal(true) }) });
-
-/** The scopes a token can carry, for the security scheme's description. */
-export const SCOPES = API_TOKEN_SCOPES;
-/** Rows per page of `GET /transactions` (Riwayat's own page size). */
-export const API_PAGE_SIZE = PAGE_SIZE;

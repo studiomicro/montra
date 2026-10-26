@@ -18,13 +18,13 @@ import { AGENT_NARRATIVE_PROMPT } from './prompt.ts';
  */
 
 /** Output budget of the one call (owner decision 9). */
-export const AGENT_NARRATIVE_MAX_TOKENS = 800;
+const AGENT_NARRATIVE_MAX_TOKENS = 800;
 /** The call's deadline (owner decision 9). */
-export const AGENT_NARRATIVE_TIMEOUT_MS = 30_000;
+const AGENT_NARRATIVE_TIMEOUT_MS = 30_000;
 /** Deliveries of the narrate step before a network failure or timeout is skipped instead of retried. */
-export const AGENT_NARRATE_MAX_ATTEMPTS = 3;
+const AGENT_NARRATE_MAX_ATTEMPTS = 3;
 /** Seconds before a transient failure is retried. */
-export const AGENT_NARRATE_RETRY_S = 60;
+const AGENT_NARRATE_RETRY_S = 60;
 /** Longest category or merchant name the model sees. */
 const MODEL_NAME_MAX = 40;
 
@@ -81,7 +81,7 @@ const skipped = (
 });
 
 /** The facts as the model receives them: figure ids and formatted text, cleaned names, never minor units. */
-export function narrativeInput(facts: AgentFacts, locale: Locale, book: FigureBook) {
+function narrativeInput(facts: AgentFacts, locale: Locale, book: FigureBook) {
 	const name = (n: string | null) => (n === null ? null : dataText(n, MODEL_NAME_MAX));
 	const currencies = (facts.summary?.currencies ?? []).map((s) => {
 		const c = s.currency;

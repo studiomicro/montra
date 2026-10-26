@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { formatMoney } from '#lib/shared/money-format';
-import { WALLET_CURRENCIES } from '#lib/shared/wallets';
+import { EMONEY_ISSUERS, WALLET_CURRENCIES } from '#lib/shared/wallets';
 import { walletBalanceMinor } from './balance';
 import {
 	BALANCE_INVALID,
 	BALANCE_INVALID_CENTS,
 	CURRENCY_INVALID,
+	EMONEY_FIELD_ONLY,
+	EMONEY_ISSUER_REQUIRED,
 	LAST_FOUR_INVALID,
 	NAME_REQUIRED,
 	TYPE_INVALID,
@@ -32,7 +34,11 @@ describe('parseWalletForm', () => {
 				currency: 'IDR',
 				openingBalanceMinor: 2_500_000,
 				isFavourite: true,
-				lastFour: '1234'
+				lastFour: '1234',
+				creditLimitMinor: null,
+				statementDay: null,
+				dueDay: null,
+				emoneyIssuer: null
 			}
 		});
 	});
@@ -215,4 +221,64 @@ describe('walletBalanceMinor (the FN-05 contract)', () => {
 
 it('the cap message names the cap', () => {
 	expect(WALLET_LIMIT).toContain(String(MAX_WALLETS_PER_SPACE));
+});
+
+describe('parseWalletForm FN-58 pass 1: "Kartu e-money"', () => {
+	it('saves the choice as an e_wallet with its issuer and the optional last 4', () => {
+		for (const issuer of EMONEY_ISSUERS)
+			expect(
+				parseWalletForm(
+					form({ name: 'Flazz', type: 'e_money', emoneyIssuer: issuer, lastFour: '0042' }),
+					'id'
+				)
+			).toMatchObject({
+				ok: true,
+				value: { type: 'e_wallet', emoneyIssuer: issuer, lastFour: '0042' }
+			});
+		expect(
+			parseWalletForm(form({ type: 'e_money', emoneyIssuer: 'kmt', lastFour: '' }), 'id')
+		).toMatchObject({ ok: true, value: { type: 'e_wallet', emoneyIssuer: 'kmt', lastFour: null } });
+	});
+
+	it('needs an issuer for the e-money choice: none or an unknown key is refused', () => {
+		for (const emoneyIssuer of ['', 'gopay', 'BCA_FLAZZ', 'bca_flazz ; drop', 'e_wallet'])
+			expect(parseWalletForm(form({ type: 'e_money', emoneyIssuer }), 'id')).toMatchObject({
+				ok: false,
+				errors: { emoneyIssuer: EMONEY_ISSUER_REQUIRED },
+				values: { type: 'e_money' }
+			});
+		const f = form({ type: 'e_money' });
+		f.delete('emoneyIssuer');
+		expect(parseWalletForm(f, 'id')).toMatchObject({
+			ok: false,
+			errors: { emoneyIssuer: EMONEY_ISSUER_REQUIRED }
+		});
+	});
+
+	it('refuses an issuer sent with any other type (a hidden field is not authorization)', () => {
+		for (const type of ['tunai', 'bank', 'e_wallet', 'kartu_kredit', 'lainnya'])
+			expect(parseWalletForm(form({ type, emoneyIssuer: 'bca_flazz' }), 'id')).toMatchObject({
+				ok: false,
+				errors: { emoneyIssuer: EMONEY_FIELD_ONLY }
+			});
+		// A plain e-wallet stays one, with no issuer.
+		expect(parseWalletForm(form({ type: 'e_wallet', emoneyIssuer: '' }), 'id')).toMatchObject({
+			ok: true,
+			value: { type: 'e_wallet', emoneyIssuer: null }
+		});
+	});
+
+	it('never takes a full card number: only the last 4', () => {
+		const r = parseWalletForm(
+			form({ type: 'e_money', emoneyIssuer: 'bca_flazz', lastFour: '6013500012345678' }),
+			'id'
+		);
+		expect(r).toMatchObject({ ok: false, errors: { lastFour: LAST_FOUR_INVALID } });
+		expect(!r.ok && r.values.lastFour).toBe('');
+	});
+
+	it('e_money is a form choice only, never a stored type', () => {
+		const r = parseWalletForm(form({ type: 'e_money', emoneyIssuer: 'megacash' }), 'id');
+		expect(r.ok && r.value.type).toBe('e_wallet');
+	});
 });

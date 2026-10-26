@@ -264,8 +264,8 @@
 		cursor: pointer;
 	}
 	.pill:has(input:checked) {
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 	}
 	.pill:has(input:focus-visible) {
 		outline: 2px solid var(--brand);

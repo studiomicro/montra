@@ -4,7 +4,7 @@ import { localizedSitePath } from '#lib/shared/site-locale';
 import { escapeHtml } from './markdown.ts';
 
 /** The public site's indexable pages (FN-32), as language-free paths; each is listed once per language. */
-export function sitePaths(postSlugs: readonly { slug: string; date: string }[]) {
+function sitePaths(postSlugs: readonly { slug: string; date: string }[]) {
 	return [
 		{ path: '/', lastmod: null },
 		{ path: '/blog', lastmod: postSlugs[0]?.date ?? null },

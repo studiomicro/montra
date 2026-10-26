@@ -61,13 +61,27 @@ export type StatementRefusal =
 	| 'section_unknown'
 	/** The picked (or only) account is not an IDR savings or current account: never read into transactions. */
 	| 'section_unsupported'
+	/** FN-55b: a credit-card statement, but the wallet picked is not a `kartu_kredit` wallet (or none was). */
+	| 'needs_card_wallet'
+	/** FN-55b: an account statement, but the wallet picked is a `kartu_kredit` wallet (the sign would flip). */
+	| 'needs_bank_wallet'
+	/** FN-55b: a card statement layout not supported yet (more than one printed card). */
+	| 'card_unsupported'
+	/** FN-55b: the card wallet is not in rupiah (card statements are IDR only). */
+	| 'card_currency'
+	/** FN-55b: the printed card's last 4 digits differ from the wallet's. */
+	| 'card_mismatch'
+	/** FN-55b: this card's statement of that date is already imported (a live `card_statements` row). */
+	| 'card_already_imported'
+	/** FN-55b: the card already keeps CARD_STATEMENTS_MAX live statements. */
+	| 'card_limit'
 	| CsvParseError;
 
 export type { StatementSectionChoice };
 
 export type StatementReadFormat = StatementDocument['format'];
 
-export interface StatementReading {
+interface StatementReading {
 	format: StatementReadFormat;
 	institution: { id: string; label: string };
 	/** Detection confidence (1 when the user picked the institution). */
@@ -108,6 +122,11 @@ export interface StatementReadInput {
 	institution: string | null;
 	/** Account picked in a multi-account statement (its `index`); null or absent: the only one. */
 	section?: number | null;
+	/**
+	 * FN-55b: the kind of the wallet the statement goes to (`card`: a `kartu_kredit` wallet); absent: `bank`. Only
+	 * parsers of that kind are read with; a statement of the other kind is refused (its sign convention differs).
+	 */
+	walletKind?: 'bank' | 'card';
 }
 
 const refuse = (
@@ -182,8 +201,16 @@ export async function readStatement(
 		confidence = detected.confidence;
 	}
 	if (!parser) return refuse(hints.montraCsv ? 'montra_csv' : 'institution_unknown', hints);
+	// FN-55b: a card statement only into a card wallet, an account statement only into any other wallet.
+	const kind = parser.kind ?? 'bank';
+	if (kind !== (input.walletKind ?? 'bank'))
+		return refuse(kind === 'card' ? 'needs_card_wallet' : 'needs_bank_wallet', hints);
 	const whole = parser.parse(doc);
-	if (whole.inconsistent) return refuse('inconsistent', hints);
+	if (kind === 'card' && whole.unsupported === 'multiple_cards')
+		return refuse('card_unsupported', hints);
+	// A card statement is refused whole on any doubt, including one past the row cap (never truncated).
+	if (whole.inconsistent || (kind === 'card' && (!whole.card || whole.rows.length > CSV_MAX_ROWS)))
+		return refuse('inconsistent', hints);
 	let parse = whole;
 	let section: StatementSectionChoice | null = null;
 	const sections = whole.sections?.map(choiceOf) ?? [];

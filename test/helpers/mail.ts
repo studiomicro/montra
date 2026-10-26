@@ -20,7 +20,7 @@ export function fixtureText(
 export const bytes = (text: string) => new TextEncoder().encode(text);
 
 /** A stream of `data` in chunks of `chunk` bytes. */
-export function streamOf(data: Uint8Array, chunk = 64 * 1024): ReadableStream<Uint8Array> {
+function streamOf(data: Uint8Array, chunk = 64 * 1024): ReadableStream<Uint8Array> {
 	let at = 0;
 	return new ReadableStream({
 		pull(controller) {

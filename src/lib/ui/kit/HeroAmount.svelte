@@ -21,6 +21,7 @@
 		fallback = '',
 		hideToggle = true,
 		pro = false,
+		signed = false,
 		children,
 		beside
 	}: {
@@ -36,6 +37,11 @@
 		 * background only: the label, figure, size and context line are the same as without it.
 		 */
 		pro?: boolean;
+		/**
+		 * FN-53: a change, not a balance: the sign leads the symbol ("−Rp 124.900.000", "+Rp 25.000.000", U+2212, the
+		 * shared formatter's convention). While amounts are hidden the sign is hidden with the figure.
+		 */
+		signed?: boolean;
 		/** The one grey line of context under the number. */
 		children?: Snippet;
 		/** FN-51: a small decoration beside the label (Beranda's Koko welcome); never text. */
@@ -74,7 +80,17 @@
 		});
 	});
 	// Symbol (raised, grey) and figure of "Rp 1.264.000".
-	const parts = $derived(amountMinor === null ? null : moneyParts(count.current, currency, locale));
+	const parts = $derived.by(() => {
+		if (amountMinor === null) return null;
+		const p = moneyParts(count.current, currency, locale);
+		if (!signed) return p;
+		const sign = count.current < 0 ? '\u2212' : count.current > 0 ? '+' : '';
+		return { symbol: `${sign}${p.symbol}`, figure: p.figure.replace('\u2212', '') };
+	});
+	/** The symbol shown while hidden: never the sign of a change. */
+	const hiddenSymbol = $derived(
+		signed ? moneyParts(0, currency, locale).symbol : (parts?.symbol ?? '')
+	);
 
 	/** The figure's length class (`n8` … `n22`): the CSS shrinks a long figure to fit the column (no inline style: CSP). */
 	const lengthClass = $derived(
@@ -115,7 +131,7 @@
 	{:else}
 		<p class="figure num {lengthClass}">
 			{#if amounts.hidden}
-				<span class="cur">{parts.symbol}</span>{HIDDEN_AMOUNT}
+				<span class="cur">{hiddenSymbol}</span>{HIDDEN_AMOUNT}
 			{:else}
 				<span class="cur">{parts.symbol}</span>{parts.figure}
 			{/if}

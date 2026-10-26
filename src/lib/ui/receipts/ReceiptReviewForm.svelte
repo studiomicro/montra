@@ -559,7 +559,7 @@
 		width: 20px;
 		height: 20px;
 		margin: 0;
-		accent-color: var(--ink);
+		accent-color: var(--action);
 	}
 	.meta {
 		margin: 0;

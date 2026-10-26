@@ -82,16 +82,6 @@ export async function listBelongings(db: Db, spaceId: string): Promise<Belonging
 	return rows.map(toBelonging);
 }
 
-/** One live belonging of this space; null for an unknown, deleted or other-space id. */
-export async function getBelonging(db: Db, spaceId: string, id: string): Promise<Belonging | null> {
-	const row = await db
-		.select(columns)
-		.from(belongings)
-		.where(and(eq(belongings.id, id), live(spaceId)))
-		.get();
-	return row ? toBelonging(row) : null;
-}
-
 /** The value total per currency; null when a sum is past the safe integer range ("too large", never rounded). */
 export type BelongingsTotal = { currency: string; totalMinor: number | null; estimated: boolean }[];
 

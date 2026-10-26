@@ -6,6 +6,149 @@ Open work: `docs/TASKS.md`. What is verified and how: `docs/ACCEPTANCE.md`.
 
 ## Completed work
 
+- **FN-58 pass 2 groundwork: Android app, read-only NFC bridge, KMT reader (2026-10-26)** — owner decisions 2026-10-26:
+  Android first, command formats from public sources checked against the owner's real-card logs. `native/android-app`:
+  Capacitor 8.5.3 shell (app id `id.montra.app`) loading the web app from `MONTRA_APP_URL`, and `MontraNfcPlugin.java`,
+  which connects to a tapped card (ISO-DEP or FeliCa) and passes only read commands (ISO 7816-4 SELECT, READ BINARY,
+  READ RECORD, GET DATA, GET RESPONSE; FeliCa Polling, Request Service, Request Response, Read Without Encryption,
+  Request System Code); the UID never reaches the page. `src/lib/shared/emoney`: the same lists (a test compares them
+  with the Java file), standard probes, and a KMT balance reader (system 90B7, service 0x1017) written from Metrodroid's
+  GPL-3.0 decoder and Sony's FeliCa manual as references. `/dompet/diagnosa-kartu` reads a card, shows a KMT balance
+  and copies a log with the IDm and long digit runs masked; Dompet links to it only inside the app. Research and
+  source register: `docs/features/fn-58-emoney/RESEARCH.md` (Mandiri medium confidence but its earliest licensed
+  source is decompiled; Flazz tainted; Brizzi and Flazz Gen 1 need keys; MegaCash has nothing public). Checks: debug APK
+  builds (JDK 21, Gradle 8.14.3); Vitest for the guard and KMT frames (fictional frames); `e2e/diagnosa-kartu.spec.ts`
+  with a fake bridge. Not verified: any real card or phone.
+- **FN-58 pass 1 "Kartu e-money" wallet (2026-10-26)** — owner decisions 2026-10-26 (seven issuers), design by the
+  lead. The wallet form's type picker gains "Kartu e-money": it saves `type = 'e_wallet'` with the chosen issuer
+  (Mandiri e-Money, BCA Flazz, BRI Brizzi, BNI TapCash, KMT (KAI Commuter), JakCard / JakLingko, MegaCash; a picker
+  that is required for this choice and refused with any other type or an unknown key) and the optional last 4 digits
+  (never a full number). Seven quick picks (`?tambah=1&kartu=<issuer>`, no JavaScript needed) fill the name, the
+  choice and the issuer; no brand badge (none exists for these cards). Dompet rows, archived rows and Kekayaan's
+  wallet list show "Kartu e-money · BCA Flazz". Balance, top-ups (transfers), the FN-37 adjustment and net worth work
+  as for any e-wallet. Migration 0049 adds the nullable `wallets.emoney_issuer` with `ALTER TABLE … ADD` and a column
+  CHECK (null unless `e_wallet`, else one of the seven keys); no rebuild, no backfill. Archiving a wallet keeps the
+  issuer, like `last_four` and the 0047 card columns (an archived wallet is restorable; wallets do not clear content
+  on archive). The data export carries the new column. NFC reading (pass 2) waits for the FN-33 native apps. Checks:
+  `npm run check`, `npm run lint`, `npm run build`; `npm test` 6624 passed and 1 failed (the export row test, fixed),
+  then a second full run 6620 passed and 5 timed out under a machine load average near 30 (`koleksi`, `net-worth`,
+  `recurring`), each file passing when re-run alone; new tests: `migration-0049.test.ts` (3), validation (5),
+  WalletForm (4), wallets repo (3), dompet routes (2), net worth (1). e2e phone + desktop: `kekayaan.spec.ts` (with the
+  new e-money journey) and `kartu-kredit.spec.ts` 26 passed, 3 skipped; `kekayaan-halaman`, `kekayaan-bersih`,
+  `qa-fn43-brand-badges`, `alur-uang` 20 passed, 3 skipped. NOT verified: staging (0049 not applied remotely).
+- **Galaxy Z Fold layout coverage (2026-10-26)** — owner request. `e2e/ios-responsive.spec.ts` also runs on Chromium
+  (Android Chrome's engine) with Playwright's presets: `android-fold7-cover` (360 × 764, phone layout),
+  `android-fold7-open` (984 × 1016) and `android-fold6-open` (928 × 1004), both on the 860 px tablet tier with two
+  columns. Unfolded and turned (1040 / 1028 px) is the desktop layout, covered by the `desktop` project. No app change
+  was needed. Checks: the 3 new projects plus `ios-17` and `ios-duo-open-landscape` (5 passed), `npm run check`,
+  `npm run lint`.
+- **FN-57 app-wide electric-blue accent (2026-10-26)** — owner request 2026-10-13, decisions 2026-10-26: hue
+  `#0B3DF5` (the FN-56 auth card), light theme only (dark keeps the ink fill), Hitam-putih, Emas and Hijau tua
+  unchanged; scope primary buttons, Tambah, the current tab and sidebar item, switched-on toggles, selected chips,
+  pills, tiles, radios and checkboxes, the calendar badge, and links and the focus ring. New tokens `--action` /
+  `--on-action` in `docs/design/tokens.css` (blue/white in light, `--ink`/`--bg` elsewhere); `--brand` moves to the
+  same blue for links and focus. Status marks (badges, streak days, the unread dot, test-mode notes, chat bubbles)
+  stay ink; the public site is untouched. DESIGN_SYSTEM principle 6 rewritten. `test/contrast.test.ts` checks
+  `--on-action` on `--action` ≥ 4.5 and `--action` on `--bg`/`--panel` ≥ 3 in all nine theme layers, and that blue
+  is the light theme only. Also: `scripts/e2e-build.sh` falls back to a mkdir lock where `flock` is missing (macOS),
+  and `e2e/kekayaan-halaman.spec.ts` checks one column at 840 px (the 860 px tablet tier keeps two). Checks:
+  `npm run check`, `npm run lint`, `npm test` (6607 passed), `npm run build`, full phone + desktop e2e (693 passed,
+  95 skipped, 11 failed; after the test fix, the 6 still failing (`period-reports` ×3 and `period-reports-qa`, `motion` reduced
+  motion) fail the same on main 3867a6f, and the rest were D1 CLI and timing failures under load that pass alone).
+- **Foldable and new-iPhone auto layout (2026-10-26)** — owner request. New tablet tier from 860 to 1023 px (no
+  sidebar, tab bar stays): Beranda, Dompet, Anggaran, Laporan, Impor and Kekayaan show both columns, and the shell
+  widens a two-column page to the full width. This covers iPhone Duo unfolded and turned (890 px) and iPhone 17 /
+  17 Pro / 18 Pro turned (874 px). Folded Duo (466 px), unfolded upright (626 px) and upright iPhones (402 px) keep
+  the phone layout. New WebKit projects `ios-17`, `ios-17-landscape`, `ios-duo-folded`, `ios-duo-open` and
+  `ios-duo-open-landscape` run `e2e/ios-responsive.spec.ts`, which now also asserts the column count. Checks:
+  `npm run check`, `npm run lint`, `npm test` (6589 passed), `npm run build`, and the 7 iOS projects (7 passed).
+  Duo safe-area insets are emulated, not measured; only a real device can confirm them.
+- **Whole-app design polish (2026-10-15)** — owner request. 51 screens and 2 sheets audited at 360 and 1280 px,
+  light and dark, on a local build with fictional non-demo data (`docs/design/POLISH_AUDIT.md`, § Status per
+  finding). Fixed 20 of 24 fully, 3 partly: page header actions, record-row meta wrapping, one link style, Dompet
+  wallet line spacing, category names in Laporan, daily bar scaling and dark bar contrast, dark heat steps, Alur uang
+  big number and flow labels, yearly average label, empty-account layout. Owner decisions: no 1 px frame on fields
+  and secondary buttons (design system; 2 px focus ring kept), Struk primary over Suara on Beranda. New unit tests
+  (`screen-title.test.ts` and cases in chart-scale, BarChart, flow geometry, formatDayHeader, row-text, wealth-ui;
+  15 fail on the unfixed code); e2e beranda, beruntun and kalender updated. NOT verified: real devices, mono and Pro
+  themes, 601–1023 px, Langganan, Barang, Koleksi, Patungan, Agen and the public site.
+- **FN-48d transfer auto-match (2026-10-15)** — owner decision 2026-10-15 (all six PRD defaults accepted): right
+  after a statement import commits, its unambiguous own-transfer pairs (both rows in the transfer tile, exact amount
+  and currency, two wallets, WIB dates within ±1 day, no other candidate sharing either row) merge by themselves
+  through FN-48c's merge, link and undo, at most 20 per import; card payments stay manual; an undone auto-merge is
+  never applied again (`transfer_links.source`); the merge re-checks ambiguity, card pair and undo memory at write
+  time. `/impor` says how many were matched; Cocokkan transfer badges them "Otomatis". Migration 0048 (`source`
+  column + partial index `transactions_space_amount_idx`). Tests: `transfer-auto-match.test.ts` (17),
+  `migration-0048.test.ts` (4), 6 `chooseAutoMatches` unit tests. Red team L1 (count under-reported after a throwing
+  merge) fixed with a regression test; L2 open. NOT verified: staging (0048 not applied remotely), browser look of
+  the line and badge. `docs/features/fn-48d-transfer-auto-match/`.
+- **Net worth report trend (2026-10-15)** — months before the space's first record are no longer drawn as gaps when
+  no snapshot exists before the period; an opening taken inside the period is labelled by its date, not "Awal".
+- **OCBC Rekening Koran summary currency without rows (2026-10-14, v0.16.1)** — a summary currency with no table
+  block (SGD sub-account without movement) no longer refuses the file.
+- **Blueprint isometric illustrations (2026-10-14)** — owner request, style mirrored from a reference studio site
+  (no artwork, logo or object copied). The shared isometric material becomes near-flat faces with a hairline edge
+  (accent and gold edges in their own colour, device the one solid ink block); every `<Illustration>` scene stands on
+  a faint ground grid with dashed construction lines and diamond corner handles instead of the soft shadow, and
+  Beranda's HeroScene city stands on a blueprint street band (still ≤ 40 shapes and 8 KB). Theme tokens only, so
+  light, dark, mono and Pro themes repaint. Gates: lint, check, test 387 files / 6545 tests, build. Checked in a light
+  and dark render of all 11 scenes and the strip. Not verified: in-app pages, real phones, 200 % zoom.
+
+- **BNI and OCBC statement fixes (2026-10-13)** — owner-reported files that were refused as `inconsistent`. BNI:
+  rows now print English month abbreviations (`01 Aug 2026`); the parser accepts `May`, `Aug`, `Oct`, `Dec` next to
+  the Indonesian ones. OCBC Rekening Koran: the summary can follow the last row on the last table page; its opening
+  (`Mata Uang /`, `Currency`, `Tunggakan Bunga /`) now ends the table, and a copy of it in a note still refuses the
+  file or only trims that note. 4 regression tests on fictional fixtures (fail before, pass after). Local
+  `compat:statements` on the owner's files: BNI August 59 rows, OCBC January IDR 7 rows, OCBC April IDR 21 rows, all
+  balance check pass with a Rp0 gap; SGD sections listed as unsupported. Not verified: an upload on staging.
+
+- **Liquid glass material (2026-10-13)** — the shared `.glass` material moves toward Apple's liquid glass: a
+  clearer fill (`--glass-bg` 78 % to 64 % in every theme), a deeper blur (16 to 24 px, saturate 200 % where themes
+  saturate), a top light sheen and a specular rim (bright top edge, faint lower edge), light only. `.glass-soft` and
+  every solid fallback (reduced transparency, no backdrop-filter, under a sheet) unchanged. Glass budget, contrast
+  and shell tests pass; checked in a light and dark render over busy rows. No refraction (SVG displacement in
+  backdrop-filter is Chromium only). Not verified: real iPhone and Android, 200 % zoom.
+
+- **Dead code cleanup (2026-10-13)** — knip pass: 363 `export` keywords nothing imported were dropped across 176
+  files, then 27 symbols that became unused were deleted (for example `getBelonging`, `countRules`,
+  `receiptDedupeKey`, `GMAIL_REASON_LABELS`, test helper `deflateBomb`) with their orphaned imports. Four versioned or
+  type-feeding constants and two symbols the jobs Worker imports stay exported. No behaviour change. Gates: lint
+  clean, check 0 errors and 0 warnings, test 387 files / 6541 tests. 18 merged worktrees under
+  `montra-worktrees/` removed (branches kept) and 3 merged branches deleted; `fn-52-languages` (unfinished) and
+  `lows-batch-1` (uncommitted screenshots) kept.
+
+- **FN-56 Auth ASCII field (2026-10-13)** — a decorative field of tiny monospaced glyphs ("MONTRA", digits, "Rp")
+  shown only inside slowly morphing value-noise blobs, on /masuk and /daftar: a 140 px band above the form on phone,
+  a 360×560 card beside the form (Koko kept) from 1024 px. Brand-blue card in light, black in dark (new tokens
+  `--brand-surface` / `--on-brand-surface`, 7:1); pure seeded generator `src/lib/shared/ascii-field.ts`, rAF player
+  at about 15 fps that pauses when hidden or off-screen, freezes after 60 s and shows one server-rendered still
+  frame under reduced motion. No migration, no new dependency, +2 KB gzip. Small tier: engineer plus orchestrator
+  review (2 cycles: density, glyph size, coverage, right-edge clipping). Not verified: real phones with Geist Mono
+  loaded or blocked, 200 % zoom. The app-wide blue accent is FN-57.
+- **FN-55 Credit cards and card statement import, Parts a and b (2026-10-13)** — credit card as a wallet kind
+  (limit, statement and due day, card page, due chip, bill payment as a transfer paired with imported "KARTU KREDIT/PL"
+  debits, card debt on Utang); card statement import infrastructure that refuses a statement as a whole on any
+  inconsistency, with row-date bounds, masking and card dedupe, proven with a test-only fictional issuer. Migration
+  0047. QA PASS and red team PASS in cycle 3. Issuer parsers (FN-55c) wait for samples.
+
+- **FN-54 Greeting hero, calendar, daily greeting and feature icons (2026-10-13)** — feature icons on coloured chips
+  and a Fitur tile grid; a WIB-time greeting hero with vs-last-month and budget-left chips and Montra's own scene;
+  `/kalender` from the date badge (figures equal to Riwayat, closed days, bill marks); a once-a-day sheet from the
+  user's own figures with an off switch; an empty, validated "on this day" file. No migration. QA PASS and red team
+  PASS in cycle 2. Not verified: real devices, screen reader, staging; home-screen icon waits for the logo.
+
+- **FN-53 Quarterly and yearly money flow and net worth report (2026-10-13)** — Alur uang gets Bulan | Kuartal |
+  Tahun with link stepping (no-JS), bounded aggregation, "Lainnya" folding, a rupiah comparison with the previous
+  period and average per month; `/kekayaan/laporan` reports opening, closing, monthly trend and change by asset group
+  from stored snapshots only (carry-back ≤ 7 days, gaps never bridged). Hidden amounts also hide direction. Migration
+  0046 (`net_worth_snapshots.classes`). QA PASS and red team PASS in cycle 2. Not verified: staging.
+
+- **Open source: public release (2026-10-13)** — https://github.com/studiomicro/montra (the owner's
+  studiomicro/strategies, backed up, force-pushed and renamed) holds one commit, "Montra: initial public release",
+  built by `~/Documents/projects/montra-export-tools/export.sh` from main 7d9ac3b: real ids, hosts, bookmarks, local
+  paths, personal data and reference-app mentions scrubbed; the private repo keeps the originals. Description and
+  topics set. Not verified at release time: the first GitHub CI run.
+
 - **Fix: open lows outside import before going public (2026-10-13)** — FN-19 Gmail (AI read cap per connection on
   a sliding window, token re-seal plus an hourly sweep, captures never verified), FN-19 forwarding masking, FN-20 (AI
   merchant name only as a "Pakai nama" suggestion, sliding hourly cap), FN-22 and FN-23 (normalised answer guard and
@@ -584,6 +727,11 @@ Open work: `docs/TASKS.md`. What is verified and how: `docs/ACCEPTANCE.md`.
 
 ## Test evidence log
 
+- 2026-10-15 polish/design-pass 9259663 (squashed on main): 208 screenshots before and after (local only); affected e2e 316 passed 10 failed first run (6 parallel local-D1 races passed alone 25/25, 3 restored chart passing, `motion.spec.ts:66` broken since the 2026-10-14 illustration restyle), final rerun beranda/riwayat/laporan/kalender/kotak-masuk/kekayaan 88 passed 7 skipped; gates on main 390 / 6589.
+- 2026-10-15 feat/fn-48d-transfer-auto-match c64cb5e → 0fe866e (squashed on main): engineer gates 389 / 6575; QA PASS (gates 389 / 6575, fresh D1 0000–0048, targeted 5 files / 62 tests); red team PASS with L1, L2 (probe 24 tests, max 76 bound parameters, removed); L1 fix: new test failed without it (1 failed / 16 passed), 17 passed with it; gates on main 389 / 6576.
+- 2026-10-13 feat/fn-55-credit-cards 53defaf → 550be5d (rebased on 9b01add, FEATURES and i18n-en kept both sides) → 59a5b9e: engineer gates 373 / 6159, 383 / 6501, 384 / 6508; fresh D1 0000–0047 + no-op rerun, drizzle check fine; e2e kartu-kredit 7/7 then 76/76 then 68/68. QA cycle 1 FAIL (three specs, test-side; 373 / 6159), cycle 2 PASS (6500 / 6501, the one untouched file passed alone; e2e 109 passed), cycle 3 PASS (384 / 6508; e2e 81 passed 10 skipped). Red team PASS cycles 1–3 (L1–L3, then L1-R and retype, 19 date vectors); L2-R open.
+- 2026-10-13 feat/fn-54-greeting-calendar 1a5d0ef → 4359a99 (rebased on 9414412, FEATURES and i18n-en conflicts kept both sides) → 1e8ccd4: engineer gates 370 / 6312, full e2e 669 passed 94 skipped 0 failed; QA cycle 1 FAIL (criterion 7, /kalender cold load with hidden amounts) with 375 / 6393 and 252 e2e passed; red team cycle 1 PASS with L1 (q in URL) and L2 (link prefill). Cycle 2: gates 376 / 6398, e2e 39 passed; QA PASS (each new test failed on 4359a99; cold load 15 masks, 0 digits; e2e 96 passed 3 skipped); red team PASS.
+- 2026-10-13 feat/fn-53-period-reports b68bd11 → 2c0f074 (rebased on 73694d2) → cd3822f: engineer gates 367 / 6056, then 368 / 6066; fresh D1 0000–0046 + no-op rerun; e2e period-reports 17 passed, related specs 47. QA cycle 1 PASS (migration upgrade from 0045 intact, FK check empty; seeded snapshots checked at 360 and 1280 px light/dark; e2e 17 + 46 passed); red team cycle 1 PASS with L1 (2000 floor) and L2 (direction while hidden). Cycle 2: each new test failed on 2c0f074; QA PASS (368 / 6066, e2e 63 passed 8 skipped); red team PASS (16 hostile URLs, no throw).
 - 2026-10-13 fix/lows-services f4231ea…24c5fc5 → 695c156 (0045) → 41f0cb1 → ec73820: engineer gates 354 / 5758, 360 / 5872, then 5967 passed with 2 untouched net-worth timeouts (16/16 alone). QA cycle 1 PASS: 13 source groups reverted, each named test failed; fresh D1 0000–0045, 30 seeded gmail_mail rows identical across the rebuild, FK check empty; e2e 50 passed 13 skipped. Red team cycle 1 PASS with N1–N5 (15 files). QA cycle 2 PASS: 363 files / 5984 tests, e2e 39 passed 4 skipped plus hidden-amounts on phone and desktop. Red team cycle 2 PASS (11 files, PoC deleted).
 - 2026-10-13 fix/lows-imports a6da3fc…13cb08f → 15accec: engineer gates 349 / 5711 then 356 / 5831, import e2e 57 passed 4 skipped; every new test failed on the unfixed code. QA cycle 1 PASS: 355 files / 5825 tests, 13 fixes reverted one by one and each named test failed, e2e 59 passed 4 skipped. Red team cycle 1 PASS with 3 new lows (16 files run one at a time), cycle 2 PASS (6 files, 2 PoCs deleted; sliding window never above 30 per 10 minutes over 25 minutes). QA cycle 2 PASS: 356 / 5831, parents fail the 3 new tests, 579-string narrative comparison listed; `impor-ocr.spec.ts:207` timed out once under load and passed alone (5 passed 4 skipped).
 - 2026-10-13 chore/ci-cd 9de5b1f → f658aef → 41f0d36: actionlint 1.7.12 with shellcheck 0 errors; CI steps on Node 24: check 0 errors, lint clean, Vitest shards 87/86/86/86 files passed; e2e CI mode `--workers=1` 624 passed, 85 skipped, 0 failed; `npm run gates` 345 / 5655; cycle 2: `deploy-staging.test.ts` 24 passed, `npm test` 355 files / 5801 tests; `deploy:staging --dry-run` 4/4 steps, nothing uploaded; SIGINT/SIGTERM give 130/143 with 0 generated files left; cycle 3: local `--skip-build` refused, CI-mode dry run finished after a fresh build. Red team: all 4 action SHAs match their tags (read-only `gh api`).
@@ -692,3 +840,4 @@ Open work: `docs/TASKS.md`. What is verified and how: `docs/ACCEPTANCE.md`.
 - 2026-10-11 feat/fn-26b-subscription-check 19bfed3 → f5ac645 (rebased on b6fe074): engineer gates 321 / 5159, then 334 / 5406 after rebase; journal chain regenerated, `drizzle-kit check` "Everything's fine"; fresh local D1 0000–0039 and a no-op rerun; `langganan.spec.ts` phone `--workers=1` 10 passed. QA PASS (31 unit+integration; langganan e2e 19/19). Red team PASS (31 passed; PoC deleted). Squashed on main: check 2220 files 0 errors, lint clean, `Test Files 334 passed (334)`, `Tests 5406 passed (5406)`, build ok.
 - 2026-10-11 feat/fn-48b-continuity 2d6bd03 → 257191e (rebased, migration renumbered 0041 → 0040) → b252ae5: engineer gates 325 / 5210, then 337 / 5435; e2e impor 27 passed, then phone 19 passed; fresh D1 0000–0040 + no-op rerun; `drizzle-kit check` fine. QA PASS (continuity 19 incl. 1 QA test; impor e2e 31/31). Red team PASS (3 files 29 tests; PoC forged gaps all 409). On main the QA overlap test failed 1/19 (also alone): statements starting the same day were ordered by random id; fixed by ordering on period_to and created_at. Squashed on main: continuity file 4× `19 passed (19)`; check 2224 files 0 errors, lint clean, `Test Files 337 passed (337)`, `Tests 5435 passed (5435)`, build ok.
 - 2026-10-11 feat/fn-49-patungan 3d46e1c → e3f458c: engineer gates 327 / 5237 (cycle 1), 339 / 5467 (cycle 2), 342 / 5496 (rebased on 0040); fail-before aggregates 9 failed / 2 passed on the old aggregate.ts, link lock 2 failed, L1/L2 tests failed before; patungan e2e 7 passed; fresh D1 0000–0041 + no-op rerun. QA PASS cycle 1 (35 criteria) and cycle 2 (56 patungan tests, migration-0041 4, FK check clean, e2e patungan 7, shell 21). Red team PASS cycle 1 (33 tests, PoC 5) and cycle 2 (35/35, PoC 3/3, deleted). Squashed on main: `drizzle-kit check` fine, check 2251 files 0 errors, lint clean, `Test Files 342 passed (342)`, `Tests 5496 passed (5496)`, build ok.
+- 2026-10-13 feat/fn-56-auth-ascii 0ed04a0 → e2a35d1: engineer gates 387 / 6541; e2e motion, accounts, turnstile, passkey, parity-d, ios-responsive, pwa, offline-queue, catatan-rilis, ruang, site, account-key `--workers=1` 231 passed 40 skipped 0 failed (cycle 1); cycle 2 motion, accounts, parity-d 42 passed 23 skipped 0 failed; generator 0.40 ms per desktop frame. Squashed on main: check 2375 files 0 errors 0 warnings, Prettier clean, `Test Files 387 passed (387)`, `Tests 6541 passed (6541)`, build ok.

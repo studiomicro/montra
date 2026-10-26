@@ -33,7 +33,7 @@ export interface ParsedPayment {
 	last4: string | null;
 }
 
-export const parsedPaymentSchema = z
+const parsedPaymentSchema = z
 	.object({
 		direction: z.enum(['expense', 'income']),
 		amountMinor: z.number().int().min(1).max(MAX_AMOUNT_MINOR),

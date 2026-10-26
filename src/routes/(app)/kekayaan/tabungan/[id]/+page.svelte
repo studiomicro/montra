@@ -395,8 +395,8 @@
 		text-decoration: none;
 	}
 	.primary {
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 	}
 	.secondary {
 		background: var(--panel);

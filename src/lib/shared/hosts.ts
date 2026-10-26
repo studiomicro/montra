@@ -5,7 +5,7 @@ import { splitSiteLocale } from './site-locale.ts';
  * (docs/TASKS.md); add them here when chosen, together with their app host in APP_HOST_FOR_SITE. The first
  * entry is the canonical site host: canonical links and the sitemap name it (FN-32).
  */
-export const SITE_HOSTS: readonly string[] = ['site.localhost'];
+const SITE_HOSTS: readonly string[] = ['site.localhost'];
 
 const APP_HOST_FOR_SITE: Readonly<Record<string, string>> = { 'site.localhost': 'localhost' };
 

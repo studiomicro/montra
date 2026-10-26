@@ -32,7 +32,7 @@ export const RIDE_HAILING_WORDS: Readonly<Record<string, TileKey>> = {
 	ojol: 'ojek-online'
 };
 /** The FN-06 fixed keyword map (kopi, makan, parkir, bensin). */
-export const FIXED_WORDS: Readonly<Record<string, TileKey>> = {
+const FIXED_WORDS: Readonly<Record<string, TileKey>> = {
 	kopi: 'kopi',
 	makan: 'makan',
 	parkir: 'transportasi',

@@ -32,7 +32,6 @@ export const SPACE_NOTIFICATION_KINDS = [
 export type SpaceNotificationKind = (typeof SPACE_NOTIFICATION_KINDS)[number];
 /** Kinds about the user (stored in `user_notifications`, deleted with the account). */
 export const USER_NOTIFICATION_KINDS = ['daily_nudge', 'close_reminder', 'weekly_summary'] as const;
-export type UserNotificationKind = (typeof USER_NOTIFICATION_KINDS)[number];
 
 export function isNotificationKind(value: string): value is NotificationKind {
 	return (NOTIFICATION_KINDS as readonly string[]).includes(value);
@@ -88,7 +87,7 @@ export function prefsFrom(
 
 // ---- Figures stored with a notification (`params`) ----
 
-export interface BudgetParams {
+interface BudgetParams {
 	/** WIB month `YYYY-MM`. */
 	month: string;
 	currency: string;
@@ -97,7 +96,7 @@ export interface BudgetParams {
 	spentMinor: number | null;
 }
 
-export interface GoalParams {
+interface GoalParams {
 	goalId: string;
 	name: string;
 	currency: string;
@@ -106,12 +105,12 @@ export interface GoalParams {
 	targetMinor: number;
 }
 
-export interface NudgeParams {
+interface NudgeParams {
 	/** WIB date `YYYY-MM-DD`. */
 	date: string;
 }
 
-export interface WeeklyParams {
+interface WeeklyParams {
 	/** Monday and Sunday (WIB) of the summarised week. */
 	from: string;
 	to: string;
@@ -121,7 +120,7 @@ export interface WeeklyParams {
 }
 
 /** FN-26: a subscription charges on `chargeOn` (WIB); figures as stored on the subscription when created. */
-export interface BillParams {
+interface BillParams {
 	subscriptionId: string;
 	name: string;
 	currency: string;
@@ -134,7 +133,7 @@ export interface BillParams {
  * FN-26 (red team L1): the bills a recipient was not told about one by one today, past
  * BILL_REMINDERS_PER_DAY, grouped into one notification per space and WIB day. Names no subscription.
  */
-export interface BillGroupParams {
+interface BillGroupParams {
 	count: number;
 	/** WIB date `YYYY-MM-DD` of the day it was grouped. */
 	date: string;
@@ -393,7 +392,7 @@ export function wibHour(utcMs: number): number {
 }
 
 /** First and last WIB hour anything is sent (the jobs cron window, 06:00–23:59 WIB). */
-export const SEND_FROM_HOUR = 6;
+const SEND_FROM_HOUR = 6;
 
 /** 00:00–05:59 WIB: nothing is pushed (an in-app row may still be created, e.g. by the user's own write). */
 export function isQuietHour(utcMs: number): boolean {
@@ -418,7 +417,7 @@ export function lastWeekRange(date: string): { from: string; to: string } {
 }
 
 /** The daily nudge starts on the 07:00 WIB tick (owner decision 3); later ticks finish a large pass. */
-export const NUDGE_HOUR = 7;
+const NUDGE_HOUR = 7;
 /**
  * FN-34b evening reminder: the WIB hours a user may pick, exactly the hours the jobs cron ticks on (06–23), and
  * the default when no hour is stored (owner decision D).
@@ -436,7 +435,7 @@ export function parseReminderHour(raw: string): number | null {
 }
 
 /** The weekly summary starts on Monday's first tick, 06:00 WIB (owner decision 2); later Monday ticks finish it. */
-export const WEEKLY_HOUR = 6;
+const WEEKLY_HOUR = 6;
 
 /**
  * Which walks one cron tick at `utcMs` may run: budgets every tick; the nudge from 07:00 WIB and the weekly

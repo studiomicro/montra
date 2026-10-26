@@ -108,10 +108,14 @@ test('at 360 px on a touch screen: card, review, confirm, undo and skip; saved o
 	for (const target of [confirm, skip])
 		expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 	await expectNoHorizontalScroll(page);
+	// The viewport only: a full-page capture of a page taller than the screen resizes the page for the shot, and
+	// Chromium then drops the touch emulation (pointer: coarse), so a later measurement would read the fine-pointer
+	// 40 px size (FN-55 QA).
 	await testInfo.attach('cocokkan-transfer-360', {
-		body: await page.screenshot({ fullPage: true }),
+		body: await page.screenshot(),
 		contentType: 'image/png'
 	});
+	expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
 
 	await confirm.click();
 	await expect(page.getByText('Pasangan dicocokkan menjadi satu transfer.')).toBeVisible();

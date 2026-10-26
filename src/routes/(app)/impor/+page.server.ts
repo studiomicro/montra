@@ -7,6 +7,16 @@ import { importCsv, previewCsv, type CsvRefusal } from '#lib/server/imports/csv-
 import {
 	BATCH_ALREADY_UNDONE,
 	BATCH_NOT_FOUND,
+	CARD_STATEMENT_ALREADY,
+	CARD_STATEMENT_CURRENCY,
+	CARD_STATEMENT_LIMIT,
+	CARD_STATEMENT_MISMATCH,
+	CARD_STATEMENT_UNSUPPORTED,
+	MOVE_BANK_STATEMENT_TO_CARD,
+	MOVE_CARD_STATEMENT_EXISTS,
+	MOVE_CARD_WALLET_REQUIRED,
+	STATEMENT_NEEDS_BANK_WALLET,
+	STATEMENT_NEEDS_CARD_WALLET,
 	CONTINUITY_ALREADY,
 	CONTINUITY_CHANGED,
 	EXPORT_RANGE_INVALID,
@@ -81,7 +91,7 @@ import {
 	STATEMENT_UPLOADS_PER_WINDOW
 } from '#lib/server/statements/validation';
 import type { StatementHints } from '#lib/shared/statements/detect';
-import { statementCatalogue } from '#lib/shared/statements/catalogue';
+import { CARD_INSTITUTIONS, statementCatalogue } from '#lib/shared/statements/catalogue';
 import { STATEMENT_PARSERS } from '#lib/shared/statements/parsers';
 import { overTransactionCreateLimit } from '#lib/server/transactions/create-limit';
 import {
@@ -113,7 +123,10 @@ const MOVE_REFUSALS: Readonly<
 	source_archived: { status: 409, error: MOVE_SOURCE_ARCHIVED },
 	mixed_wallets: { status: 409, error: MOVE_MIXED_WALLETS },
 	nothing_to_move: { status: 409, error: MOVE_NOTHING },
-	transfer_linked: { status: 409, error: MOVE_TRANSFER_LINKED }
+	transfer_linked: { status: 409, error: MOVE_TRANSFER_LINKED },
+	card_wallet_required: { status: 400, error: MOVE_CARD_WALLET_REQUIRED },
+	card_statement_exists: { status: 409, error: MOVE_CARD_STATEMENT_EXISTS },
+	bank_statement_to_card: { status: 400, error: MOVE_BANK_STATEMENT_TO_CARD }
 };
 /** A gap as the page sent it: a signed integer of minor units (anything else matches no gap). */
 const GAP = /^-?\d{1,16}$/;
@@ -144,6 +157,13 @@ const STATEMENT_REFUSALS: Readonly<Record<StatementRefusal, string>> = {
 	section_required: STATEMENT_SECTION_REQUIRED,
 	section_unknown: STATEMENT_SECTION_UNKNOWN,
 	section_unsupported: STATEMENT_SECTION_UNSUPPORTED,
+	needs_card_wallet: STATEMENT_NEEDS_CARD_WALLET,
+	needs_bank_wallet: STATEMENT_NEEDS_BANK_WALLET,
+	card_unsupported: CARD_STATEMENT_UNSUPPORTED,
+	card_currency: CARD_STATEMENT_CURRENCY,
+	card_mismatch: CARD_STATEMENT_MISMATCH,
+	card_already_imported: CARD_STATEMENT_ALREADY,
+	card_limit: CARD_STATEMENT_LIMIT,
 	empty: FILE_EMPTY,
 	unterminated_quote: FILE_UNTERMINATED_QUOTE,
 	too_many_columns: FILE_TOO_MANY_COLUMNS
@@ -158,15 +178,22 @@ function statementFailure(
 	event: RequestEvent,
 	error: StatementRefusal,
 	hints: StatementHints | null,
-	sections: StatementSectionChoice[] = []
+	sections: StatementSectionChoice[] = [],
+	institution: string | null = null
 ) {
 	if (error === 'reader_busy') return statementBusy(event);
+	const needsPassword = error === 'encrypted' || error === 'wrong_password';
+	// FN-55 B6: an issuer's own password rule, only when its parser declares one (never invented).
+	const passwordHint = needsPassword
+		? (STATEMENT_PARSERS.find((p) => p.id === institution)?.passwordHint ?? null)
+		: null;
 	return fail(400, {
 		section: 'statement' as const,
 		error: STATEMENT_REFUSALS[error],
 		hints,
 		needsAi: error === 'needs_ai',
-		needsPassword: error === 'encrypted' || error === 'wrong_password',
+		needsPassword,
+		...(passwordHint ? { passwordHint } : {}),
 		needsInstitution: error === 'institution_unknown' && STATEMENT_PARSERS.length > 0,
 		...(sections.length > 0 ? { sections } : {})
 	});
@@ -219,7 +246,14 @@ const OCR_INSTITUTIONS = [...STATEMENT_PARSERS, ...SCREEN_PARSERS].map(({ id, la
 }));
 
 /** The statement picker's rows (FN-16i): the parsers selectable, every other FN-04 institution disabled. */
-const STATEMENT_CATALOGUE = statementCatalogue(STATEMENT_PARSERS);
+const bankParsers = () => STATEMENT_PARSERS.filter((p) => (p.kind ?? 'bank') === 'bank');
+const STATEMENT_CATALOGUE = statementCatalogue(bankParsers());
+/**
+ * FN-55b: what a card wallet offers: card parsers only (none until a real sample exists, FN-55c), every planned
+ * issuer disabled with "waiting for sample" and its alternative.
+ */
+const cardParsers = () => STATEMENT_PARSERS.filter((p) => p.kind === 'card');
+const CARD_CATALOGUE = statementCatalogue(cardParsers(), CARD_INSTITUTIONS);
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const { spaceId } = await currentSpaceScope(locals);
@@ -244,8 +278,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		);
 		return {
 			...base,
-			statementInstitutions: STATEMENT_PARSERS.map(({ id, label }) => ({ id, label })),
+			statementInstitutions: bankParsers().map(({ id, label }) => ({ id, label })),
 			statementCatalogue: STATEMENT_CATALOGUE,
+			cardInstitutions: cardParsers().map(({ id, label }) => ({ id, label })),
+			cardCatalogue: CARD_CATALOGUE,
 			ocrInstitutions: OCR_INSTITUTIONS,
 			batches: batches.map((b) => ({
 				...b,
@@ -256,9 +292,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			continuity,
 			transferMatchCount,
 			// Imports write IDR rows only: only IDR wallets can take the rows that name no wallet.
+			// FN-55b: the type decides which statement readers the picker offers (a card wallet: card statements).
 			wallets: wallets
 				.filter((w) => w.currency === 'IDR')
-				.map(({ id, name, isFavourite }) => ({ id, name, isFavourite })),
+				.map(({ id, name, isFavourite, type }) => ({ id, name, isFavourite, type })),
 			// FN-16j: where an import can move to (a live wallet of the batch's own currency; the page filters).
 			moveWallets: wallets.map(({ id, name, currency }) => ({ id, name, currency })),
 			loadError: null
@@ -267,8 +304,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		console.error('impor: load failed', errorLabel(e));
 		return {
 			...base,
-			statementInstitutions: STATEMENT_PARSERS.map(({ id, label }) => ({ id, label })),
+			statementInstitutions: bankParsers().map(({ id, label }) => ({ id, label })),
 			statementCatalogue: STATEMENT_CATALOGUE,
+			cardInstitutions: cardParsers().map(({ id, label }) => ({ id, label })),
+			cardCatalogue: CARD_CATALOGUE,
 			ocrInstitutions: OCR_INSTITUTIONS,
 			batches: [],
 			wallets: [],
@@ -385,7 +424,8 @@ async function previewStatementAction(event: RequestEvent, place: PdfReadPlace) 
 	);
 	if (!run.ok) return run.failure;
 	const result = run.value;
-	if (!result.ok) return statementFailure(event, result.error, result.hints, result.sections);
+	if (!result.ok)
+		return statementFailure(event, result.error, result.hints, result.sections, fields.institution);
 	return {
 		section: 'statement' as const,
 		done: 'statementPreviewed' as const,
@@ -433,14 +473,21 @@ async function importStatementAction(event: RequestEvent, place: PdfReadPlace) {
 			case 'limit':
 				return fail(409, { section: 'statement' as const, error: TRANSACTION_LIMIT });
 			default:
-				return statementFailure(event, result.error, result.hints ?? null, result.sections);
+				return statementFailure(
+					event,
+					result.error,
+					result.hints ?? null,
+					result.sections,
+					fields.institution
+				);
 		}
 	}
 	return {
 		section: 'statement' as const,
 		done: 'statementImported' as const,
 		statement: result.summary,
-		counts: result.counts
+		counts: result.counts,
+		autoMatchedCount: result.autoMatchedCount
 	};
 }
 

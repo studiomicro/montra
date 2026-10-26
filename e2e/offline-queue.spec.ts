@@ -203,7 +203,8 @@ test('two tabs come online together: the queued item is sent once', async ({
 		page.evaluate(() => window.dispatchEvent(new Event('online'))),
 		tabB.evaluate(() => window.dispatchEvent(new Event('online')))
 	]);
-	await expect.poll(() => queueSize(page)).toBe(0);
+	// Sending waits for the push round trip and the tabs' lock hand-off, which can take seconds on a CI runner.
+	await expect.poll(() => queueSize(page), { timeout: 20_000 }).toBe(0);
 	await page.waitForTimeout(500);
 	expect(sent).toBe(1);
 	await page.goto('/riwayat');

@@ -27,7 +27,7 @@ export const ANTHROPIC_VERSION = '2023-06-01';
  */
 export const ANTHROPIC_TEST_MODEL = 'claude-haiku-5-5';
 /** "every AI call … has a timeout" (engineering checklist › Cost). */
-export const ANTHROPIC_TEST_TIMEOUT_MS = 10_000;
+const ANTHROPIC_TEST_TIMEOUT_MS = 10_000;
 /** Most bytes of an error body read to classify it (Anthropic's error bodies are a few hundred bytes). */
 const ERROR_BODY_MAX_BYTES = 4096;
 

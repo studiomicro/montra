@@ -5,6 +5,9 @@
 	import FormBanner from '#lib/ui/auth/FormBanner.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
 	import Button from '#lib/ui/kit/Button.svelte';
+	import Chip from '#lib/ui/kit/Chip.svelte';
+	import { shown } from '#lib/ui/kit/amounts.svelte';
+	import { formatMoney } from '#lib/shared/money-format';
 	import ErrorState from '#lib/ui/kit/ErrorState.svelte';
 	import Skeleton from '#lib/ui/kit/Skeleton.svelte';
 	import EmptyState from '#lib/ui/shell/EmptyState.svelte';
@@ -18,7 +21,7 @@
 	import { queueAmountMissing, QUEUE_NETWORK, QUEUE_QUEUED_HERE } from '#lib/ui/offline-queue/view';
 
 	let { data, form } = $props();
-	const { tr, locale } = useI18n();
+	const { tr, trf, locale } = useI18n();
 
 	let busy = $state(false);
 	let networkError = $state('');
@@ -148,6 +151,12 @@
 			: {}
 	);
 	const title = $derived(data.adjustmentValues ? tr('Penyesuaian saldo') : tr('Tambah transaksi'));
+	/** FN-55a "Bayar tagihan": the card's printed figures, each a link that fills the amount (the user confirms). */
+	const fill = $derived(values?.type === 'transfer' ? data.cardFill : null);
+	const fillHref = (which: 'tagihan' | 'minimum') =>
+		`/riwayat/baru?type=transfer&ke=${fill?.cardId ?? ''}&isi=${which}`;
+	const printed = (minor: number) =>
+		shown(formatMoney(minor, fill?.currency ?? 'IDR', 'auto', locale));
 	const banner = $derived(
 		networkError || (form && 'error' in form && form.error ? tr(form.error) : '') || undefined
 	);
@@ -208,6 +217,23 @@
 					>
 				</div>
 			{/if}
+			{#if fill && (fill.bill || fill.minimum)}
+				<div class="fill" role="group" aria-labelledby="fill-label">
+					<span id="fill-label" class="fill-label">
+						{trf('Isi dari tagihan {kartu} (tertera, periksa dulu)', { kartu: fill.cardName })}
+					</span>
+					{#each [{ key: 'tagihan' as const, figure: fill.bill, label: tr('Tagihan terakhir (tertera)') }, { key: 'minimum' as const, figure: fill.minimum, label: tr('Pembayaran minimum (tertera)') }] as chip (chip.key)}
+						{#if chip.figure?.typeable}
+							<Chip href={fillHref(chip.key)}>{chip.label} · {printed(chip.figure.minor)}</Chip>
+						{:else if chip.figure}
+							<span class="fill-text">
+								{chip.label} · {printed(chip.figure.minor)} ·
+								{tr('ada sen, ketik jumlah yang kamu bayar')}
+							</span>
+						{/if}
+					{/each}
+				</div>
+			{/if}
 			{#key formKey}
 				<TransactionForm
 					action="?/create"
@@ -232,6 +258,21 @@
 		gap: 16px;
 		max-width: 560px;
 		margin-top: 8px;
+	}
+	.fill {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+	.fill-label {
+		flex-basis: 100%;
+		font-size: 13px;
+		color: var(--muted);
+	}
+	.fill-text {
+		font-size: 14px;
+		color: var(--ink-2);
 	}
 	.queued {
 		margin: 0;

@@ -8,6 +8,7 @@ import {
 	fictionalStatementPdf
 } from '../test/fixtures/statements/fictional-bank';
 import { MANDIRI_AUGUST, mandiriPdf } from '../test/fixtures/statements/mandiri';
+import { FICTIONAL_CARD, fictionalCardPdf } from '../test/fixtures/statements/fictional-card';
 import { buildPdf } from '../test/helpers/pdf';
 import { compatReport, formatMatrix, samplePassword } from './compat-statements';
 
@@ -156,5 +157,28 @@ describe('compat:statements', () => {
 		);
 		expect(r.status).toBe(0);
 		expect(r.stdout).toContain('No statement samples');
+	});
+
+	it('FN-55b AC 35: a card statement prints counts and pass/fail only — no path, file name, card number, description or amount', async () => {
+		const root = samples({
+			'statements/kartu 4111111111110001/tagihan kartu 4111111111110001 oktober.pdf':
+				fictionalCardPdf()
+		});
+		const out = await compatReport(root, null, [FICTIONAL_CARD]);
+		// The owner's folder name is shown masked to its last 4, as for bank samples; nothing else of it.
+		expect(out).toContain('fiktif-kartu');
+		expect(out).toContain('pass (Rp0 gap)');
+		expect(out).toMatch(/\b5\b/);
+		for (const leak of [
+			'tagihan kartu',
+			'oktober',
+			join(root, 'statements'),
+			'4111111111110001',
+			'TOKO BUKU',
+			'800.000',
+			'1.325.000',
+			'132500050'
+		])
+			expect(out).not.toContain(leak);
 	});
 });

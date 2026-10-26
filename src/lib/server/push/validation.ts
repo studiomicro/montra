@@ -6,7 +6,7 @@ import { AUTH_SECRET_BYTES, P256_PUBLIC_KEY_BYTES } from './encrypt';
 /** Longest endpoint stored (real ones are a few hundred characters). */
 export const ENDPOINT_MAX_LENGTH = 1024;
 /** Stored user-agent text is a device hint only. */
-export const USER_AGENT_MAX_LENGTH = 200;
+const USER_AGENT_MAX_LENGTH = 200;
 
 /**
  * Hosts of the browsers' own push services: Chrome and other Chromium browsers (FCM), Firefox (Mozilla
@@ -33,7 +33,7 @@ export function isPushEndpoint(endpoint: string): boolean {
 }
 
 /** The normalised form of a posted endpoint, or null when it is not a known push-service endpoint. */
-export function pushEndpointFrom(raw: string): string | null {
+function pushEndpointFrom(raw: string): string | null {
 	if (raw.length === 0 || raw.length > ENDPOINT_MAX_LENGTH) return null;
 	const endpoint = normalizePushEndpoint(raw);
 	return endpoint && isPushEndpoint(endpoint) ? endpoint : null;

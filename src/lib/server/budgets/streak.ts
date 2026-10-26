@@ -108,7 +108,7 @@ export async function snapshotBudgetDay(
 }
 
 /** The space's stored verdicts in the STREAK_LOOKBACK_DAYS before `today`, oldest first (bounded). */
-export async function budgetStreakDaysOf(
+async function budgetStreakDaysOf(
 	db: Db,
 	spaceId: string,
 	today: string

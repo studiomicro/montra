@@ -10,7 +10,7 @@ import { CONFIRMATION_CODE_MAX } from './address.ts';
  */
 
 /** Characters of a mail body looked at; a payment notification is far shorter. */
-export const MAIL_TEXT_MAX = 20_000;
+const MAIL_TEXT_MAX = 20_000;
 const LINE_MAX = 500;
 const MAX_LINES = 400;
 

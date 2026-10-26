@@ -4,7 +4,7 @@ import { openAiKey, type AiKeysEnv } from './crypto';
 import { getStoredKey } from './repo';
 
 /** An opened key and the row it came from (a test result is recorded against that row only). */
-export interface OpenedKey {
+interface OpenedKey {
 	rowId: string;
 	key: string;
 }

@@ -19,9 +19,9 @@ import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { newId } from '../util';
 
 /** Notifications shown on the list (newest first); older ones stay stored but are not listed. */
-export const NOTIFICATION_LIST_LIMIT = 50;
+const NOTIFICATION_LIST_LIMIT = 50;
 /** The unread badge counts up to this many ("99+" beyond). */
-export const UNREAD_COUNT_CAP = 100;
+const UNREAD_COUNT_CAP = 100;
 /** A delivery claim older than this was left by a crashed attempt and may be taken over. */
 export const DELIVERY_CLAIM_STALE_MS = 5 * 60 * 1000;
 

@@ -192,7 +192,7 @@
 
 	<fieldset class="people">
 		<legend>{tr('Siapa saja')}</legend>
-		<div class="person">
+		<div class="person on-panel">
 			<span class="who">
 				<span class="name">{payerName}</span>
 				<span class="tag">{tr('Kamu, pembayar')}</span>
@@ -211,7 +211,7 @@
 		</div>
 
 		{#each members as member (member.userId)}
-			<div class="person">
+			<div class="person on-panel">
 				<label class="who check">
 					<input type="checkbox" name="member" value={member.userId} bind:group={picked} />
 					<span class="name">{member.name}</span>
@@ -238,7 +238,7 @@
 		{/each}
 
 		{#each guests as guest, i (i)}
-			<div class="person">
+			<div class="person on-panel">
 				<Field
 					id="{uid}-guest-{i}"
 					name="guestName"

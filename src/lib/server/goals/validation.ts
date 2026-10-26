@@ -18,7 +18,7 @@ const codePoints = (text: string) => Array.from(text).length;
 const positiveMinor = (message: string) =>
 	z.number().int(message).positive(message).refine(Number.isSafeInteger, message);
 
-export const goalInputSchema = z.object({
+const goalInputSchema = z.object({
 	name: z
 		.string()
 		.min(1, GOAL_NAME_INVALID)
@@ -28,7 +28,7 @@ export const goalInputSchema = z.object({
 export type GoalInput = z.infer<typeof goalInputSchema>;
 export type GoalField = keyof GoalInput;
 
-export const contributionInputSchema = z.object({
+const contributionInputSchema = z.object({
 	amountMinor: positiveMinor(AMOUNT_INVALID),
 	note: z
 		.string()

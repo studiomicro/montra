@@ -38,7 +38,7 @@ export const OCR_CORES = {
 
 export type OcrCoreVariant = keyof typeof OCR_CORES;
 
-export const OCR_LANGUAGES = ['ind', 'eng'] as const;
+const OCR_LANGUAGES = ['ind', 'eng'] as const;
 
 export const OCR_ASSETS: readonly OcrAsset[] = [
 	// tesseract.js: the page-side module and the worker script.
@@ -233,7 +233,7 @@ export const OCR_ASSETS: readonly OcrAsset[] = [
 /** The notices file the build writes (not copied, so it has no pinned size). */
 export const OCR_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
 
-export function ocrAsset(path: string): OcrAsset {
+function ocrAsset(path: string): OcrAsset {
 	const asset = OCR_ASSETS.find((a) => a.path === path);
 	if (!asset) throw new Error('unknown OCR asset');
 	return asset;

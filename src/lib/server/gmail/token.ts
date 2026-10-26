@@ -23,7 +23,7 @@ import { markNeedsReconnect, resealToken, type JobConnection } from './repo';
 /** In-memory access tokens of one isolate. */
 export type AccessTokenCache = Map<string, { token: string; expiresAt: number }>;
 
-export const ACCESS_TOKEN_TTL_MS = 50 * 60 * 1000;
+const ACCESS_TOKEN_TTL_MS = 50 * 60 * 1000;
 /** Seconds before a refresh that failed for a transient reason is tried again. */
 const REFRESH_RETRY_S = 60;
 
@@ -94,7 +94,7 @@ async function resealIfPrevious(deps: TokenDeps, conn: JobConnection, refreshTok
 }
 
 /** Connections one sweep re-seals at most. */
-export const GMAIL_RESEAL_BATCH = 100;
+const GMAIL_RESEAL_BATCH = 100;
 
 /**
  * Red team N4 (cycle 2): the jobs Worker's hourly pass that re-seals, without calling Google, every connection whose

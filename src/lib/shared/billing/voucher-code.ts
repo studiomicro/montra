@@ -8,8 +8,8 @@
 
 export const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 /** Shortest accepted code (symbols, separators not counted). */
-export const VOUCHER_CODE_MIN = 10;
-export const VOUCHER_CODE_MAX = 32;
+const VOUCHER_CODE_MIN = 10;
+const VOUCHER_CODE_MAX = 32;
 const GENERATED_LENGTH = 16;
 
 /** The canonical form of a typed code, or null when it cannot be a code. */

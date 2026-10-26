@@ -133,6 +133,6 @@
 		width: 22px;
 		height: 22px;
 		margin: 0;
-		accent-color: var(--ink);
+		accent-color: var(--action);
 	}
 </style>

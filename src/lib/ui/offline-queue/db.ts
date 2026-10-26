@@ -6,7 +6,7 @@ import { parseQueueItem, type QueueItem } from '#lib/shared/offline-queue';
  * encrypted (owner default: a short-lived retry buffer on the user's own signed-in device). Sign-out's
  * `Clear-Site-Data: "storage"` removes the whole database.
  */
-export const QUEUE_DB_NAME = 'financer-queue';
+const QUEUE_DB_NAME = 'financer-queue';
 const STORE = 'items';
 const BY_ACCOUNT = 'byAccount';
 

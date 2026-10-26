@@ -16,7 +16,6 @@ export type ConnectedAppProvider = (typeof CONNECTED_APP_PROVIDERS)[number];
 
 /** A live connection row is `connected`; its content-free tombstone is `disconnected`. */
 export const CONNECTED_APP_STATUSES = ['connected', 'disconnected'] as const;
-export type ConnectedAppStatus = (typeof CONNECTED_APP_STATUSES)[number];
 
 export function isConnectedAppProvider(value: string): value is ConnectedAppProvider {
 	return (CONNECTED_APP_PROVIDERS as readonly string[]).includes(value);

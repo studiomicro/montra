@@ -51,7 +51,7 @@ const schema = (today: string) =>
 			.nullable()
 	});
 export type BelongingInput = z.infer<ReturnType<typeof schema>>;
-export type BelongingField = keyof BelongingInput;
+type BelongingField = keyof BelongingInput;
 
 type Parsed =
 	| { ok: true; value: BelongingInput }

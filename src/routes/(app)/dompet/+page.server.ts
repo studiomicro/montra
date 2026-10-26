@@ -1,4 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
+import { cardSummaries } from '#lib/server/cards/summary';
 import { readFormBody, textField } from '#lib/server/forms';
 import { errorLabel } from '#lib/server/util';
 import { GOAL_LIMIT, GOAL_NOT_FOUND, GOALS_LOAD_FAILED } from '#lib/server/goals/messages';
@@ -10,6 +11,8 @@ import { balanceTotals, shownBalance } from '#lib/server/wallets/balance';
 import { walletHasTransactions } from '#lib/server/transactions/repo';
 import { walletTransactionsSums } from '#lib/server/transactions/wallet-sum';
 import {
+	BANK_STATEMENTS_TYPE_LOCKED,
+	CARD_TYPE_LOCKED,
 	CURRENCY_LOCKED,
 	LOAD_FAILED,
 	WALLET_CHANGED,
@@ -24,11 +27,13 @@ import {
 	restoreWallet,
 	setFavourite,
 	updateWallet,
+	walletHasCardStatements,
 	type WalletScope,
 	type WalletWriteResult
 } from '#lib/server/wallets/repo';
 import { parseWalletForm, walletFormValues } from '#lib/server/wallets/validation';
-import { walletQuickPick } from '#lib/shared/wallets';
+import { wibTodayString } from '#lib/shared/dates';
+import { emoneyQuickPick, walletQuickPick } from '#lib/shared/wallets';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
 // Dompet (APP_PARITY § 3: wallets and goals; FN-04 and FN-10) works on the session's current space (locals.space,
@@ -62,6 +67,8 @@ function expectedUpdatedAt(form: FormData): number {
 }
 
 function refused(result: Exclude<WalletWriteResult, 'ok'>) {
+	if (result === 'card_locked') return fail(409, { error: CARD_TYPE_LOCKED });
+	if (result === 'bank_statements_locked') return fail(409, { error: BANK_STATEMENTS_TYPE_LOCKED });
 	return result === 'missing'
 		? fail(404, { error: WALLET_NOT_FOUND })
 		: fail(409, { error: WALLET_CHANGED });
@@ -86,9 +93,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// sheet does it with JavaScript).
 	const editId = url.searchParams.get('ubah')?.slice(0, WALLET_ID_MAX_LENGTH) ?? null;
 	const open = url.searchParams.get('tambah') === '1' ? 'add' : editId;
+	// `&jenis=kartu_kredit` (the card page's "Tambah kartu"): the new wallet starts as a card, without JavaScript too.
+	const addCard = open === 'add' && url.searchParams.get('jenis') === 'kartu_kredit';
 	// `&dompet=<id>`: an FN-39 quick pick (GoPay, OVO, …) prefilling the new wallet; anything else is ignored.
 	const quickPick =
 		open === 'add' ? (walletQuickPick(url.searchParams.get('dompet'))?.id ?? null) : null;
+	// `&kartu=<issuer>`: an FN-58 e-money card quick pick (BCA Flazz, KMT, …); anything else is ignored.
+	const emoneyPick =
+		open === 'add' ? (emoneyQuickPick(url.searchParams.get('kartu'))?.issuer ?? null) : null;
 	const openGoal = url.searchParams.get('target') === 'baru';
 	// The goals (FN-10) load on their own: a failure there leaves the wallets untouched, and back.
 	const goalsSection = await loadGoals(locals.db, scope.spaceId, showArchived);
@@ -101,25 +113,38 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		const wallets = rows.map((w) => ({ ...w, balanceMinor: shownBalance(w, sums.get(w.id)) }));
 		const live = wallets.filter((w) => !w.archived);
 		const heroCurrency = live.find((w) => w.isFavourite)?.currency ?? 'IDR';
+		// FN-55a: a live card's owed amount, available credit and due chip (computed, never typed).
+		const cards = await cardSummaries(
+			locals.db,
+			scope.spaceId,
+			live.filter((w) => w.type === 'kartu_kredit'),
+			wibTodayString()
+		);
 		return {
 			...base,
 			wallets,
+			cards,
 			totals: balanceTotals(live, heroCurrency),
 			heroCurrency,
 			loadError: null,
 			open,
-			quickPick
+			quickPick,
+			emoneyPick,
+			addCard
 		};
 	} catch (e) {
 		console.error('dompet: wallet list failed', errorLabel(e));
 		return {
 			...base,
 			wallets: [],
+			cards: [],
 			totals: [],
 			heroCurrency: 'IDR',
 			loadError: LOAD_FAILED,
 			open: null,
-			quickPick: null
+			quickPick: null,
+			emoneyPick: null,
+			addCard: false
 		};
 	}
 };
@@ -155,6 +180,12 @@ export const actions: Actions = {
 				errors: parsed.errors,
 				values: parsed.values
 			});
+		// FN-55a: imported card statements need a card wallet (the write repeats the check in its guard).
+		if (
+			parsed.value.type !== 'kartu_kredit' &&
+			(await walletHasCardStatements(db, scope.spaceId, id))
+		)
+			return fail(409, { error: CARD_TYPE_LOCKED });
 		// A wallet's transactions are in its currency (FN-05): the code is fixed once it has any.
 		const current = await getWallet(db, scope.spaceId, id);
 		if (

@@ -11,7 +11,7 @@ import { API_INTRO, AUTH_TEXT, ERROR_TEXT, LIMITS_TEXT, openApiDocument } from '
  * FN-38: the OpenAPI document reduced to what the docs page renders (endpoints, parameters, body fields,
  * statuses), so the page shows exactly what `/api/v1/openapi.json` says, in the reader's language.
  */
-export interface ReferenceField {
+interface ReferenceField {
 	name: string;
 	where: 'path' | 'query' | 'body';
 	type: string;
@@ -19,7 +19,7 @@ export interface ReferenceField {
 	description: string;
 }
 
-export interface ReferenceEndpoint {
+interface ReferenceEndpoint {
 	id: string;
 	method: string;
 	path: string;

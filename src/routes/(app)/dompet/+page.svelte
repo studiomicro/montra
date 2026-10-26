@@ -3,12 +3,17 @@
 	import { enhance, type SubmitFunction } from '$app/forms';
 	import { invalidateAll, replaceState } from '$app/navigation';
 	import { minorToAmountText } from '#lib/shared/amount-input';
+	import { cardAmountText } from '#lib/shared/cards';
 	import { msg } from '#lib/shared/i18n';
 	import { formatMoney, formatMoneyCompact } from '#lib/shared/money-format';
 	import {
+		EMONEY_FORM_TYPE,
+		emoneyQuickPick,
 		maskedLastFour,
-		WALLET_TYPE_LABELS,
+		walletFormType,
+		walletKindLabel,
 		walletQuickPick,
+		type EmoneyQuickPick,
 		type WalletFormValues,
 		type WalletQuickPick
 	} from '#lib/shared/wallets';
@@ -25,10 +30,13 @@
 	import { applyAmountsHiddenAtLoad, shown } from '#lib/ui/kit/amounts.svelte';
 	import { richParts, type RichPart } from '#lib/ui/kit/rich';
 	import EmptyState from '#lib/ui/shell/EmptyState.svelte';
+	import IconRow from '#lib/ui/shell/IconRow.svelte';
 	import ScreenTitle from '#lib/ui/shell/ScreenTitle.svelte';
+	import { nfcBridge } from '#lib/ui/emoney/nfc';
 	import Sheet from '#lib/ui/shell/Sheet.svelte';
 	import GoalsSection from '#lib/ui/goals/GoalsSection.svelte';
 	import WalletForm from '#lib/ui/wallets/WalletForm.svelte';
+	import DueChip from '#lib/ui/cards/DueChip.svelte';
 
 	let { data, form } = $props();
 	// Red team N5: the eye's cookie choice masks every figure of this page from the first server render.
@@ -40,25 +48,53 @@
 	const active = $derived(data.wallets.filter((w) => !w.archived));
 	const archived = $derived(data.wallets.filter((w) => w.archived));
 
-	/** A new wallet's form; an FN-39 quick pick (`?dompet=<id>`) fills its name and the e-wallet type. */
-	const blank = (prefill: WalletQuickPick | null = null): WalletFormValues => ({
-		name: prefill?.name ?? '',
-		type: prefill ? 'e_wallet' : 'tunai',
+	/**
+	 * A new wallet's form; an FN-39 quick pick (`?dompet=<id>`) fills its name and the e-wallet type, an FN-58
+	 * e-money pick (`?kartu=<issuer>`) its name, "Kartu e-money" and the issuer, and `&jenis=kartu_kredit` (FN-55a)
+	 * starts it as a card.
+	 */
+	const blank = (
+		prefill: WalletQuickPick | null = null,
+		card = false,
+		emoney: EmoneyQuickPick | null = null
+	): WalletFormValues => ({
+		name: prefill?.name ?? emoney?.name ?? '',
+		type: prefill ? 'e_wallet' : emoney ? EMONEY_FORM_TYPE : card ? 'kartu_kredit' : 'tunai',
 		currency: 'IDR',
 		openingBalance: '',
 		negative: false,
 		isFavourite: false,
-		lastFour: ''
+		lastFour: '',
+		balanceMode: card && !prefill ? 'card' : 'plain',
+		overpaid: false,
+		creditLimit: '',
+		statementDay: '',
+		dueDay: '',
+		emoneyIssuer: !prefill && emoney ? emoney.issuer : ''
 	});
-	const valuesOf = (w: Wallet): WalletFormValues => ({
-		name: w.name,
-		type: w.type,
-		currency: w.currency,
-		openingBalance: minorToAmountText(Math.abs(w.openingBalanceMinor), w.currency, locale),
-		negative: w.openingBalanceMinor < 0,
-		isFavourite: w.isFavourite,
-		lastFour: w.lastFour ?? ''
-	});
+	/** FN-55a: a card is edited in card wording (the bill owed, with its sen); every other type as before. */
+	const valuesOf = (w: Wallet): WalletFormValues => {
+		const card = w.type === 'kartu_kredit';
+		return {
+			name: w.name,
+			type: walletFormType(w),
+			currency: w.currency,
+			openingBalance: card
+				? cardAmountText(Math.abs(w.openingBalanceMinor), w.currency, locale)
+				: minorToAmountText(Math.abs(w.openingBalanceMinor), w.currency, locale),
+			negative: w.openingBalanceMinor < 0,
+			isFavourite: w.isFavourite,
+			lastFour: w.lastFour ?? '',
+			balanceMode: card ? 'card' : 'plain',
+			overpaid: card && w.openingBalanceMinor > 0,
+			creditLimit: cardAmountText(w.creditLimitMinor, w.currency, locale),
+			statementDay: w.statementDay === null ? '' : String(w.statementDay),
+			dueDay: w.dueDay === null ? '' : String(w.dueDay),
+			emoneyIssuer: w.emoneyIssuer ?? ''
+		};
+	};
+	/** FN-55a: each live card's summary (owed, available credit, due chip), by wallet id. */
+	const cardOf = $derived(new Map(data.cards.map((c) => [c.walletId, c])));
 
 	// With JavaScript the form opens in a sheet; without it, `?tambah=1` / `?ubah=<id>` (and a refused
 	// submission) render the same form inline, so every action works as a plain form post.
@@ -66,6 +102,8 @@
 	let sheetOpen = $state(false);
 	let editing = $state<Wallet | null>(null);
 	let addPrefill = $state<WalletQuickPick | null>(null);
+	let addCard = $state(false);
+	let addEmoney = $state<EmoneyQuickPick | null>(null);
 	let formKey = $state(0);
 	let fieldErrors = $state<Partial<Record<string, string>>>({});
 	/** The action in flight ('' when none): its button shows progress, every action button is disabled. */
@@ -76,6 +114,8 @@
 	function openAdd() {
 		editing = null;
 		addPrefill = null;
+		addCard = false;
+		addEmoney = null;
 		fieldErrors = {};
 		actionError = '';
 		formKey++;
@@ -93,11 +133,17 @@
 		fn();
 	};
 
+	// FN-58: the card reader row shows only inside the Android app, where the NFC bridge exists.
+	let canReadCards = $state(false);
+
 	onMount(() => {
 		hydrated = true;
+		canReadCards = nfcBridge() !== null;
 		if (data.open === 'add') {
 			openAdd();
 			addPrefill = walletQuickPick(data.quickPick);
+			addCard = data.addCard;
+			addEmoney = emoneyQuickPick(data.emoneyPick);
 		} else if (data.open) {
 			const w = data.wallets.find((x) => x.id === data.open && !x.archived);
 			if (w) openEdit(w);
@@ -110,6 +156,7 @@
 			url.searchParams.delete('tambah');
 			url.searchParams.delete('ubah');
 			url.searchParams.delete('dompet');
+			url.searchParams.delete('kartu');
 			replaceState(url, {});
 		}
 	}
@@ -181,7 +228,15 @@
 			return { wallet: wallet ?? null, values: form.values, errors: form.errors };
 		}
 		if (data.open === 'add')
-			return { wallet: null, values: blank(walletQuickPick(data.quickPick)), errors: {} };
+			return {
+				wallet: null,
+				values: blank(
+					walletQuickPick(data.quickPick),
+					data.addCard,
+					emoneyQuickPick(data.emoneyPick)
+				),
+				errors: {}
+			};
 		const wallet = data.open ? active.find((w) => w.id === data.open) : undefined;
 		return wallet ? { wallet, values: valuesOf(wallet), errors: {} } : null;
 	});
@@ -343,11 +398,13 @@
 				{:else}
 					<GroupList records>
 						{#each active as wallet (wallet.id)}
+							{@const card = cardOf.get(wallet.id)}
 							<GroupRow>
+								<!-- FN-55a: a card opens its card page (edit from there); every other wallet its edit form. -->
 								<a
 									class="open"
-									href="/dompet?ubah={wallet.id}"
-									onclick={intercept(() => openEdit(wallet))}
+									href={card ? `/dompet/kartu/${wallet.id}` : `/dompet?ubah=${wallet.id}`}
+									onclick={card ? undefined : intercept(() => openEdit(wallet))}
 								>
 									<BrandBadge name={wallet.name} round />
 									<span class="text">
@@ -355,15 +412,36 @@
 											<span class="name-text">{wallet.name}</span>
 										</span>
 										<span class="meta">
-											{tr(WALLET_TYPE_LABELS[wallet.type])}{#if wallet.lastFour}
-												· <span class="num">{maskedLastFour(wallet.lastFour)}</span>{/if}
+											{walletKindLabel(wallet, tr)}{#if wallet.lastFour}&nbsp;· <span
+													class="num four">{maskedLastFour(wallet.lastFour)}</span
+												>{/if}
 										</span>
+										{#if card?.available}
+											<span class="meta num">
+												{card.available.kind === 'over'
+													? tr('Melebihi limit')
+													: trf('Kredit tersedia {jumlah}', {
+															jumlah:
+																card.available.minor === null
+																	? tr(TOO_LARGE)
+																	: shown(
+																			formatMoney(
+																				card.available.minor,
+																				wallet.currency,
+																				'auto',
+																				locale
+																			)
+																		)
+														})}
+											</span>
+										{/if}
+										{#if card?.due}<span class="due"><DueChip due={card.due} /></span>{/if}
 									</span>
 									<span class="end">
 										<span class="kind" aria-hidden="true">{tr('Saldo')}</span>
 										<span class="amount num">{balanceText(wallet)}</span>
 									</span>
-									<span class="sr-only">{tr('Ubah')}</span>
+									<span class="sr-only">{card ? tr('Buka kartu') : tr('Ubah')}</span>
 									<span class="chev" aria-hidden="true"
 										><Icon name="chevron-right" size={18} /></span
 									>
@@ -412,7 +490,7 @@
 									<span class="text">
 										<span class="name">{wallet.name}</span>
 										<span class="meta">
-											{tr('Diarsipkan')} · {tr(WALLET_TYPE_LABELS[wallet.type])}
+											{tr('Diarsipkan')} · {walletKindLabel(wallet, tr)}
 										</span>
 									</span>
 									<span class="amount num muted">{balanceText(wallet)}</span>
@@ -437,6 +515,16 @@
 	</div>
 
 	<div class="side-col">
+		{#if canReadCards}
+			<GroupList>
+				<IconRow
+					icon="wallet"
+					title={tr('Baca kartu e-money')}
+					hint={tr('Tempelkan kartu ke ponsel lewat NFC')}
+					href="/dompet/diagnosa-kartu"
+				/>
+			</GroupList>
+		{/if}
 		<GoalsSection
 			goals={data.goals}
 			loadError={data.goalsError}
@@ -455,7 +543,11 @@
 	{#if sheetOpen}
 		<FormBanner message={banner} />
 		{#key formKey}
-			{@render walletForm(editing, editing ? valuesOf(editing) : blank(addPrefill), fieldErrors)}
+			{@render walletForm(
+				editing,
+				editing ? valuesOf(editing) : blank(addPrefill, addCard, addEmoney),
+				fieldErrors
+			)}
 		{/key}
 	{/if}
 </Sheet>
@@ -480,7 +572,8 @@
 		gap: 24px;
 		min-width: 0;
 	}
-	@media (min-width: 1200px) {
+	/* The tablet tier (860 – 1023 px, no sidebar; app +layout.svelte) and the full desktop width. */
+	@media (min-width: 860px) and (max-width: 1023.98px), (min-width: 1200px) {
 		.two-col {
 			grid-template-columns: minmax(0, 740px) minmax(300px, 420px);
 			gap: 40px;
@@ -570,6 +663,32 @@
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+	}
+	/* The masked number never breaks inside "•••• 4821". */
+	.four {
+		white-space: nowrap;
+	}
+	/*
+	 * A phone row gives the name up to two lines (POLISH_AUDIT B4), and the 44 px star slot overlaps the row's
+	 * edge padding instead of taking more of the name's width (its tap target stays 44 px).
+	 */
+	@media (max-width: 479px) {
+		.name-text {
+			display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+			white-space: normal;
+			overflow-wrap: anywhere;
+		}
+		.star,
+		.fav {
+			margin: 0 -10px 0 -6px;
+		}
+	}
+	.due {
+		display: flex;
+		margin-top: 4px;
 	}
 	.star {
 		display: grid;

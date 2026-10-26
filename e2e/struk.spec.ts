@@ -38,8 +38,9 @@ test('not configured: Struk says why; "Lampirkan fotonya saja" keeps the photo w
 	await page.goto('/');
 	await waitForHydration(page);
 	await expect(main(page).getByRole('button', { name: 'Struk' })).toBeDisabled();
+	// FN-54: one reason line per layout (phone under the capture pair, desktop under the header); one is visible.
 	await expect(
-		main(page).getByText('Pembacaan struk dengan AI belum dikonfigurasi.')
+		main(page).getByText('Pembacaan struk dengan AI belum dikonfigurasi.').filter({ visible: true })
 	).toBeVisible();
 
 	await page.goto('/riwayat/struk');

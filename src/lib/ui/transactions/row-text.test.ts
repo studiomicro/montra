@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '#lib/shared/i18n';
-import { rowMeta, rowTitle, signedAmount, type ListedRow } from './row-text';
+import {
+	joinMeta,
+	rowMeta as rawMeta,
+	rowTile,
+	rowTitle,
+	signedAmount,
+	type ListedRow
+} from './row-text';
 
+/** The meta with its non-breaking spaces shown as plain ones, for readable expectations. */
+const rowMeta = (...args: Parameters<typeof rawMeta>) => rawMeta(...args).replace(/\u00a0/g, ' ');
 const id = createTranslator('id');
 const en = createTranslator('en');
 // 2026-10-07 09:32 UTC = 16:32 WIB.
@@ -69,5 +78,18 @@ describe('row lines', () => {
 		expect(rowTitle({ ...adjustment, title: 'Cocokkan' }, id)).toBe('Cocokkan');
 		expect(rowMeta(adjustment, id)).toBe('16.32 · Saldo disesuaikan · BCA');
 		expect(rowMeta(adjustment, en)).toBe('16:32 · Balance adjusted · BCA');
+	});
+	it('never lets a wrapped meta line start with "·" (the dot binds to the segment before it)', () => {
+		const meta = rawMeta({ ...base, wallet: { name: 'Mandiri Tabungan' } }, id, { withDate: true });
+		expect(meta).toBe('7 Okt, 16.32\u00a0· Makan & Minum\u00a0· Mandiri Tabungan');
+		expect(meta).not.toMatch(/ ·/);
+	});
+	it('joinMeta drops empty segments', () => {
+		expect(joinMeta(['5 Okt', null, '', 'BCA'])).toBe('5 Okt\u00a0· BCA');
+	});
+	it('rowTile gives a transfer the transfer glyph and an uncategorised row "Lainnya"', () => {
+		expect(rowTile({ type: 'transfer', category: null })).toBe('transfer');
+		expect(rowTile({ type: 'expense', category: null })).toBe('lain');
+		expect(rowTile({ type: 'expense', category: { tileKey: 'kopi' } })).toBe('kopi');
 	});
 });

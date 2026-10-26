@@ -9,7 +9,7 @@ import { SEPARATORS } from '#lib/shared/money-format';
  */
 export const FORM_BODY_MAX_BYTES = 8 * 1024;
 /** How long an action waits for a body to end; a client trickling bytes is cut off. */
-export const FORM_BODY_TIMEOUT_MS = 10_000;
+const FORM_BODY_TIMEOUT_MS = 10_000;
 /** What an HTML form sends and `formData()` parses (`text/plain` forms are refused). */
 const FORM_TYPES = new Set(['application/x-www-form-urlencoded', 'multipart/form-data']);
 
@@ -175,10 +175,17 @@ const GROUPED: Readonly<Record<Locale, RegExp>> = {
  * currency (IDR, JPY) keeps the `wholeAmountMinor` contract exactly. A currency with cents also takes a
  * fraction of at most its exponent's digits after the decimal mark, padded on the right (`12,5` → 1250):
  * `1.234,56` (id) / `1,234.56` (en). More fraction digits (`12,345`) are refused, never rounded or cut; so are
- * any other grouping (`12.50` in id) and a mark with no digit at all.
+ * any other grouping (`12.50` in id) and a mark with no digit at all. `fractionDigits` (FN-55a card amounts:
+ * `cardFractionDigits`, the currency's full exponent, so an IDR card bill is typed with its printed sen) must be 0
+ * or the currency's exponent.
  */
-export function amountMinorFromText(text: string, currency: string, locale: Locale): number | null {
-	const fd = amountFractionDigits(currency);
+export function amountMinorFromText(
+	text: string,
+	currency: string,
+	locale: Locale,
+	fractionDigits: number = amountFractionDigits(currency)
+): number | null {
+	const fd = fractionDigits;
 	if (fd === 0) return wholeAmountMinor(text, currency);
 	const trimmed = text.trim();
 	if (trimmed === '') return 0;

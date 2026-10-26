@@ -267,7 +267,12 @@ describe('FN-49 effective amount on every aggregate surface', () => {
 		const makan = flow.rows.find((r) => r.category?.id === a.makan)!;
 		expect(makan.amountMinor).toBe(SHARE);
 		expect(flow.rows[0]!.category?.id).toBe(a.kopi);
-		const report = await moneyFlowReport(db, a.scope.spaceId, MONTH);
+		const report = await moneyFlowReport(
+			db,
+			a.scope.spaceId,
+			{ kind: 'bulan', month: MONTH },
+			TODAY
+		);
 		expect(report.outMinor).toBe(SHARE + COFFEE);
 	});
 

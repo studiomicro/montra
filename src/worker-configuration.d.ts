@@ -8,7 +8,7 @@ interface __BaseEnv_Env {
 	STATS: AnalyticsEngineDataset;
 	JOBS_QUEUE: Queue;
 	ASSETS: Fetcher;
-	APP_VERSION: "0.11.0";
+	APP_VERSION: "0.17.0";
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_Env {}

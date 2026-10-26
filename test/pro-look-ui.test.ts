@@ -183,8 +183,14 @@ describe('Beranda’s hero frame (FN-46 Part 4, AC 18, 19, 22)', () => {
 
 	it('Beranda passes the plan’s flag, never a property of the rows it shows (demo or not)', () => {
 		const src = readFileSync('src/routes/(app)/+page.svelte', 'utf8');
-		const call = src.slice(src.indexOf('<HeroAmount'), src.indexOf('>', src.indexOf('pro=')));
+		// FN-54: the frame moved to the greeting card (one frame); the figure inside never draws its own.
+		const call = src.slice(src.indexOf('<GreetingHero'), src.indexOf('>', src.indexOf('pro=')));
 		expect(call).toContain('pro={hasProLook(data.shell.plan)}');
 		expect(call).not.toMatch(/isDemo|demo/i);
+		const hero = src.slice(
+			src.indexOf('<HeroAmount'),
+			src.indexOf('>', src.indexOf('<HeroAmount'))
+		);
+		expect(hero).not.toMatch(/\bpro[={]/);
 	});
 });

@@ -8,7 +8,7 @@ import { buildPdf, textContent } from '../../helpers/pdf';
  * every name, account number, remark and amount invented. Nothing here comes from a real statement.
  */
 
-export interface MandiriRow {
+interface MandiriRow {
 	remarks: readonly string[];
 	/** Signed nominal as printed: `+25.000,00` or `-10.000,00`. */
 	amount: string;
@@ -48,7 +48,7 @@ export interface MandiriFixture {
 
 const toMinor = (printed: string) => Number(printed.replace(/[+\-. ]/g, '').replace(',', ''));
 /** Integer minor units → `1.234.567,89` (test code only; the app formats with its shared formatter). */
-export const idr = (minor: number) => {
+const idr = (minor: number) => {
 	const whole = Math.floor(minor / 100)
 		.toString()
 		.replace(/\B(?=(\d{3})+(?!\d))/g, '.');

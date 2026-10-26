@@ -28,7 +28,7 @@ import { cacheForKeys, historyForKeys, rulesForKeys, writeCache } from './repo';
 /** Most items one call resolves; the rest come back `none` (PRD AC-19). */
 export const RESOLVE_BATCH_MAX = 200;
 /** Most AI requests one user action makes (owner decision 6). */
-export const MERCHANT_AI_BATCHES_MAX = 5;
+const MERCHANT_AI_BATCHES_MAX = 5;
 /** AI-resolve requests one user may make per hour (owner decision 6). */
 export const MERCHANT_AI_CALLS_PER_HOUR = 20;
 /**
@@ -40,7 +40,7 @@ export const MERCHANT_SUGGESTS_PER_WINDOW = 300;
 const HOUR_MS = 60 * 60 * 1000;
 
 /** How sure each layer is: a member's own rule most, an AI guess least. Below 0.75 asks for review. */
-export const REASON_CONFIDENCE: Readonly<Record<MerchantReason, number>> = {
+const REASON_CONFIDENCE: Readonly<Record<MerchantReason, number>> = {
 	rule: 1,
 	history: 0.9,
 	dictionary: 0.85,

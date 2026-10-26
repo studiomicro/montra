@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { statementCatalogue } from './catalogue';
+import { CARD_INSTITUTIONS, statementCatalogue } from './catalogue';
 import { STATEMENT_PARSERS } from './parsers';
 
 describe('statementCatalogue (FN-16i)', () => {
@@ -56,5 +56,35 @@ describe('statementCatalogue (FN-16i)', () => {
 		expect(rows.filter((r) => r.supported).map((r) => r.id)).toEqual(['bca', 'bri', 'banknew']);
 		expect(rows.find((r) => r.id === 'mandiri')?.supported).toBe(false);
 		expect(rows.filter((r) => r.id === 'bri')).toHaveLength(1);
+	});
+});
+
+describe('card statement catalogue (FN-55b AC 34)', () => {
+	it('lists every planned card issuer disabled, waiting for a sample, with its bank mark', () => {
+		const cards = statementCatalogue(
+			STATEMENT_PARSERS.filter((p) => p.kind === 'card'),
+			CARD_INSTITUTIONS
+		);
+		expect(cards.map((r) => [r.id, r.supported])).toEqual([
+			['bca-card', false],
+			['mandiri-card', false],
+			['bri-card', false],
+			['bni-card', false],
+			['cimb-card', false],
+			['ocbc-card', false]
+		]);
+		expect(cards.every((r) => !r.supported && r.alternative === 'card_waiting')).toBe(true);
+		expect(cards[0]?.label).toBe('BCA Kartu Kredit');
+		expect(cards[0]?.brand).toBe('bca');
+	});
+
+	it('a card parser becomes selectable only once it exists; a bank wallet never lists a card issuer', () => {
+		const cards = statementCatalogue(
+			[{ id: 'bca-card', label: 'BCA Kartu Kredit' }],
+			CARD_INSTITUTIONS
+		);
+		expect(cards.filter((r) => r.supported).map((r) => r.id)).toEqual(['bca-card']);
+		const banks = statementCatalogue(STATEMENT_PARSERS.filter((p) => p.kind !== 'card'));
+		expect(banks.some((r) => r.id.endsWith('-card'))).toBe(false);
 	});
 });

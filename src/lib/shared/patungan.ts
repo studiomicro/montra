@@ -27,14 +27,13 @@ export function isFormMode(value: string): value is FormMode {
 }
 
 export const PATUNGAN_PARTICIPANT_KINDS = ['member', 'guest'] as const;
-export type PatunganParticipantKind = (typeof PATUNGAN_PARTICIPANT_KINDS)[number];
 
 /** The payer and at least one other person: a "split" of one is not a split. */
-export const MIN_PARTICIPANTS = 2;
+const MIN_PARTICIPANTS = 2;
 /** Most people on one bill, the payer included (bounds every form, query and batch). */
 export const MAX_PARTICIPANTS = 20;
 
-export type SharesRefusal =
+type SharesRefusal =
 	/** Fewer than MIN_PARTICIPANTS or more than MAX_PARTICIPANTS people. */
 	| 'count'
 	/** `equal`: the total is smaller than the number of people (someone's share would be 0). */

@@ -11,8 +11,8 @@ export const OCR_MIN_NUMERIC_CONF = 70;
 export const OCR_REVIEW_NUMERIC_CONF = 90;
 
 /** A page below this mean word confidence, or with fewer words, is "photo unclear": its rows go to review. */
-export const OCR_UNCLEAR_MEAN_CONF = 60;
-export const OCR_UNCLEAR_MIN_WORDS = 8;
+const OCR_UNCLEAR_MEAN_CONF = 60;
+const OCR_UNCLEAR_MIN_WORDS = 8;
 
 /** What a poisoned word becomes: no parser reads it as a digit, a sign or a date. */
 export const UNREADABLE = '�';

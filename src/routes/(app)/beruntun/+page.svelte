@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { navigating } from '$app/state';
 	import { formatMonthLabel } from '#lib/shared/dates';
+	import { periodStepLabel } from '#lib/shared/report-period';
 	import { FREEZE_BANK_MAX } from '#lib/shared/streak';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
@@ -47,7 +48,7 @@
 	const isEmpty = $derived(closure !== null && closure.longest === 0 && !closure.closedToday);
 	const monthLabel = $derived(formatMonthLabel(data.month, locale));
 	const stepper = $derived({
-		label: monthLabel,
+		label: periodStepLabel({ kind: 'bulan', month: data.month }, locale),
 		prevHref: data.month === data.thisMonth ? '/beruntun?bulan=' + data.lastMonth : null,
 		nextHref: data.month === data.lastMonth ? '/beruntun' : null
 	});

@@ -142,7 +142,7 @@ export function parseCsv(
 }
 
 /** True for a record that holds nothing (an empty line, or only empty cells). */
-export function isBlankRow(row: readonly string[]): boolean {
+function isBlankRow(row: readonly string[]): boolean {
 	return row.every((cell) => cell.trim() === '');
 }
 

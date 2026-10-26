@@ -3,9 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { signUp } from '#lib/server/auth/accounts';
 import { getDb, type Db } from '#lib/server/db';
 import { resolveCurrentSpace } from '#lib/server/spaces/access';
-import { createWallet } from '#lib/server/wallets/repo';
 import { FN48_TILES, TILE_KEYS } from '#lib/shared/transactions';
-import { applyMigration, openLocalD1 } from '../helpers/d1';
+import { applyMigration, insertLegacyWallet, openLocalD1 } from '../helpers/d1';
 
 /**
  * Migration 0027 (FN-39) rebuilds `categories` (and, around it, `category_budgets` and `recurring_transactions`)
@@ -36,8 +35,8 @@ async function space() {
 	);
 	if (!r.ok) throw new Error('setup failed');
 	const s = (await resolveCurrentSpace(db, r.userId, undefined))!;
-	const w = await createWallet(
-		db,
+	const w = await insertLegacyWallet(
+		d1,
 		{ spaceId: s.id, userId: r.userId },
 		{
 			name: 'BCA',

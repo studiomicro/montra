@@ -122,7 +122,7 @@ export function releasePhotoKeys(db: Db, table: PhotoTable, where: SQL | undefin
  * due now with one more attempt, so if R2 fails they wait for the next sweep. Idempotent: deleting a missing
  * object succeeds. Throws when R2 fails.
  */
-export async function deleteFiles(
+async function deleteFiles(
 	db: Db,
 	bucket: R2Bucket,
 	keys: readonly string[],
@@ -221,7 +221,7 @@ export async function sweepSoon(
 }
 
 /** Content Security Policy of a served photo: nothing in it may run, load or be framed. */
-export const PHOTO_CSP = "default-src 'none'; sandbox; frame-ancestors 'none'";
+const PHOTO_CSP = "default-src 'none'; sandbox; frame-ancestors 'none'";
 
 /**
  * The response for a stored photo the caller already checked access to. Content-Type is the type sniffed and

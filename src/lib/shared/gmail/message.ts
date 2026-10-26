@@ -10,7 +10,7 @@ import { cleanMailText, htmlToText } from '../inbound/mail.ts';
  * and decoded size are capped; anything that does not fit the expected shape is `malformed`. Never throws.
  */
 
-export interface GmailMail {
+interface GmailMail {
 	gmailId: string;
 	/** Epoch ms Gmail received it (`internalDate`), null when absent. */
 	internalDate: number | null;
@@ -29,7 +29,7 @@ export interface GmailMail {
 export type GmailParse = { kind: 'ok'; mail: GmailMail } | { kind: 'malformed' };
 
 /** Labels that make a mail `not_payment` whatever the search returned. */
-export const EXCLUDED_LABELS = [
+const EXCLUDED_LABELS = [
 	'CATEGORY_PROMOTIONS',
 	'CATEGORY_SOCIAL',
 	'SPAM',

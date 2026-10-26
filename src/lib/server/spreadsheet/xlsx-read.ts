@@ -46,14 +46,14 @@ export const XLSX_MAX_ENTRY_INFLATED = 16 * 1024 * 1024;
 export const XLSX_MAX_TOTAL_INFLATED = 50 * 1024 * 1024;
 export const XLSX_MAX_RATIO = 100;
 export const RATIO_FLOOR = 1024 * 1024;
-export const INFLATE_CHUNK = 4096;
-export const XML_TAG_BUDGET = 4_000_000;
+const INFLATE_CHUNK = 4096;
+const XML_TAG_BUDGET = 4_000_000;
 export const SHEET_MAX_TABS = 40;
 export const SHEET_MAX_COLUMNS = CSV_MAX_COLUMNS;
 export const READ_MAX_ROWS = 6000;
 /** Most shared strings kept; longest text kept per cell. */
-export const SHARED_STRINGS_MAX = 200_000;
-export const CELL_TEXT_MAX = 256;
+const SHARED_STRINGS_MAX = 200_000;
+const CELL_TEXT_MAX = 256;
 /** Longest number format code (Excel's own limit is 255) and most custom formats kept; more refuses the file. */
 export const FORMAT_CODE_MAX = 512;
 export const FORMATS_MAX = 2000;

@@ -108,6 +108,43 @@ test('first wallet: empty state → add in the sheet → listed, focus back on t
 	await context.close();
 });
 
+test('FN-58 pass 1: add an e-money card (issuer required), see "Kartu e-money · issuer"; a quick pick fills it', async ({
+	browser
+}, testInfo) => {
+	const { context, page } = await freshUser(browser, testInfo);
+	await openDompet(page);
+	await page.getByRole('link', { name: 'Tambah dompet' }).first().click();
+	const sheet = page.getByRole('dialog', { name: 'Tambah dompet' });
+	await sheet.getByLabel('Nama dompet').fill('Kartu Kereta');
+	await sheet.getByRole('radio', { name: 'Kartu e-money' }).check();
+	await sheet.getByLabel('Saldo awal').fill('75000');
+	await sheet.getByLabel('4 angka terakhir (opsional)').fill('0042');
+	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
+	// No issuer: refused by the server, the sheet stays open.
+	await expect(sheet.getByText('Pilih penerbit kartu e-money.')).toBeVisible();
+	await sheet.getByLabel('Penerbit kartu').selectOption({ label: 'KMT (KAI Commuter)' });
+	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
+	await expect(sheet).toBeHidden();
+	const card = row(page, 'Kartu Kereta');
+	await expect(card).toContainText('Kartu e-money · KMT (KAI Commuter)');
+	await expect(card).toContainText('•••• 0042');
+	await expect(card).toContainText('Rp 75.000');
+
+	// A quick pick fills the name, the choice and the issuer in place.
+	await page.getByRole('link', { name: 'Tambah dompet' }).first().click();
+	await sheet.getByRole('link', { name: 'BCA Flazz' }).click();
+	await expect(sheet.getByLabel('Nama dompet')).toHaveValue('BCA Flazz');
+	await expect(sheet.getByRole('radio', { name: 'Kartu e-money' })).toBeChecked();
+	await expect(sheet.getByLabel('Penerbit kartu')).toHaveValue('bca_flazz');
+	await sheet.getByRole('button', { name: 'Tambah dompet' }).click();
+	await expect(sheet).toBeHidden();
+	await page.reload();
+	await expect(row(page, 'Kartu Kereta')).toContainText('Kartu e-money · KMT (KAI Commuter)');
+	await expect(row(page, 'BCA Flazz')).toContainText('Kartu e-money · BCA Flazz');
+	await expectNoHorizontalScroll(page);
+	await context.close();
+});
+
 test('focus returns to the opener when the sheet closes', async ({ browser }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await openDompet(page);
@@ -122,27 +159,31 @@ test('focus returns to the opener when the sheet closes', async ({ browser }, te
 	await context.close();
 });
 
-test('edit to a negative balance; a second tab’s stale save is refused', async ({
+test('edit a card’s debt (card wording); a second tab’s stale save is refused', async ({
 	browser
 }, testInfo) => {
 	const { context, page } = await freshUser(browser, testInfo);
 	await openDompet(page);
-	await addWallet(page, { name: 'Kartu Kredit', type: 'Kartu kredit', balance: '0' });
+	// FN-55a: a card is set up and edited in card wording (the debt typed as owed); its row opens the card page,
+	// whose "Ubah kartu" opens the edit form (`/dompet?ubah=<id>`).
+	await addWallet(page, { name: 'Kartu Kredit', type: 'Kartu kredit' });
+	const href = await row(page, 'Kartu Kredit').getByRole('link').first().getAttribute('href');
+	const editUrl = `/dompet?ubah=${href!.split('/').pop()}`;
 
 	// Two tabs open the same edit form.
 	const tab2 = await context.newPage();
-	await openDompet(tab2);
-	await row(tab2, 'Kartu Kredit').getByRole('link').first().click();
+	await tab2.goto(editUrl);
+	await waitForHydration(tab2);
 	const sheet2 = tab2.getByRole('dialog', { name: 'Ubah dompet' });
 	await expect(sheet2).toBeVisible();
 
-	await row(page, 'Kartu Kredit').getByRole('link').first().click();
+	await page.goto(editUrl);
+	await waitForHydration(page);
 	const sheet = page.getByRole('dialog', { name: 'Ubah dompet' });
-	await sheet.getByLabel('Saldo awal').fill('2500000');
-	await sheet.getByLabel('Saldo minus (utang, misalnya tagihan kartu kredit)').check();
+	await sheet.getByLabel('Utang awal (saat kartu ditambahkan)').fill('2.500.000');
 	await sheet.getByRole('button', { name: 'Simpan perubahan' }).click();
 	await expect(sheet).toBeHidden();
-	await expect(row(page, 'Kartu Kredit')).toContainText('−Rp 2.500.000');
+	await expect(row(page, 'Kartu Kredit')).toContainText('−Rp 2.500.000');
 
 	await sheet2.getByLabel('Nama dompet').fill('Ditimpa tab dua');
 	await sheet2.getByRole('button', { name: 'Simpan perubahan' }).click();
@@ -150,7 +191,7 @@ test('edit to a negative balance; a second tab’s stale save is refused', async
 		sheet2.getByText('Berubah sejak terakhir dimuat. Muat ulang lalu coba lagi.')
 	).toBeVisible();
 	await page.reload();
-	await expect(row(page, 'Kartu Kredit')).toContainText('−Rp 2.500.000');
+	await expect(row(page, 'Kartu Kredit')).toContainText('−Rp 2.500.000');
 	await expect(page.getByText('Ditimpa tab dua')).toHaveCount(0);
 	await context.close();
 });

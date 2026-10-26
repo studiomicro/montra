@@ -745,8 +745,8 @@
 		height: 72px;
 		border: 0;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		cursor: pointer;
 	}
 	.mic.recording {

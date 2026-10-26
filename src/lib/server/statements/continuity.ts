@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { addDays } from '#lib/shared/dates';
-import type { StatementParse } from '#lib/shared/statements/types';
+import type { CardStatementFigures, StatementParse } from '#lib/shared/statements/types';
 import type { Db } from '../db';
 import type { SpaceScope } from '../spaces/access';
 import { safeMinor } from '../transactions/aggregate';
@@ -20,9 +20,9 @@ import { walletWindowSql } from '../transactions/wallet-sum';
  */
 
 /** Most statement batches one check reads (newest periods first); older ones are then never guessed about. */
-export const CONTINUITY_BATCH_MAX = 1000;
+const CONTINUITY_BATCH_MAX = 1000;
 /** Most breaks the /impor page lists. */
-export const CONTINUITY_LIST_MAX = 20;
+const CONTINUITY_LIST_MAX = 20;
 /** Time of day an adjustment closing a gap is recorded at: the end of the day before the statement. */
 const ADJUSTMENT_TIME = '23:59';
 
@@ -39,6 +39,30 @@ export interface StoredStatement extends StatementSpan {
 	id: string;
 	walletId: string;
 	createdAt: number;
+}
+
+/**
+ * FN-55b: a card statement's span, never its min/max transaction date (a purchase dated in the previous cycle may
+ * post in this one): the printed period; else, with only the statement date printed, the day after the previous
+ * stored card statement's date to the statement date; else the earliest printed posting date to the statement date
+ * (the statement date alone when none is printed). Balances in the wallet's convention, as printed.
+ */
+export function cardStatementSpan(
+	card: CardStatementFigures,
+	previousStatementDate: string | null
+): StatementSpan {
+	const to = card.periodTo ?? card.statementDate;
+	const from =
+		card.periodFrom ??
+		(previousStatementDate !== null && previousStatementDate < to
+			? addDays(previousStatementDate, 1)
+			: (card.firstPostingDate ?? to));
+	return {
+		periodFrom: from <= to ? from : to,
+		periodTo: to,
+		openingBalanceMinor: card.previousBalanceMinor,
+		closingBalanceMinor: card.newBalanceMinor
+	};
 }
 
 /**
@@ -107,14 +131,17 @@ const byRecency = (a: StoredStatement, b: StoredStatement) =>
 export function planContinuity(
 	candidate: StatementSpan & { id: string | null },
 	stored: readonly StoredStatement[],
-	complete = true
+	complete = true,
+	card = false
 ): ContinuityPlan {
 	if (candidate.openingBalanceMinor === null) return { kind: 'none' };
 	const others = stored.filter((b) => b.id !== candidate.id && !sameStatement(b, candidate));
 	if (others.some((b) => b.periodFrom <= candidate.periodTo && b.periodTo >= candidate.periodFrom))
 		return { kind: 'overlap' };
 	const previous = others.filter((b) => b.periodTo < candidate.periodFrom).sort(byRecency)[0];
-	if (!previous) return complete ? { kind: 'wallet' } : { kind: 'none' };
+	// FN-55b: a card statement connects statement to statement only; the first one makes no claim (its wallet
+	// balance is shown for information).
+	if (!previous) return complete && !card ? { kind: 'wallet' } : { kind: 'none' };
 	const closing = previous.closingBalanceMinor;
 	if (closing === null) return { kind: 'none' };
 	return { kind: 'statement', previous: { ...previous, closingBalanceMinor: closing } };
@@ -223,11 +250,19 @@ interface StoredRow {
 	id: string;
 	wallet_id: string;
 	wallet_name: string;
+	wallet_type: string;
 	period_from: string;
 	period_to: string;
 	opening_balance_minor: number | null;
 	closing_balance_minor: number | null;
 	created_at: number;
+}
+
+/** Whether `walletId` is a live `kartu_kredit` wallet of the space (its statements connect statement to statement). */
+async function isCardWallet(db: Db, spaceId: string, walletId: string): Promise<boolean> {
+	const row = await db.get<{ n: number }>(sql`select count(*) as n from wallets
+		where id = ${walletId} and space_id = ${spaceId} and deleted_at is null and type = 'kartu_kredit'`);
+	return (row?.n ?? 0) > 0;
 }
 
 /**
@@ -236,7 +271,7 @@ interface StoredRow {
  */
 async function storedStatements(db: Db, spaceId: string, walletId: string | null) {
 	const rows =
-		await db.all<StoredRow>(sql`select b.id, b.wallet_id, w.name as wallet_name, b.period_from,
+		await db.all<StoredRow>(sql`select b.id, b.wallet_id, w.name as wallet_name, w.type as wallet_type, b.period_from,
 			b.period_to, b.opening_balance_minor, b.closing_balance_minor, b.created_at
 		from import_batches b
 		join wallets w on w.id = b.wallet_id and w.space_id = ${spaceId} and w.deleted_at is null
@@ -251,6 +286,7 @@ async function storedStatements(db: Db, spaceId: string, walletId: string | null
 		id: r.id,
 		walletId: r.wallet_id,
 		walletName: r.wallet_name,
+		card: r.wallet_type === 'kartu_kredit',
 		periodFrom: r.period_from,
 		periodTo: r.period_to,
 		openingBalanceMinor: r.opening_balance_minor,
@@ -272,7 +308,12 @@ export async function checkStatement(
 ): Promise<Continuity> {
 	// A wallet that is not a live IDR wallet of the space has no batches here and no window total: no claim.
 	const { batches, complete } = await storedStatements(db, spaceId, walletId);
-	const plan = planContinuity(candidate, batches, complete);
+	const plan = planContinuity(
+		candidate,
+		batches,
+		complete,
+		await isCardWallet(db, spaceId, walletId)
+	);
 	const item = windowOf(0, walletId, candidate, plan);
 	const totals = await windowTotals(db, spaceId, item ? [item] : []);
 	return resultOf(candidate, plan, totals.get(0) ?? null);
@@ -295,7 +336,9 @@ export async function continuityBreaks(db: Db, spaceId: string): Promise<Continu
 	const { batches, complete } = await storedStatements(db, spaceId, null);
 	const byWallet = new Map<string, StoredStatement[]>();
 	for (const b of batches) byWallet.set(b.walletId, [...(byWallet.get(b.walletId) ?? []), b]);
-	const plans = batches.map((b) => planContinuity(b, byWallet.get(b.walletId) ?? [], complete));
+	const plans = batches.map((b) =>
+		planContinuity(b, byWallet.get(b.walletId) ?? [], complete, b.card)
+	);
 	const items = batches.flatMap((b, i) => windowOf(i, b.walletId, b, plans[i]!) ?? []);
 	const totals = await windowTotals(db, spaceId, items);
 	const breaks: ContinuityBreak[] = [];
@@ -368,7 +411,7 @@ export async function closeContinuityGap(
 	};
 	const walletId = batch.wallet_id;
 	const { batches, complete } = await storedStatements(db, spaceId, walletId);
-	const plan = planContinuity(span, batches, complete);
+	const plan = planContinuity(span, batches, complete, await isCardWallet(db, spaceId, walletId));
 	const item = windowOf(0, walletId, span, plan);
 	const totals = await windowTotals(db, spaceId, item ? [item] : []);
 	const result = resultOf(span, plan, totals.get(0) ?? null);

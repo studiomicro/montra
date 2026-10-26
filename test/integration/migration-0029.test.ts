@@ -3,8 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { signUp } from '#lib/server/auth/accounts';
 import { getDb, type Db } from '#lib/server/db';
 import { resolveCurrentSpace } from '#lib/server/spaces/access';
-import { createWallet } from '#lib/server/wallets/repo';
-import { applyMigration, openLocalD1 } from '../helpers/d1';
+import { applyMigration, insertLegacyWallet, openLocalD1 } from '../helpers/d1';
 
 /**
  * Migration 0029 (FN-15) rebuilds `transactions` to add `photo_key`/`photo_type`: applied to a local D1 migrated
@@ -66,8 +65,8 @@ beforeAll(async () => {
 	);
 	if (!r.ok) throw new Error('setup failed');
 	spaceId = (await resolveCurrentSpace(db, r.userId, undefined))!.id;
-	const w = await createWallet(
-		db,
+	const w = await insertLegacyWallet(
+		d1,
 		{ spaceId, userId: r.userId },
 		{
 			name: 'BCA',
@@ -183,6 +182,8 @@ describe('migration 0029 on a database with data', () => {
 			'transactions_patungan_split_uq',
 			'transactions_photo_idx',
 			'transactions_recurring_idx',
+			// FN-48d (migration 0048, applied after 0029 here): live rows by amount, for transfer auto-match.
+			'transactions_space_amount_idx',
 			'transactions_space_day_idx',
 			'transactions_transfer_to_idx',
 			'transactions_wallet_idx'

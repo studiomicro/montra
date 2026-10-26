@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Icon from '#lib/ui/Icon.svelte';
+	import { actionsFitTitleRow } from './screen-title';
 
 	/**
 	 * The page header row (APP_PARITY § 1, § 3a type scale): H1 (28 px phone, 34 px / 800 desktop) with an
@@ -22,6 +23,31 @@
 	let top: HTMLElement | undefined = $state();
 	let far: HTMLElement | undefined = $state();
 	let compact = $state(false);
+	let header: HTMLElement | undefined = $state();
+	let heading: HTMLElement | undefined = $state();
+	let actionsBox: HTMLElement | undefined = $state();
+	/** Phone: the actions did not fit beside the title, so they follow the subtitle (A1, POLISH_AUDIT). */
+	let stacked = $state(false);
+
+	$effect(() => {
+		if (!header || !heading || !actionsBox) return;
+		const row = header;
+		const h1 = heading;
+		const box = actionsBox;
+		const measure = () => {
+			const left = row.getBoundingClientRect().left;
+			stacked = !actionsFitTitleRow(
+				h1.getBoundingClientRect().right - left,
+				box.getBoundingClientRect().width,
+				row.clientWidth
+			);
+		};
+		const observer = new ResizeObserver(measure);
+		observer.observe(row);
+		observer.observe(h1);
+		observer.observe(box);
+		return () => observer.disconnect();
+	});
 
 	/*
 	 * Hysteresis: shrinking the title changes the page height, and scroll anchoring then moves the page by about
@@ -50,7 +76,7 @@
 <div class="sentinel" bind:this={top} aria-hidden="true">
 	<div class="far" bind:this={far}></div>
 </div>
-<header class="screen-title glass glass-soft" class:compact>
+<header class="screen-title glass glass-soft" class:compact class:stacked bind:this={header}>
 	<div class="lead">
 		{#if back}
 			<a class="back" href={back.href} aria-label={back.label} data-testid="screen-back">
@@ -58,11 +84,11 @@
 			</a>
 		{/if}
 		<div class="titles">
-			<h1>{title}</h1>
+			<h1 bind:this={heading}>{title}</h1>
 			{#if subtitle}<p class="subtitle num">{subtitle}</p>{/if}
 		</div>
 	</div>
-	{#if actions}<div class="actions">{@render actions()}</div>{/if}
+	{#if actions}<div class="actions" bind:this={actionsBox}>{@render actions()}</div>{/if}
 </header>
 
 <style>
@@ -154,7 +180,8 @@
 	/*
 	 * Phone layout v3 (owner request 2026-10-10): the big title left with a small underlined text link on its
 	 * right and the grey subtitle on its own line under both. `.titles` dissolves so the three parts reorder; if
-	 * the actions are too wide for the title row they wrap onto a line of their own.
+	 * the actions are too wide for the title row (`stacked`, measured above) they follow the subtitle on a line of
+	 * their own, so title and subtitle stay together.
 	 */
 	@media (max-width: 600px) {
 		.screen-title {
@@ -187,7 +214,16 @@
 			flex: 1 0 100%;
 			margin: -2px 0 0;
 		}
-		.actions :global(a.btn.secondary) {
+		.stacked .subtitle {
+			order: 2;
+		}
+		.stacked .actions {
+			order: 3;
+			justify-content: flex-start;
+			margin-left: 0;
+		}
+		/* A secondary page action (a link or a form's submit button) is a small underlined text link. */
+		.actions :global(.btn.secondary) {
 			height: auto;
 			min-height: 44px;
 			padding: 0 2px;
@@ -197,7 +233,10 @@
 			text-decoration: underline;
 			text-underline-offset: 3px;
 		}
-		.actions :global(a.btn.secondary svg) {
+		.actions :global(.btn.secondary:hover:not(:disabled)) {
+			background: transparent;
+		}
+		.actions :global(.btn.secondary svg) {
 			display: none;
 		}
 		/* A primary add action with an icon becomes the square outlined "+" (its text stays the accessible name). */

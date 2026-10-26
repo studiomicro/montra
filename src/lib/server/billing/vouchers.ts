@@ -16,10 +16,10 @@ import {
 } from './plan-state';
 
 /** SHA-256 of a code's canonical form (normalizeVoucherCode): the only form ever stored. */
-export const voucherCodeHash = (canonical: string) => sha256Hex(canonical);
+const voucherCodeHash = (canonical: string) => sha256Hex(canonical);
 
 /** Voucher attempts per budget window (THROTTLE_WINDOW_MS), per account and per client address each. */
-export const VOUCHER_ATTEMPTS_MAX = 20;
+const VOUCHER_ATTEMPTS_MAX = 20;
 
 /**
  * True when this attempt is over either voucher budget: the signed-in account's, or the client address's

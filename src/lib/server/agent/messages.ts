@@ -20,5 +20,3 @@ export const AGENT_TOO_MANY = msg('Sudah ada 20 laporan. Hapus laporan lama dulu
 export const AGENT_SAVE_FAILED = msg('Laporan tidak bisa dibuat. Coba lagi sebentar lagi.');
 export const AGENT_LOAD_FAILED = msg('Laporan tidak bisa dimuat. Coba lagi sebentar lagi.');
 export const AGENT_DELETE_FAILED = msg('Laporan tidak bisa dihapus. Coba lagi sebentar lagi.');
-export const AGENT_NO_GATEWAY = msg('Belum dikonfigurasi');
-export const AGENT_NO_KEY = msg('Tambahkan kunci Anthropic di Pengaturan › Integrasi');

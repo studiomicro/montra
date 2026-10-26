@@ -4,7 +4,7 @@
 interface __BaseEnv_Env {
 	DB: D1Database;
 	JOBS_QUEUE: Queue;
-	APP_VERSION?: "0.11.0";
+	APP_VERSION?: "0.17.0";
 	APP_ENV?: "staging";
 }
 declare namespace Cloudflare {
@@ -14,7 +14,7 @@ declare namespace Cloudflare {
 	interface StagingEnv {
 		DB: D1Database;
 		JOBS_QUEUE: Queue;
-		APP_VERSION: "0.11.0";
+		APP_VERSION: "0.17.0";
 		APP_ENV: "staging";
 	}
 	interface Env extends __BaseEnv_Env {}

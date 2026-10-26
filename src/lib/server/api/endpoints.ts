@@ -162,5 +162,3 @@ export const ENDPOINTS = {
 		errors: [400, 404]
 	}
 } as const satisfies Record<string, ApiEndpoint>;
-
-export type EndpointName = keyof typeof ENDPOINTS;

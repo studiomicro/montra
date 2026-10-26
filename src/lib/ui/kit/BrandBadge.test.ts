@@ -4,13 +4,14 @@ import { describe, expect, it } from 'vitest';
 import { BRANDS, institutionOption } from '#lib/shared/brands';
 import CataloguePicker from '#lib/ui/subscriptions/CataloguePicker.svelte';
 import Harness from '../../../../test/helpers/I18nHarness.svelte';
+import { stripComments } from '../../../../test/helpers/html';
 import BrandBadge from './BrandBadge.svelte';
 import BrandBadgeById from './BrandBadgeById.svelte';
 import Chip from './Chip.svelte';
 import InitialsTile from './InitialsTile.svelte';
 import PickerSheet from './PickerSheet.svelte';
 
-const clean = (html: string) => html.replace(/<!--[\s\S]*?-->/g, '');
+const clean = stripComments;
 
 describe('BrandBadge (FN-43)', () => {
 	it('a name that names a service shows its monogram, decorative, with no image', () => {

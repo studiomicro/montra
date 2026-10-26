@@ -222,9 +222,9 @@ test('the Fitur sheet (Jelajahi fitur) switches a module, the nav follows, and i
 	const { context, page } = await freshUser(browser, testInfo);
 	const csp = collectCspViolations(page);
 	await waitForHydration(page);
-	// Desktop: the sidebar entry; phone: Beranda's link. Both open the same sheet.
+	// Desktop: the sidebar entry; phone: Beranda's "Kelola fitur" (FN-54 tiles). Both open the same sheet.
 	const opener = isPhone(page)
-		? page.locator('main').getByRole('link', { name: 'Jelajahi fitur' })
+		? page.locator('main').getByRole('link', { name: 'Kelola fitur' })
 		: nav(page).getByRole('link', { name: 'Jelajahi fitur' });
 	await opener.click();
 	const sheet = page.getByRole('dialog', { name: 'Fitur' });

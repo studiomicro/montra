@@ -9,7 +9,7 @@ import { MOCK_SECRET_MIN_LENGTH, mockProvider } from './mock-provider';
  * charges anything and is reachable only when BILLING_MOCK_ENABLED is "1".
  */
 
-export interface CheckoutInput {
+interface CheckoutInput {
 	userId: string;
 	plan: PaidPlan;
 	amountMinor: number;

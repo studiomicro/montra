@@ -5,6 +5,7 @@
 	import { appName } from '#lib/shared/sanity';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
+	import FeatureChip from '#lib/ui/kit/FeatureChip.svelte';
 	import IconButton from '#lib/ui/kit/IconButton.svelte';
 	import InitialsTile from '#lib/ui/kit/InitialsTile.svelte';
 	import ProBadge from '#lib/ui/kit/ProBadge.svelte';
@@ -89,7 +90,7 @@
 							aria-haspopup={item.sheet ? 'dialog' : undefined}
 							onclick={item.sheet ? openFiturSheet : undefined}
 						>
-							<Icon name={item.icon} size={20} />
+							<FeatureChip icon={item.icon} tone={item.tone} size={28} />
 							<span>{tr(item.label)}</span>
 						</a>
 					</li>
@@ -241,7 +242,7 @@
 		text-decoration: none;
 	}
 	.ask[aria-current='page'] {
-		color: var(--ink);
+		color: var(--action);
 		font-weight: 600;
 	}
 	.section {
@@ -260,9 +261,9 @@
 	.item {
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: 10px;
 		min-height: 38px;
-		padding: 0 12px;
+		padding: 0 12px 0 6px;
 		border-radius: var(--r-pill);
 		color: var(--ink-2);
 		font-size: 15px;
@@ -274,7 +275,7 @@
 	}
 	.item[aria-current='page'] {
 		background: var(--panel);
-		color: var(--ink);
+		color: var(--action);
 		font-weight: 700;
 	}
 	/* The plan card, Tambah and the account stay in view below the scrolling nav (soft glass). */
@@ -303,8 +304,8 @@
 		min-height: 44px;
 		border: 0;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		font: inherit;
 		font-size: 15px;
 		font-weight: 600;
@@ -371,6 +372,11 @@
 		.item {
 			min-height: 32px;
 			font-size: 14px;
+		}
+		/* FN-54: the feature chip shrinks with the compact rows. */
+		.item :global(.chip) {
+			width: 24px;
+			height: 24px;
 		}
 		.bottom {
 			gap: 6px;

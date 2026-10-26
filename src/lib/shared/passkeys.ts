@@ -27,17 +27,9 @@ export const AUTH_EVENT_KINDS = [
 	'passkey_refused',
 	'passkey_counter_rollback'
 ] as const;
-export type AuthEventKind = (typeof AUTH_EVENT_KINDS)[number];
 
 /** Authenticator transports the browser may report (WebAuthn Level 3); anything else is dropped. */
-export const PASSKEY_TRANSPORTS = [
-	'usb',
-	'nfc',
-	'ble',
-	'smart-card',
-	'hybrid',
-	'internal'
-] as const;
+const PASSKEY_TRANSPORTS = ['usb', 'nfc', 'ble', 'smart-card', 'hybrid', 'internal'] as const;
 export type PasskeyTransport = (typeof PASSKEY_TRANSPORTS)[number];
 
 export function isPasskeyAlgorithm(value: number): value is PasskeyAlgorithm {

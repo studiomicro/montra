@@ -2,7 +2,8 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { afterNavigate, beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { navigating } from '$app/state';
-	import { addDays, formatDayLabel, formatMonthLabel, shiftMonth } from '#lib/shared/dates';
+	import { addDays, formatDayHeader, formatDayLabel, shiftMonth } from '#lib/shared/dates';
+	import { periodStepLabel } from '#lib/shared/report-period';
 	import { msg } from '#lib/shared/i18n';
 	import { formatMoney } from '#lib/shared/money-format';
 	import {
@@ -33,6 +34,7 @@
 	import {
 		rowKindLabel,
 		rowMeta,
+		rowTile,
 		rowShare,
 		rowTitle,
 		signedAmount
@@ -163,7 +165,7 @@
 	function dayLabel(date: string): string {
 		if (date === data.today) return tr('Hari ini');
 		if (date === addDays(data.today, -1)) return tr('Kemarin');
-		return formatDayLabel(date, locale);
+		return formatDayHeader(date, data.today, locale);
 	}
 
 	const savedText: Record<string, string> = {
@@ -283,7 +285,7 @@
 			</nav>
 			{#if view.period === 'month'}
 				<PeriodStepper
-					label={formatMonthLabel(view.month, locale)}
+					label={periodStepLabel({ kind: 'bulan', month: view.month }, locale)}
 					prevHref={riwayatHref(view, { month: shiftMonth(view.month, -1) })}
 					nextHref={view.month < thisMonth
 						? riwayatHref(view, { month: shiftMonth(view.month, 1) })
@@ -396,7 +398,7 @@
 						meta={rowMeta(row, i18n)}
 						amountMinor={signedAmount(row)}
 						currency={row.currency}
-						category={row.category?.tileKey ?? 'lain'}
+						category={rowTile(row)}
 						kind={row.type}
 						label={rowKindLabel(row, i18n)}
 						status={row.isDemo ? tr('Data demo') : undefined}
@@ -553,13 +555,17 @@
 			order: -1;
 			white-space: nowrap;
 		}
-		/* The meta line keeps wallet and category: two lines instead of an ellipsis. */
+		/*
+		 * The meta line keeps wallet and category: two lines instead of an ellipsis. rowMeta binds each "·" to the
+		 * segment before it, so a wrapped line never starts with "· Tunai".
+		 */
 		.day :global(.meta) {
 			display: -webkit-box;
 			-webkit-box-orient: vertical;
 			-webkit-line-clamp: 2;
 			line-clamp: 2;
 			white-space: normal;
+			overflow-wrap: anywhere;
 		}
 	}
 	.hide-phone {

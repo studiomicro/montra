@@ -32,7 +32,7 @@ import {
 } from './messages';
 
 /** Largest manual value in minor units: the same 10^13 cap as a transaction amount (and the DB CHECK). */
-export const MAX_VALUE_MINOR = 10_000_000_000_000;
+const MAX_VALUE_MINOR = 10_000_000_000_000;
 /** Most whole-unit digits of a quantity (below 10^15 coins or grams). */
 const QUANTITY_MAX_WHOLE_DIGITS = 15;
 /** A quantity as typed: whole digits, then optionally one decimal separator (comma or dot) and digits. */
@@ -79,7 +79,7 @@ export interface NetWorthInput {
 	acquiredOn: string | null;
 	note: string | null;
 }
-export type NetWorthField =
+type NetWorthField =
 	| 'kind'
 	| 'name'
 	| 'currency'
@@ -98,7 +98,7 @@ const isKind = (v: string): v is NetWorthKind => (NET_WORTH_KINDS as readonly st
 const codePoints = (text: string) => Array.from(text).length;
 
 /** The form's fields as typed, each cut to a bound (a refused no-JS form echoes them back). */
-export function netWorthFormValues(form: FormData): NetWorthFormValues {
+function netWorthFormValues(form: FormData): NetWorthFormValues {
 	return {
 		kind: textField(form, 'kind').slice(0, 32),
 		name: textField(form, 'name').slice(0, NET_WORTH_NAME_MAX_LENGTH * 4),

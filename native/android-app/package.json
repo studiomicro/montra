@@ -1,0 +1,19 @@
+{
+	"name": "montra-android",
+	"private": true,
+	"description": "Montra's Android app: a Capacitor shell around the web app, plus a read-only NFC bridge for e-money cards (FN-58).",
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"scripts": {
+		"sync": "cap sync android",
+		"build:debug": "cap sync android && cd android && ./gradlew assembleDebug"
+	},
+	"dependencies": {
+		"@capacitor/android": "8.5.3",
+		"@capacitor/core": "8.5.3"
+	},
+	"devDependencies": {
+		"@capacitor/cli": "8.5.3",
+		"typescript": "6.0.3"
+	}
+}

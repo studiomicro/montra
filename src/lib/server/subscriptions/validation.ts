@@ -54,7 +54,7 @@ export interface SubscriptionInput {
 	reminderDaysBefore: number;
 }
 
-export type SubscriptionField =
+type SubscriptionField =
 	| 'catalogueId'
 	| 'name'
 	| 'category'
@@ -66,14 +66,14 @@ export type SubscriptionField =
 	| 'month'
 	| 'walletId'
 	| 'reminderDays';
-export type SubscriptionErrors = Partial<Record<SubscriptionField, string>>;
+type SubscriptionErrors = Partial<Record<SubscriptionField, string>>;
 
 export type ParsedSubscriptionForm =
 	| { ok: true; value: SubscriptionInput; values: SubscriptionFormValues }
 	| { ok: false; errors: SubscriptionErrors; values: SubscriptionFormValues };
 
 /** The form's fields as typed, each cut to a bounded length before any work (echoed back when refused). */
-export function subscriptionFormValues(form: FormData): SubscriptionFormValues {
+function subscriptionFormValues(form: FormData): SubscriptionFormValues {
 	return {
 		catalogueId: textField(form, 'catalogueId').slice(0, ID_MAX_LENGTH + 1),
 		name: textField(form, 'name').slice(0, SUBSCRIPTION_NAME_MAX_LENGTH * 4),

@@ -19,7 +19,7 @@ export interface GmailAppEnv extends GmailClientEnv {
 }
 
 /** The fixed path of the OAuth callback; the redirect URI is the configured origin plus this, nothing else. */
-export const GMAIL_CALLBACK_PATH = '/pengaturan/aplikasi/gmail/callback';
+const GMAIL_CALLBACK_PATH = '/pengaturan/aplikasi/gmail/callback';
 
 const CLIENT_ID = /^[A-Za-z0-9._-]{1,200}$/;
 const CLIENT_SECRET = /^[\x21-\x7e]{1,200}$/;

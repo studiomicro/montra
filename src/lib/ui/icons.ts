@@ -51,7 +51,13 @@ export const ICONS = {
 	contrast: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 3v18M12 8l4.5-3.6M12 13l7.6-5.2M12 18l8-4.5',
 	info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5h.01',
 	/** FN-23 Agen: a lightning bolt (the Agent does it). */
-	bolt: 'M13 2 4 14h7l-1 8 9-12h-7z'
+	bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
+	/** FN-54 Kekayaan bersih: a line rising to the top right. */
+	trend: 'M3 17l6-6 4 4 8-8M15 7h6v6',
+	/** FN-54 Koleksi: a cut gem. */
+	gem: 'M7 4h10l4 5-9 11L3 9zM3 9h18M12 20 9 9l3-5 3 5z',
+	/** FN-54: a wall-calendar page (the Beranda date badge and /kalender). */
+	calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4'
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -82,7 +82,9 @@
 <section class="section" aria-labelledby="passkey-title">
 	<h2 id="passkey-title">{tr('Passkey')}</h2>
 	<p class="note">{tr('Masuk tanpa kata sandi dengan sidik jari, wajah atau PIN perangkat.')}</p>
-	<p class="link"><a href="/pengaturan/akun/passkey">{tr('Kelola passkey')}</a></p>
+	<p class="link">
+		<a class="text-link" href="/pengaturan/akun/passkey">{tr('Kelola passkey')}</a>
+	</p>
 </section>
 
 <AccountKeySection keyState={data.accountKey} form={keyForm} />
@@ -229,13 +231,6 @@
 	}
 	.link {
 		margin: 0;
-	}
-	.link a {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		color: var(--brand);
-		font-weight: 600;
 	}
 	.leave {
 		display: grid;

@@ -23,7 +23,7 @@ export interface Correction {
 }
 
 /** Most corrections learned from one bulk action (the review list shows at most 100 drafts). */
-export const LEARN_BATCH_MAX = 100;
+const LEARN_BATCH_MAX = 100;
 
 /** The guarded upsert of one correction (a query builder: D1's batch takes no raw SQL with parameters). */
 function upsertRule(db: Db, scope: SpaceScope, c: Correction, now: number) {

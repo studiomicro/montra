@@ -47,11 +47,11 @@ import {
  */
 export const ACCOUNT_EXPORT_MAX_PER_WINDOW = 5;
 /** Most rows (transactions and every exported table together) one account export carries. */
-export const ACCOUNT_EXPORT_MAX_ROWS = 200_000;
+const ACCOUNT_EXPORT_MAX_ROWS = 200_000;
 /** Most photos one export carries (each costs an R2 HEAD and a GET). */
-export const ACCOUNT_EXPORT_MAX_PHOTOS = 1_000;
+const ACCOUNT_EXPORT_MAX_PHOTOS = 1_000;
 /** Most photo bytes one export carries (500 MiB). */
-export const ACCOUNT_EXPORT_MAX_PHOTO_BYTES = 500 * 1024 * 1024;
+const ACCOUNT_EXPORT_MAX_PHOTO_BYTES = 500 * 1024 * 1024;
 /** Most distinct (space, year) pairs one export reads: each costs at least one query. */
 const YEARS_LIMIT = 2_000;
 /** R2 HEAD requests in flight at once while sizing the photos. */
@@ -110,12 +110,12 @@ async function yearsBySpace(db: Db, userId: string): Promise<Map<string, string[
 }
 
 /** FN-18's bounded ranges covering the given years: one calendar year each (within MAX_FILTER_DAYS). */
-export function yearRanges(years: readonly string[]): ExportRange[] {
+function yearRanges(years: readonly string[]): ExportRange[] {
 	return years.map((y) => ({ from: `${y}-01-01`, to: `${y}-12-31` }));
 }
 
 /** A plain-ASCII form of the space's name (`pribadi` for the personal space), at most 40 characters. */
-export function spaceSlug(space: Pick<SpaceSummary, 'kind' | 'name'>): string {
+function spaceSlug(space: Pick<SpaceSummary, 'kind' | 'name'>): string {
 	if (space.kind === 'personal') return 'pribadi';
 	return (
 		space.name
@@ -130,7 +130,7 @@ export function spaceSlug(space: Pick<SpaceSummary, 'kind' | 'name'>): string {
 }
 
 /** `transactions-01-pribadi.csv`: position (unique) plus the space's slug. */
-export function spaceFileName(index: number, space: Pick<SpaceSummary, 'kind' | 'name'>): string {
+function spaceFileName(index: number, space: Pick<SpaceSummary, 'kind' | 'name'>): string {
 	return `transactions-${String(index + 1).padStart(2, '0')}-${spaceSlug(space)}.csv`;
 }
 

@@ -59,7 +59,7 @@ interface Cursor {
 }
 
 /** `app_meta` keys of the walks (one row per kind, overwritten in place, so they never pile up). */
-export const CURSOR_KEYS = {
+const CURSOR_KEYS = {
 	budget_check: 'cron:budget_check',
 	bill_check: 'cron:bill_check',
 	recurring_check: 'cron:recurring_check',
@@ -71,7 +71,7 @@ export const CURSOR_KEYS = {
 } as const;
 
 /** The WIB hour of a tick (`YYYY-MM-DDTHH`): the window of its hourly Gmail scans. */
-export function wibHourWindow(utcMs: number): string {
+function wibHourWindow(utcMs: number): string {
 	return new Date(utcMs + 7 * 60 * 60 * 1000).toISOString().slice(0, 13);
 }
 

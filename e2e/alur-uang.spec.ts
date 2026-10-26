@@ -81,7 +81,7 @@ test('an empty month shows the empty state; the Fitur entry opens the page', asy
 	if (isPhone(page)) {
 		await page.goto('/');
 		await waitForHydration(page);
-		await page.locator('a.features').click();
+		await page.getByRole('link', { name: 'Kelola fitur' }).click();
 		await page
 			.getByRole('dialog')
 			.getByRole('link', { name: /Alur uang/ })

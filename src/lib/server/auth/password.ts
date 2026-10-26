@@ -18,7 +18,7 @@ export const PBKDF2_ITERATIONS = 100_000;
  * `PBKDF2_ITERATIONS <= PBKDF2_MAX_ITERATIONS` and `derive` refuses a count outside 1..max itself.
  */
 export const PBKDF2_MAX_ITERATIONS = 100_000;
-export const PASSWORD_ALGO = 'pbkdf2-sha256';
+const PASSWORD_ALGO = 'pbkdf2-sha256';
 /** Owner decision C (2026-10-07): 8 characters, not the earlier project's 12. */
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 200;
@@ -27,7 +27,7 @@ export const PASSWORD_MAX_FAILURES = 5;
 export const LOCKOUT_MS = 15 * 60 * 1000;
 
 const enc = new TextEncoder();
-export const b64 = (b: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(b)));
+const b64 = (b: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(b)));
 const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
 /** A count this Worker can derive: a whole number within 1..PBKDF2_MAX_ITERATIONS. */
@@ -116,7 +116,7 @@ export const PASSWORD_ERRORS: Record<PasswordProblem, string> = {
 	same_as_email: msg('Kata sandi tidak boleh sama dengan e-mail.')
 };
 
-export type SignInUser = typeof users.$inferSelect;
+type SignInUser = typeof users.$inferSelect;
 export type SignInResult =
 	| { ok: true; user: SignInUser; hash: string }
 	| { ok: false; error: 'invalid_credentials' | 'locked' };

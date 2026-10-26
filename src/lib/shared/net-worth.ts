@@ -85,7 +85,7 @@ export const CLASS_OF_KIND: Readonly<Record<NetWorthKind, NetWorthClass>> = {
 };
 
 /** Grams in one troy ounce: a physical definition (exactly 31.1034768 g), not a market figure. */
-export const TROY_OUNCE_GRAMS = '31.1034768';
+const TROY_OUNCE_GRAMS = '31.1034768';
 
 export const NET_WORTH_NAME_MAX_LENGTH = 60;
 export const NET_WORTH_NOTE_MAX_LENGTH = 200;

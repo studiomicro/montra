@@ -57,7 +57,7 @@ const expenseFilter = (from: string, to: string): TransactionFilter => ({
 });
 
 /** Live members (active accounts) of the live space `spaceId`; a space holds at most MAX_SPACE_MEMBERS. */
-export async function liveMemberIds(db: Db, spaceId: string): Promise<string[]> {
+async function liveMemberIds(db: Db, spaceId: string): Promise<string[]> {
 	const rows = await db.all<{ userId: string }>(sql`select m.user_id as userId from space_members m
 		join spaces s on s.id = m.space_id join users u on u.id = m.user_id
 		where m.space_id = ${spaceId} and m.deleted_at is null and s.deleted_at is null
@@ -113,7 +113,7 @@ export async function evaluateBudget(
  * Goal milestones after a contribution: the highest of 50 %/100 % the live goal has reached (FN-10
  * `goalProgressPercent`), once per goal, threshold and member, never again after a drop and a re-cross.
  */
-export async function evaluateGoalMilestone(
+async function evaluateGoalMilestone(
 	db: Db,
 	spaceId: string,
 	goalId: string,
@@ -317,7 +317,7 @@ export async function evaluateWeeklySummary(
 }
 
 /** A retry after this many seconds finds a claim held by a dead attempt stale, so it can take it over. */
-export const BUSY_RETRY_DELAY_S = Math.ceil(DELIVERY_CLAIM_STALE_MS / 1000) + 60;
+const BUSY_RETRY_DELAY_S = Math.ceil(DELIVERY_CLAIM_STALE_MS / 1000) + 60;
 
 /**
  * Thrown when at least one device still needs this push: `failed` sends were refused (retry at once), `busy`

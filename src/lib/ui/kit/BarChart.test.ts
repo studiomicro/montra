@@ -52,4 +52,16 @@ describe('BarChart touch targets (criterion 28: ≥44×44 px per day)', () => {
 		});
 		expect(attr(buttons(body)[0]!, 'aria-label')).toBe('8 Oct: USD 12,50');
 	});
+
+	it('draws a break mark only on a day above the capped scale', () => {
+		const week = [100, 120, 3_500_000, 90, 110].map((minor, i) => ({
+			label: `${i + 1} Okt`,
+			minor
+		}));
+		const { body } = render(BarChart, { props: { days: week, label: 'Pengeluaran' } });
+		expect([...body.matchAll(/class="break[ "]/g)]).toHaveLength(1);
+		const bars = [...body.matchAll(/<rect[^>]*class="bar[^"]*"[^>]*>/g)].map((m) => m[0]);
+		// The ordinary days keep a readable height under the 120 px plot, not a 2 px stub.
+		expect(Number(attr(bars[3]!, 'height'))).toBeGreaterThanOrEqual(40);
+	});
 });

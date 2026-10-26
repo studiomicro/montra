@@ -14,6 +14,9 @@ export default ts.config(
 			'build/',
 			'docs/',
 			'migrations/',
+			// FN-58 Android app: generated Capacitor/Gradle files and its own node_modules.
+			'native/android-app/android/',
+			'native/android-app/node_modules/',
 			// FN-16g: vendored, pinned engine files written by `npm run ocr:assets` (git-ignored).
 			'static/_ocr/',
 			'.ocr-cache/',

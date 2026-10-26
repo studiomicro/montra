@@ -128,3 +128,32 @@ export const OCR_INSTITUTION_CONFLICT = msg(
 	'Gambar ini memuat tanda lebih dari satu bank atau aplikasi, jadi tidak ada yang diimpor.'
 );
 export const OCR_PICKS_INVALID = msg('Daftar baris sudah berubah. Baca ulang lalu coba lagi.');
+
+/* Credit-card statements (FN-55b). */
+export const STATEMENT_NEEDS_CARD_WALLET = msg(
+	'Ini tagihan kartu kredit; pilih dompet kartu kredit.'
+);
+export const STATEMENT_NEEDS_BANK_WALLET = msg(
+	'Ini mutasi rekening; pilih dompet bukan kartu kredit.'
+);
+export const CARD_STATEMENT_UNSUPPORTED = msg(
+	'Tagihan dengan lebih dari satu kartu belum didukung, jadi tidak ada yang diimpor. Catat manual atau pakai Spreadsheet/CSV.'
+);
+export const CARD_STATEMENT_CURRENCY = msg('Impor tagihan kartu hanya untuk dompet IDR.');
+export const CARD_STATEMENT_MISMATCH = msg(
+	'Nomor kartu di tagihan tidak cocok dengan 4 angka terakhir dompet ini. Pilih dompet kartu yang benar.'
+);
+export const CARD_STATEMENT_ALREADY = msg('Tagihan ini sudah diimpor.');
+export const CARD_STATEMENT_LIMIT = msg(
+	'Kartu ini sudah menyimpan 60 tagihan, batas terbanyak. Urungkan impor tagihan lama dulu.'
+);
+/* Move (FN-16j) of a card statement batch. */
+export const MOVE_CARD_WALLET_REQUIRED = msg(
+	'Impor ini tagihan kartu kredit. Pindahkan hanya ke dompet kartu kredit lain.'
+);
+export const MOVE_BANK_STATEMENT_TO_CARD = msg(
+	'Impor ini mutasi rekening. Pindahkan hanya ke dompet bukan kartu kredit.'
+);
+export const MOVE_CARD_STATEMENT_EXISTS = msg(
+	'Kartu tujuan sudah punya tagihan dengan tanggal yang sama.'
+);

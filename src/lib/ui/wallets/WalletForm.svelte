@@ -1,13 +1,20 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { enhance, type SubmitFunction } from '$app/forms';
 	import { typedAmountMinor } from '#lib/shared/amount-input';
+	import { cardAmountText } from '#lib/shared/cards';
 	import {
+		EMONEY_FORM_TYPE,
+		EMONEY_ISSUER_LABELS,
+		EMONEY_ISSUERS,
+		EMONEY_QUICK_PICKS,
+		isCardType,
 		WALLET_CURRENCIES,
+		WALLET_FORM_TYPE_LABELS,
+		WALLET_FORM_TYPES,
 		WALLET_QUICK_PICKS,
-		WALLET_TYPE_LABELS,
-		WALLET_TYPES,
 		walletCurrencyLabel,
+		type EmoneyQuickPick,
 		type WalletFormValues,
 		type WalletQuickPick
 	} from '#lib/shared/wallets';
@@ -45,9 +52,53 @@
 	let currency = $state(untrack(() => (known(values.currency) ? values.currency : 'IDR')));
 	// Read once in the currency the text was typed in; a later currency change is AmountInput's (FN-47).
 	const initialMinor = $derived(
-		untrack(() => typedAmountMinor(values.openingBalance, currency, locale))
+		untrack(() =>
+			values.balanceMode === 'plain'
+				? typedAmountMinor(values.openingBalance, currency, locale)
+				: null
+		)
 	);
 	const error = (field: string) => (errors[field] ? tr(errors[field]) : undefined);
+
+	// FN-55a: a card is set up in card wording ("Tagihan berjalan", typed as owed, with its sen) plus its limit and
+	// days. Without JavaScript the form keeps the wording it was rendered with (`?jenis=kartu_kredit` renders it as a
+	// card) and shows the card fields for any type (the server refuses them on another type, never ignores them);
+	// with it, choosing the type switches the wording and shows the card fields only for a card.
+	let hydrated = $state(false);
+	onMount(() => (hydrated = true));
+	let walletType = $state(untrack(() => values.type));
+	let mode = $state<'plain' | 'card'>(untrack(() => values.balanceMode));
+	/** The plain field's amount (AmountInput) and the card field's text, carried over when the wording switches. */
+	let plainMinor = $state<number | null>(untrack(() => initialMinor));
+	let cardText = $state(
+		untrack(() => (values.balanceMode === 'card' ? values.openingBalance : ''))
+	);
+	let plainTyped = $state<string | undefined>(
+		untrack(() =>
+			errors.openingBalanceMinor && values.balanceMode === 'plain'
+				? values.openingBalance
+				: undefined
+		)
+	);
+	let plainKey = $state(0);
+	const isCard = $derived(isCardType(walletType));
+	// FN-58 pass 1: "Kartu e-money" needs its issuer. Without JavaScript the issuer picker shows for any type (the
+	// server refuses an issuer on another type); with it, only for the e-money choice.
+	const isEmoney = $derived(walletType === EMONEY_FORM_TYPE);
+	let issuer = $state(untrack(() => values.emoneyIssuer));
+	function chooseType(next: string) {
+		walletType = next;
+		const wanted = isCardType(next) ? 'card' : 'plain';
+		if (!hydrated || wanted === mode) return;
+		if (wanted === 'card') cardText = cardAmountText(plainMinor, currency, locale);
+		else {
+			// Kept exactly as typed: a whole-unit currency with sen is refused by the server, never rounded here.
+			plainTyped = cardText;
+			plainKey++;
+		}
+		mode = wanted;
+	}
+	const editing = $derived(wallet !== undefined);
 
 	let formEl: HTMLFormElement | undefined = $state();
 	// A refused last 4 may be a full card number: the field is emptied, never left filled (red team L1).
@@ -59,14 +110,31 @@
 
 	// FN-39 quick picks: each is a plain link (`?tambah=1&dompet=<id>`, the page prefills the form without
 	// JavaScript); with it, a pick fills the name and selects E-wallet in place. Both stay editable.
-	const pick = (choice: WalletQuickPick) => (event: MouseEvent) => {
+	/** Fills the name and the type choice in place; false (the link then opens) while the form is not ready. */
+	function fillPick(event: MouseEvent, pickName: string, type: string): boolean {
 		const name = formEl?.elements.namedItem('name');
-		const type = formEl?.elements.namedItem('type');
-		if (!(name instanceof HTMLInputElement) || !(type instanceof RadioNodeList)) return;
+		const field = formEl?.elements.namedItem('type');
+		if (!(name instanceof HTMLInputElement) || !(field instanceof RadioNodeList)) return false;
 		event.preventDefault();
-		name.value = choice.name;
-		type.value = 'e_wallet';
+		name.value = pickName;
+		field.value = type;
+		chooseType(type);
 		name.focus();
+		return true;
+	}
+	const pick = (choice: WalletQuickPick) => (event: MouseEvent) =>
+		void fillPick(event, choice.name, 'e_wallet');
+	/** FN-58 pass 1: an e-money card quick pick fills the name, the "Kartu e-money" choice and its issuer. */
+	const pickEmoney = (choice: EmoneyQuickPick) => (event: MouseEvent) => {
+		if (fillPick(event, choice.name, EMONEY_FORM_TYPE)) issuer = choice.issuer;
+	};
+	/** FN-55a: "Kartu kredit" as a quick start: a link without JavaScript, the card type in place with it. */
+	const pickCard = (event: MouseEvent) => {
+		const field = formEl?.elements.namedItem('type');
+		if (!(field instanceof RadioNodeList)) return;
+		event.preventDefault();
+		field.value = 'kartu_kredit';
+		chooseType('kartu_kredit');
 	};
 </script>
 
@@ -85,6 +153,21 @@
 				>
 			{/each}
 		</div>
+		<!-- FN-58 pass 1: a contactless e-money card, kept as an e-wallet with its issuer. -->
+		<div class="picks" role="group" aria-labelledby="{uid}-emoney-picks">
+			<span id="{uid}-emoney-picks" class="picks-label">{tr('Isi cepat kartu e-money')}</span>
+			{#each EMONEY_QUICK_PICKS as choice (choice.issuer)}
+				<Chip href="/dompet?tambah=1&kartu={choice.issuer}" onclick={pickEmoney(choice)}
+					>{choice.name}</Chip
+				>
+			{/each}
+		</div>
+		<!-- FN-55a: a card is not an e-wallet: its own quick start, apart from the e-wallet picks. -->
+		<div class="picks" role="group" aria-labelledby="{uid}-card-pick">
+			<span id="{uid}-card-pick" class="picks-label">{tr('Atau mulai sebagai kartu kredit')}</span>
+			<Chip href="/dompet?tambah=1&jenis=kartu_kredit" onclick={pickCard}>{tr('Kartu kredit')}</Chip
+			>
+		</div>
 	{/if}
 
 	<Field
@@ -101,15 +184,46 @@
 	<fieldset aria-describedby={error('type') ? `${uid}-type-error` : undefined}>
 		<legend>{tr('Jenis')}</legend>
 		<div class="pills">
-			{#each WALLET_TYPES as type (type)}
+			{#each WALLET_FORM_TYPES as option (option)}
 				<label class="pill">
-					<input type="radio" name="type" value={type} checked={values.type === type} />
-					<span>{tr(WALLET_TYPE_LABELS[type])}</span>
+					<input
+						type="radio"
+						name="type"
+						value={option}
+						checked={values.type === option}
+						onchange={() => chooseType(option)}
+					/>
+					<span>{tr(WALLET_FORM_TYPE_LABELS[option])}</span>
 				</label>
 			{/each}
 		</div>
 		{#if error('type')}<p id="{uid}-type-error" class="error">{error('type')}</p>{/if}
 	</fieldset>
+
+	{#if !hydrated || isEmoney}
+		<div class="field">
+			<label for="{uid}-issuer"
+				>{hydrated
+					? tr('Penerbit kartu')
+					: tr('Penerbit kartu e-money (kosongkan untuk jenis lain)')}</label
+			>
+			<select
+				id="{uid}-issuer"
+				name="emoneyIssuer"
+				bind:value={issuer}
+				aria-invalid={error('emoneyIssuer') ? 'true' : undefined}
+				aria-describedby={error('emoneyIssuer') ? `${uid}-issuer-error` : undefined}
+			>
+				<option value="">{tr('Pilih penerbit')}</option>
+				{#each EMONEY_ISSUERS as key (key)}
+					<option value={key}>{EMONEY_ISSUER_LABELS[key]}</option>
+				{/each}
+			</select>
+			{#if error('emoneyIssuer')}<p id="{uid}-issuer-error" class="error">
+					{error('emoneyIssuer')}
+				</p>{/if}
+		</div>
+	{/if}
 
 	<div class="field">
 		<label for="{uid}-currency">{tr('Mata uang')}</label>
@@ -126,20 +240,95 @@
 		{#if error('currency')}<p class="error">{error('currency')}</p>{/if}
 	</div>
 
-	<div class="field">
-		<AmountInput
-			label={tr('Saldo awal')}
-			name="openingBalance"
-			valueMinor={initialMinor}
-			typed={errors.openingBalanceMinor ? values.openingBalance : undefined}
-			{currency}
-		/>
-		{#if error('openingBalanceMinor')}<p class="error">{error('openingBalanceMinor')}</p>{/if}
-		<label class="check">
-			<input type="checkbox" name="negative" checked={values.negative} />
-			<span>{tr('Saldo minus (utang, misalnya tagihan kartu kredit)')}</span>
-		</label>
-	</div>
+	<input type="hidden" name="balanceMode" value={mode} />
+	{#if mode === 'card'}
+		<div class="field">
+			<label for="{uid}-bill">
+				{editing
+					? tr('Utang awal (saat kartu ditambahkan)')
+					: tr('Tagihan berjalan sekarang (utang)')}
+			</label>
+			<input
+				id="{uid}-bill"
+				name="openingBalance"
+				class="num"
+				inputmode="decimal"
+				autocomplete="off"
+				placeholder="0"
+				bind:value={cardText}
+				aria-invalid={error('openingBalanceMinor') ? 'true' : undefined}
+				aria-describedby="{uid}-bill-hint"
+			/>
+			<p id="{uid}-bill-hint" class="meta">
+				{tr('Tulis seperti di tagihan, termasuk sen jika ada: 1.250.000,50.')}
+			</p>
+			{#if error('openingBalanceMinor')}<p class="error">{error('openingBalanceMinor')}</p>{/if}
+			<label class="check">
+				<input type="checkbox" name="overpaid" checked={values.overpaid} />
+				<span>{tr('Kartu ini sedang lebih bayar (saldo kredit)')}</span>
+			</label>
+		</div>
+	{:else}
+		<div class="field">
+			{#key plainKey}
+				<AmountInput
+					label={tr('Saldo awal')}
+					name="openingBalance"
+					bind:valueMinor={plainMinor}
+					typed={plainTyped}
+					{currency}
+				/>
+			{/key}
+			{#if error('openingBalanceMinor')}<p class="error">{error('openingBalanceMinor')}</p>{/if}
+			<label class="check">
+				<input type="checkbox" name="negative" checked={values.negative} />
+				<span>{tr('Saldo minus (utang, misalnya tagihan kartu kredit)')}</span>
+			</label>
+		</div>
+	{/if}
+
+	{#if !hydrated || isCard}
+		<fieldset class="card-fields">
+			<legend
+				>{hydrated
+					? tr('Kartu kredit')
+					: tr('Khusus kartu kredit (kosongkan untuk jenis lain)')}</legend
+			>
+			<Field
+				id="{uid}-limit"
+				name="creditLimit"
+				label={tr('Limit kredit (opsional)')}
+				value={values.creditLimit}
+				inputmode="decimal"
+				autocomplete="off"
+				error={error('creditLimitMinor')}
+			/>
+			<div class="days">
+				<Field
+					id="{uid}-statement-day"
+					name="statementDay"
+					label={tr('Tanggal tagihan (opsional)')}
+					hint={tr('Tanggal 1-31 tiap bulan.')}
+					value={values.statementDay}
+					inputmode="numeric"
+					maxlength={2}
+					autocomplete="off"
+					error={error('statementDay')}
+				/>
+				<Field
+					id="{uid}-due-day"
+					name="dueDay"
+					label={tr('Tanggal jatuh tempo (opsional)')}
+					hint={tr('Tanggal 1-31 tiap bulan.')}
+					value={values.dueDay}
+					inputmode="numeric"
+					maxlength={2}
+					autocomplete="off"
+					error={error('dueDay')}
+				/>
+			</div>
+		</fieldset>
+	{/if}
 
 	<Field
 		id="{uid}-last-four"
@@ -230,8 +419,8 @@
 		cursor: pointer;
 	}
 	.pill:has(input:checked) {
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 	}
 	.pill:has(input:focus-visible) {
 		outline: 2px solid var(--brand);
@@ -248,6 +437,28 @@
 		font-size: 17px;
 	}
 	select[aria-invalid='true'] {
+		box-shadow: inset 0 0 0 1.5px var(--money-up);
+	}
+	.card-fields {
+		display: grid;
+		gap: 16px;
+	}
+	.days {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+		gap: 12px;
+	}
+	.field > input {
+		min-height: 48px;
+		padding: 0 14px;
+		border: 0;
+		border-radius: var(--r-s);
+		background: var(--panel);
+		color: var(--ink);
+		font: inherit;
+		font-size: 17px;
+	}
+	.field > input[aria-invalid='true'] {
 		box-shadow: inset 0 0 0 1.5px var(--money-up);
 	}
 	.check {

@@ -103,7 +103,7 @@ const idField = (form: FormData, name: string) => {
 export const SYNC_PUSH_MAX_PER_WINDOW = 600;
 
 /** How far back a queued voice entry may be dated: the 7-day stale window plus one day. */
-export const VOICE_DAY_MAX_BACK_DAYS = 8;
+const VOICE_DAY_MAX_BACK_DAYS = 8;
 
 /**
  * The day a voice entry counts on. The online voice actions date rows today (WIB); a queued entry keeps the WIB

@@ -4,13 +4,17 @@
 	import { invalidateAll, replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { budgetUsedPercent } from '#lib/shared/budget-progress';
-	import { formatMonthName, formatShortDay, formatWeekdayDay } from '#lib/shared/dates';
+	import { formatMonthName, formatShortDay } from '#lib/shared/dates';
 	import { msg } from '#lib/shared/i18n';
 	import { hasProLook } from '#lib/shared/pro-look';
 	import { formatMoney, formatMoneyCompact } from '#lib/shared/money-format';
 	import { categoryLabel } from '#lib/shared/transactions';
 	import FormBanner from '#lib/ui/auth/FormBanner.svelte';
 	import BudgetForm from '#lib/ui/budgets/BudgetForm.svelte';
+	import BudgetChip from '#lib/ui/home/BudgetChip.svelte';
+	import DailyStory from '#lib/ui/home/DailyStory.svelte';
+	import FeatureTiles from '#lib/ui/home/FeatureTiles.svelte';
+	import GreetingHero from '#lib/ui/home/GreetingHero.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
 	import BarChart from '#lib/ui/kit/BarChart.svelte';
@@ -24,6 +28,7 @@
 	import HeroAmount from '#lib/ui/kit/HeroAmount.svelte';
 	import IconButton from '#lib/ui/kit/IconButton.svelte';
 	import BrandBadge from '#lib/ui/kit/BrandBadge.svelte';
+	import CalendarBadge from '#lib/ui/kit/CalendarBadge.svelte';
 	import InitialsTile from '#lib/ui/kit/InitialsTile.svelte';
 	import Mascot from '#lib/ui/kit/Mascot.svelte';
 	import MonthLines from '#lib/ui/kit/MonthLines.svelte';
@@ -33,7 +38,6 @@
 	import TransactionRow from '#lib/ui/kit/TransactionRow.svelte';
 	import { applyAmountsHiddenAtLoad, shown } from '#lib/ui/kit/amounts.svelte';
 	import { richParts, type RichPart } from '#lib/ui/kit/rich';
-	import { openFiturSheet } from '#lib/ui/shell/fitur.svelte';
 	import PullToRefresh from '#lib/ui/shell/PullToRefresh.svelte';
 	import Sheet from '#lib/ui/shell/Sheet.svelte';
 	import { dayClosedCelebrates } from '#lib/ui/mascot-moments';
@@ -44,6 +48,7 @@
 	import {
 		rowKindLabel,
 		rowMeta,
+		rowTile,
 		rowShare,
 		rowTitle,
 		signedAmount
@@ -225,6 +230,11 @@
 					: (s.lines.thisMonth.at(-1) ?? 0) === 0 && (s.lines.lastMonth.at(-1) ?? 0) === 0)
 	);
 
+	/**
+	 * No transaction in the recent window (a new account): the chart band would only repeat the empty lines
+	 * below, so it is left out until there is something to draw (POLISH_AUDIT B6).
+	 */
+	const noRecords = $derived(data.lists !== null && data.lists.recent.length === 0);
 	const budgetCurrency = $derived(s?.budget?.currency ?? s?.currency ?? 'IDR');
 	const dayHref = (date: string) => `/riwayat?period=range&from=${date}&to=${date}`;
 	const dayLink = (i: number) => {
@@ -241,13 +251,22 @@
 		return trf('dalam {n} hari', { n: inDays });
 	}
 
-	const todayLine = $derived(formatWeekdayDay(data.today, locale));
+	/** FN-54 B2: the hero's line about today: the "Hari ini" card's own count (Riwayat's day group for today). */
+	const stateLine = $derived(
+		s?.todayGroup
+			? trf('{n} transaksi tercatat hari ini', {
+					n: s.todayGroup.rows.length + (s.todayHasMore ? '+' : '')
+				})
+			: tr('Belum ada catatan hari ini.')
+	);
+	/** FN-54 D3: the server confirmed "Matikan sapaan harian". */
+	let storyOff = $state(false);
 	/** FN-34: the account's streak as a plain count (null when it could not be read: no chip, no close). */
 	const streakText = $derived(
 		!data.streak
 			? ''
 			: data.streak.current === 0
-				? tr('0 hari berturut-turut')
+				? tr('Mulai hari ini')
 				: data.streak.current === 1
 					? tr('1 hari berturut-turut')
 					: trf('{n} hari berturut-turut', { n: data.streak.current })
@@ -290,13 +309,17 @@
 	{/key}
 {/snippet}
 
-<h1 class="sr-only">{tr('Beranda')}</h1>
 <!-- FN-51: in the installed app, a pull from the top reloads the figures from the server. -->
 <PullToRefresh onrefresh={() => invalidateAll()} />
 
+<!-- FN-54 B6: one h1 (visible from 1024 px, screen-reader only below). Phone: the date badge top left, the actions
+     right, the streak chip under them; desktop: the title with the streak chip, then the badge, Struk and Suara.
+     The two layouts are separate blocks switched by CSS (display: none removes the hidden one from the
+     accessibility tree and the tab order), each with its own element ids. -->
 <header class="topbar">
 	<div class="when">
-		<p class="date">{todayLine}</p>
+		<h1 class="page-title">{tr('Beranda')}</h1>
+		<div class="badge-phone"><CalendarBadge today={data.today} /></div>
 		<!-- FN-34b: the chip opens /beruntun; the link's 44 px hit area hangs over the row (negative margins). -->
 		{#if streakText}<a class="chip-link" href="/beruntun"
 				>{#key hopKey}<span class="day-chip" class:hop={hopKey > 0}>{streakText}</span>{/key}</a
@@ -310,9 +333,26 @@
 			<InitialsTile name={spaceName || '?'} size={40} round />
 		</a>
 	</div>
+	<div class="desk-actions">
+		<CalendarBadge today={data.today} />
+		{#if data.receiptReady}
+			<Button variant="secondary" icon="receipt" href="/riwayat/struk">{tr('Struk')}</Button>
+		{:else}
+			<Button variant="secondary" disabled icon="receipt" describedby="capture-soon-desk">
+				{tr('Struk')}
+			</Button>
+		{/if}
+		<Button icon="mic" href="/riwayat/suara?mulai=1">{tr('Suara')}</Button>
+	</div>
 </header>
+{#if !data.receiptReady}
+	<p id="capture-soon-desk" class="soon-desk">
+		{tr('Pembacaan struk dengan AI belum dikonfigurasi.')}
+	</p>
+{/if}
 
 {#if saved}<p class="ok" role="status">{saved}</p>{/if}
+{#if storyOff}<p class="ok" role="status">{tr('Sapaan harian dimatikan.')}</p>{/if}
 {#if !sheetOpen}<FormBanner message={banner} />{/if}
 
 {#if loading}
@@ -328,35 +368,9 @@
 {:else}
 	<div class="two-col">
 		<div class="main-col">
-			<HeroAmount
-				label={trf('Pengeluaran {bulan}', { bulan: monthName })}
-				amountMinor={s.spentMinor}
-				currency={s.currency}
-				fallback={tr(TOO_LARGE)}
-				pro={hasProLook(data.shell.plan)}
-			>
-				{#snippet beside()}
-					{#if welcome}
-						<!-- FN-51: Koko waves hello once per WIB day in the installed app; no copy (Koko never speaks). -->
-						<span class="welcome" data-welcome><Mascot pose="wave" size={32} /></span>
-					{/if}
-				{/snippet}
-				<CompareLine
-					currentMinor={s.spentMinor}
-					diffMinor={s.diffMinor}
-					monthName={lastMonthName}
-				/>
-				{#if s.otherCurrencies.length > 0}
-					<p class="other num">
-						{trf('Ditambah {jumlah} dalam mata uang lain', {
-							jumlah: s.otherCurrencies.map((c) => money(c.outMinor, c.currency)).join(' + ')
-						})}
-					</p>
-				{/if}
-			</HeroAmount>
-
 			{#if s.walletCount === 0}
-				<!-- FN-40/FN-44: the very first screen, before any wallet exists — Koko waves hello. -->
+				<!-- FN-40/FN-44: the very first screen, before any wallet exists — Koko waves hello. It leads the page, so
+				     its action sits above the tab bar at 360 px (POLISH_AUDIT A10). -->
 				<section class="first-wallet" aria-labelledby="first-wallet-title">
 					<Mascot pose="wave" size={88} />
 					<div class="first-wallet-text">
@@ -366,71 +380,110 @@
 					</div>
 				</section>
 			{/if}
-
-			<section class="charts" aria-labelledby="charts-title">
-				<h2 id="charts-title" class="sr-only">{tr('Grafik pengeluaran')}</h2>
-				<div class="chart-head">
-					{#if s.avgPerDayMinor !== null}
-						<p class="avg num">
-							{@render rich(
-								richParts(tr('rata-rata {jumlah}/hari'), {
-									jumlah: compact(s.avgPerDayMinor, s.currency)
-								})
-							)}
+			<GreetingHero
+				today={data.today}
+				period={data.greeting}
+				{stateLine}
+				askReady={data.receiptReady}
+				pro={hasProLook(data.shell.plan)}
+			>
+				<HeroAmount
+					label={trf('Pengeluaran {bulan}', { bulan: monthName })}
+					amountMinor={s.spentMinor}
+					currency={s.currency}
+					fallback={tr(TOO_LARGE)}
+				>
+					{#snippet beside()}
+						{#if welcome}
+							<!-- FN-51: Koko waves hello once per WIB day in the installed app; no copy (Koko never speaks). -->
+							<span class="welcome" data-welcome><Mascot pose="wave" size={32} /></span>
+						{/if}
+					{/snippet}
+					<!-- FN-54 B3: two chips in words and rupiah (never percent), wrapping at 360 px. -->
+					<div class="hero-chips">
+						<CompareLine
+							currentMinor={s.spentMinor}
+							diffMinor={s.diffMinor}
+							monthName={lastMonthName}
+						/>
+						<BudgetChip safeToSpend={s.safeToSpend} currency={budgetCurrency} />
+					</div>
+					{#if s.otherCurrencies.length > 0}
+						<p class="other num">
+							{trf('Ditambah {jumlah} dalam mata uang lain', {
+								jumlah: s.otherCurrencies.map((c) => money(c.outMinor, c.currency)).join(' + ')
+							})}
 						</p>
 					{/if}
-					<label class="picker">
-						<span class="sr-only">{tr('Grafik pengeluaran')}</span>
-						<select bind:value={chart}>
-							{#each chartOptions as option (option.value)}
-								<option value={option.value}>{option.label}</option>
+				</HeroAmount>
+			</GreetingHero>
+
+			{#if !noRecords}
+				<section class="charts" aria-labelledby="charts-title">
+					<h2 id="charts-title" class="sr-only">{tr('Grafik pengeluaran')}</h2>
+					<div class="chart-head">
+						{#if s.avgPerDayMinor !== null}
+							<p class="avg num">
+								{@render rich(
+									richParts(tr('rata-rata {jumlah}/hari'), {
+										jumlah: compact(s.avgPerDayMinor, s.currency)
+									})
+								)}
+							</p>
+						{/if}
+						<label class="picker">
+							<span class="sr-only">{tr('Grafik pengeluaran')}</span>
+							<select bind:value={chart}>
+								{#each chartOptions as option (option.value)}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+							<Icon name="chevron-down" size={14} />
+						</label>
+					</div>
+					{#if chartTooLarge}
+						<p class="muted">{tr(TOO_LARGE)}</p>
+					{:else if chartEmpty}
+						<p class="muted">{tr('Belum ada transaksi bulan ini.')}</p>
+					{:else if chart === 'daily'}
+						<BarChart
+							days={bars}
+							label={tr('Pengeluaran 14 hari terakhir')}
+							currency={s.currency}
+							today={bars.length - 1}
+							{dayLink}
+						/>
+					{:else if chart === 'category'}
+						<CategoryBar
+							label={tr('Pengeluaran per kategori')}
+							parts={s.categories.map((c) => ({ category: c.tileKey, minor: c.minor ?? 0 }))}
+						/>
+						<ul class="legend">
+							{#each s.categories as c (c.key)}
+								<li>
+									<CategoryTile category={c.tileKey} size={36} />
+									<span class="name">
+										{c.name === null
+											? tr('Tanpa kategori')
+											: categoryLabel({ name: c.name, isPreset: c.isPreset }, tr)}
+									</span>
+									<span class="num">{money(c.minor, s.currency)}</span>
+								</li>
 							{/each}
-						</select>
-						<Icon name="chevron-down" size={14} />
-					</label>
-				</div>
-				{#if chartTooLarge}
-					<p class="muted">{tr(TOO_LARGE)}</p>
-				{:else if chartEmpty}
-					<p class="muted">{tr('Belum ada transaksi bulan ini.')}</p>
-				{:else if chart === 'daily'}
-					<BarChart
-						days={bars}
-						label={tr('Pengeluaran 14 hari terakhir')}
-						currency={s.currency}
-						today={bars.length - 1}
-						{dayLink}
-					/>
-				{:else if chart === 'category'}
-					<CategoryBar
-						label={tr('Pengeluaran per kategori')}
-						parts={s.categories.map((c) => ({ category: c.tileKey, minor: c.minor ?? 0 }))}
-					/>
-					<ul class="legend">
-						{#each s.categories as c (c.key)}
-							<li>
-								<CategoryTile category={c.tileKey} size={36} />
-								<span class="name">
-									{c.name === null
-										? tr('Tanpa kategori')
-										: categoryLabel({ name: c.name, isPreset: c.isPreset }, tr)}
-								</span>
-								<span class="num">{money(c.minor, s.currency)}</span>
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<MonthLines
-						label={tr('Bulan ini dibanding bulan lalu')}
-						thisMonth={nums(s.lines.thisMonth)}
-						lastMonth={nums(s.lines.lastMonth)}
-					/>
-					<p class="lines-key">
-						<span class="key this">{monthName}</span>
-						<span class="key last">{lastMonthName}</span>
-					</p>
-				{/if}
-			</section>
+						</ul>
+					{:else}
+						<MonthLines
+							label={tr('Bulan ini dibanding bulan lalu')}
+							thisMonth={nums(s.lines.thisMonth)}
+							lastMonth={nums(s.lines.lastMonth)}
+						/>
+						<p class="lines-key">
+							<span class="key this">{monthName}</span>
+							<span class="key last">{lastMonthName}</span>
+						</p>
+					{/if}
+				</section>
+			{/if}
 
 			<div class="budget">
 				{#if s.budget && s.safeToSpend}
@@ -462,11 +515,11 @@
 					</p>
 				{/if}
 				<div class="budget-links">
-					<a class="budget-link" href="/?anggaran=1" onclick={openBudget}>
+					<a class="budget-link text-link" href="/?anggaran=1" onclick={openBudget}>
 						{s.budget ? tr('Ubah anggaran') : tr('Atur anggaran')}
 					</a>
 					<!-- The phone's way to the Anggaran page (the sidebar links it on desktop). -->
-					<a class="budget-link" href="/anggaran">{tr('Lihat anggaran')}</a>
+					<a class="budget-link text-link" href="/anggaran">{tr('Lihat anggaran')}</a>
 				</div>
 			</div>
 
@@ -474,40 +527,35 @@
 				<section class="inline-form" aria-labelledby="budget-inline-title">
 					<h2 id="budget-inline-title">{tr('Anggaran bulanan')}</h2>
 					{@render budgetForm(s)}
-					<a class="cancel" href="/">{tr('Batal')}</a>
+					<a class="cancel text-link" href="/">{tr('Batal')}</a>
 				</section>
 			{/if}
 
 			<!-- FN-15: "Struk" opens the receipt reader when the AI Gateway is configured (the page itself asks for
 			     the user's own key); otherwise it stays disabled with the reason (never a button that pretends to
-			     work). Suara stays the primary action. -->
-			<div class="capture">
+			     work). Phone: Struk is the ink (primary) pill and Suara the panel one (DESIGN_SYSTEM § Capture
+			     buttons, owner decision 2026-10-15); from 1024 px the header pair swaps the roles. -->
+			<div class="capture phone-only">
 				{#if data.receiptReady}
-					<Button variant="secondary" size="lg" full icon="receipt" href="/riwayat/struk"
-						>{tr('Struk')}</Button
-					>
+					<Button size="lg" full icon="receipt" href="/riwayat/struk">{tr('Struk')}</Button>
 				{:else}
-					<Button
-						variant="secondary"
-						size="lg"
-						full
-						disabled
-						icon="receipt"
-						describedby="capture-soon"
-					>
+					<Button size="lg" full disabled icon="receipt" describedby="capture-soon">
 						{tr('Struk')}
 					</Button>
 				{/if}
-				<Button size="lg" full icon="mic" href="/riwayat/suara?mulai=1">{tr('Suara')}</Button>
+				<Button variant="secondary" size="lg" full icon="mic" href="/riwayat/suara?mulai=1"
+					>{tr('Suara')}</Button
+				>
 			</div>
 			{#if !data.receiptReady}
-				<p id="capture-soon" class="soon">{tr('Pembacaan struk dengan AI belum dikonfigurasi.')}</p>
+				<p id="capture-soon" class="soon phone-only">
+					{tr('Pembacaan struk dengan AI belum dikonfigurasi.')}
+				</p>
 			{/if}
 		</div>
 
 		<div class="side-col">
 			<section class="today card" aria-labelledby="today-title">
-				<p class="eyebrow">{todayLine}</p>
 				<h2 id="today-title">{tr('Hari ini')}</h2>
 				{#if s.todayGroup}
 					<!-- A day with only transfers or balance adjustments (FN-37) has no money: Rp 0 spent. -->
@@ -536,7 +584,10 @@
 				{/if}
 				{#if data.streak && !data.streak.closedToday}
 					<!-- FN-34: closing needs nothing (owner decision B); the day's list stays one tap away. -->
-					<a class="today-link" href={s.todayGroup ? dayHref(data.today) : '/riwayat/baru'}>
+					<a
+						class="today-link text-link"
+						href={s.todayGroup ? dayHref(data.today) : '/riwayat/baru'}
+					>
 						{s.todayGroup ? tr('Lihat transaksi hari ini') : tr('Catat transaksi')}
 					</a>
 					<form method="POST" action="?/closeDay" use:enhance={track('close')}>
@@ -565,14 +616,10 @@
 				{/if}
 			</section>
 
-			<a class="features" href="/pengaturan/fitur" aria-haspopup="dialog" onclick={openFiturSheet}>
-				<Icon name="grid" size={16} />{tr('Jelajahi fitur')}
-			</a>
-
 			<section class="list" aria-labelledby="recent-title">
 				<div class="section-head">
 					<h2 id="recent-title">{tr('Terbaru')}</h2>
-					<a class="see-all" href="/riwayat">{tr('Lihat semua')}</a>
+					<a class="see-all text-link" href="/riwayat">{tr('Lihat semua')}</a>
 				</div>
 				{#if data.lists === null}
 					<p class="muted">{tr('Tidak bisa dimuat')}</p>
@@ -586,7 +633,7 @@
 								meta={rowMeta(row, i18n, { withDate: true })}
 								amountMinor={signedAmount(row)}
 								currency={row.currency}
-								category={row.category?.tileKey ?? 'lain'}
+								category={rowTile(row)}
 								kind={row.type}
 								label={rowKindLabel(row, i18n)}
 								status={row.isDemo ? tr('Data demo') : undefined}
@@ -601,7 +648,7 @@
 			<section class="list" aria-labelledby="upcoming-title">
 				<div class="section-head">
 					<h2 id="upcoming-title">{tr('Akan datang')}</h2>
-					<a class="see-all" href="/langganan">{tr('Lihat semua')}</a>
+					<a class="see-all text-link" href="/langganan">{tr('Lihat semua')}</a>
 				</div>
 				{#if data.lists === null}
 					<p class="muted">{tr('Tidak bisa dimuat')}</p>
@@ -625,8 +672,17 @@
 					</GroupList>
 				{/if}
 			</section>
+
+			<!-- FN-54 A4: every feature page as a tile (hidden modules have none); "Kelola fitur" opens the sheet. -->
+			<FeatureTiles hidden={data.hiddenModules} />
 		</div>
 	</div>
+{/if}
+
+<!-- FN-54 Part D: the once-a-day greeting (its cards are empty unless it is due on this device today). Never over
+     the budget form that `?anggaran=1` opens. -->
+{#if data.story.length > 0 && !data.openBudget}
+	<DailyStory cards={data.story} today={data.today} onoff={() => (storyOff = true)} />
 {/if}
 
 <Sheet bind:open={sheetOpen} title={tr('Anggaran bulanan')} onclose={onSheetClose}>
@@ -637,25 +693,40 @@
 </Sheet>
 
 <style>
+	/*
+	 * FN-54 B6. Below 1024 px: row 1 = the date badge left, the four 44 px actions right; row 2 = the streak chip
+	 * (its own full-width row, so "berturut-turut" is never cut at 360 px). The h1 stays for screen readers only.
+	 */
 	.topbar {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 12px;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 8px 12px;
 		padding: 16px 0 8px;
 	}
 	.when {
-		display: grid;
-		justify-items: start;
-		gap: 6px;
+		display: contents;
 	}
-	.date {
-		margin: 0;
-		font-size: 17px;
-		font-weight: 700;
-		letter-spacing: -0.01em;
+	.page-title {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+		border: 0;
+	}
+	.badge-phone {
+		grid-column: 1;
+		grid-row: 1;
+		justify-self: start;
 	}
 	.chip-link {
+		grid-column: 1 / -1;
+		grid-row: 2;
+		justify-self: start;
 		display: inline-flex;
 		align-items: center;
 		max-width: 100%;
@@ -688,8 +759,14 @@
 		text-overflow: ellipsis;
 	}
 	.top-actions {
+		grid-column: 2;
+		grid-row: 1;
 		display: flex;
-		gap: 8px;
+		gap: 4px;
+	}
+	.top-actions :global(.icon-btn) {
+		width: 44px;
+		height: 44px;
 	}
 	.avatar {
 		display: grid;
@@ -698,48 +775,71 @@
 		min-height: 44px;
 		border-radius: var(--r-pill);
 	}
+	.desk-actions,
+	.soon-desk {
+		display: none;
+	}
 	/*
-	 * Phone: the date and the four 44 px actions share the first row (the date may wrap), the streak chip gets
-	 * its own full-width row so its text is never cut ("berturut-turut" fits at 360 px).
+	 * 1024 px and up: a page header like the other desktop pages — the visible h1 with the streak chip under it,
+	 * then the badge, Struk and Suara on the right (tab order badge → Struk → Suara). The sidebar carries the
+	 * bell, gear and space, and the bottom capture pair is not rendered.
 	 */
-	@media (max-width: 600px) {
+	@media (min-width: 1024px) {
 		.topbar {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr) auto;
+			display: flex;
 			align-items: center;
-			gap: 4px 12px;
+			justify-content: space-between;
+			gap: 16px;
+			padding-top: 32px;
+			padding-bottom: 16px;
 		}
 		.when {
-			display: contents;
+			display: grid;
+			justify-items: start;
+			gap: 6px;
 		}
-		.date {
-			grid-column: 1;
-			grid-row: 1;
-			min-width: 0;
+		.page-title {
+			position: static;
+			width: auto;
+			height: auto;
+			margin: 0;
+			overflow: visible;
+			clip: auto;
+			white-space: normal;
+			font-size: 34px;
+			font-weight: 800;
+			letter-spacing: -0.03em;
 		}
 		.chip-link {
-			grid-column: 1 / -1;
-			grid-row: 2;
-			justify-self: start;
+			margin-block: -10px;
 		}
-		.top-actions {
-			grid-column: 2;
-			grid-row: 1;
-			gap: 4px;
-		}
-		.top-actions :global(.icon-btn) {
-			width: 44px;
-			height: 44px;
-		}
-	}
-	/* The sidebar carries these on desktop. */
-	@media (min-width: 1024px) {
-		.top-actions {
+		.badge-phone,
+		.top-actions,
+		.main-col .phone-only {
 			display: none;
 		}
-		.topbar {
-			padding-top: 32px;
+		.desk-actions {
+			display: flex;
+			align-items: center;
+			gap: 10px;
 		}
+		.soon-desk {
+			display: block;
+			margin: -8px 0 12px;
+			text-align: right;
+			font-size: 13px;
+			color: var(--muted);
+		}
+		/* Not available is said in words (the line under the header), not by fading the label below AA contrast. */
+		.desk-actions :global(.btn:disabled) {
+			opacity: 1;
+			color: var(--muted);
+		}
+	}
+	.hero-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
 	}
 	.two-col {
 		display: grid;
@@ -752,7 +852,8 @@
 		gap: 20px;
 		min-width: 0;
 	}
-	@media (min-width: 1200px) {
+	/* The tablet tier (860 – 1023 px, no sidebar; app +layout.svelte) and the full desktop width. */
+	@media (min-width: 860px) and (max-width: 1023.98px), (min-width: 1200px) {
 		.two-col {
 			grid-template-columns: minmax(0, 740px) minmax(300px, 420px);
 			gap: 40px;
@@ -852,26 +953,6 @@
 		flex-wrap: wrap;
 		gap: 0 20px;
 	}
-	/* One text-link look for every in-content link on this page: underlined, never bold like a heading. */
-	.budget-link,
-	.cancel,
-	.today-link,
-	.see-all {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		color: var(--ink-2);
-		font-size: 14px;
-		font-weight: 500;
-		text-decoration: underline;
-		text-underline-offset: 3px;
-	}
-	.budget-link:hover,
-	.cancel:hover,
-	.today-link:hover,
-	.see-all:hover {
-		color: var(--ink);
-	}
 	.ok {
 		margin: 8px 0;
 		padding: 12px 14px;
@@ -892,8 +973,9 @@
 		font-size: 14px;
 		color: var(--muted);
 	}
+	/* Empty lines align with the section heading (POLISH_AUDIT A7). */
 	.muted {
-		padding: 8px 4px;
+		padding: 8px 0;
 	}
 	.charts {
 		display: grid;
@@ -928,8 +1010,8 @@
 		margin-top: 4px;
 		padding: 0 18px;
 		border-radius: var(--r-pill);
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		font-size: 15px;
 		font-weight: 600;
 		white-space: nowrap;
@@ -951,14 +1033,6 @@
 	/* A grey button inside the grey card: one step darker so it stays visible. */
 	.card :global(.btn.secondary) {
 		background: var(--panel-2);
-	}
-	.eyebrow {
-		margin: 0;
-		font-size: 12px;
-		font-weight: 600;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--muted);
 	}
 	.today-line {
 		margin: 0;
@@ -992,17 +1066,6 @@
 		flex: none;
 		color: var(--money-in);
 	}
-	.features {
-		display: inline-flex;
-		align-items: center;
-		justify-self: center;
-		gap: 6px;
-		min-height: 44px;
-		color: var(--ink-2);
-		font-size: 14px;
-		font-weight: 600;
-		text-decoration: none;
-	}
 	.list {
 		display: grid;
 		gap: 8px;
@@ -1021,6 +1084,7 @@
 			-webkit-line-clamp: 2;
 			line-clamp: 2;
 			white-space: normal;
+			overflow-wrap: anywhere;
 		}
 	}
 	.bill-text {

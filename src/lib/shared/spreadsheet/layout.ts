@@ -124,7 +124,7 @@ export function cellText(cell: SheetCell | null | undefined): string {
 }
 
 /** Kind a tab title names, else null. */
-export function kindFromTitle(name: string): 'expense' | 'income' | null {
+function kindFromTitle(name: string): 'expense' | 'income' | null {
 	const key = headerKey(name);
 	if (INCOME_TITLES.some((w) => key.includes(w))) return 'income';
 	if (EXPENSE_TITLES.some((w) => key.includes(w))) return 'expense';
@@ -181,7 +181,7 @@ function confirmedBelow(
 	);
 }
 
-export type TabStatus = 'ready' | 'needs_mapping';
+type TabStatus = 'ready' | 'needs_mapping';
 
 export interface TabProposal {
 	mapping: TabMapping;

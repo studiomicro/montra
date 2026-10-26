@@ -5,6 +5,7 @@
 	import { msg } from '#lib/shared/i18n';
 	import { laporanHref, laporanRiwayatHref } from '#lib/shared/laporan-query';
 	import { alurUangHref } from '#lib/shared/money-flow';
+	import { reportPeriodHref } from '#lib/shared/report-period';
 	import { formatMoney, formatMoneyCompact } from '#lib/shared/money-format';
 	import { categoryLabel } from '#lib/shared/transactions';
 	import CumulativeChart from '#lib/ui/charts/CumulativeChart.svelte';
@@ -21,12 +22,13 @@
 	import { richParts, type RichPart } from '#lib/ui/kit/rich';
 	import Skeleton from '#lib/ui/kit/Skeleton.svelte';
 	import TransactionRow from '#lib/ui/kit/TransactionRow.svelte';
-	import { rowShare } from '#lib/ui/transactions/row-text';
+	import { joinMeta, rowShare } from '#lib/ui/transactions/row-text';
 	import CompareLine from '#lib/ui/laporan/CompareLine.svelte';
 	import ChevronLinks from '#lib/ui/laporan/ChevronLinks.svelte';
 	import CategoryGrid from '#lib/ui/laporan/CategoryGrid.svelte';
 	import CategoryList from '#lib/ui/laporan/CategoryList.svelte';
 	import PeriodNav from '#lib/ui/laporan/PeriodNav.svelte';
+	import EmptyState from '#lib/ui/shell/EmptyState.svelte';
 	import ScreenTitle from '#lib/ui/shell/ScreenTitle.svelte';
 
 	let { data } = $props();
@@ -56,6 +58,14 @@
 	const OTHER = msg('Lainnya');
 	const money = (minor: number | null, currency: string) =>
 		minor === null ? tr(TOO_LARGE) : shown(formatMoney(minor, currency, 'auto', locale));
+	/**
+	 * One sign rule for every list on the page (POLISH_AUDIT B3): an expense figure reads "−Rp", income "+Rp", as
+	 * in "Pengeluaran terbesar" (DESIGN_SYSTEM § Formatting). The hero stays an unsigned total.
+	 */
+	const listMoney = (minor: number | null, currency: string) =>
+		minor === null
+			? tr(TOO_LARGE)
+			: shown(formatMoney(isOut ? -minor : minor, currency, 'signed', locale));
 	const compact = (minor: number | null, currency: string) =>
 		minor === null ? tr(TOO_LARGE) : shown(formatMoneyCompact(minor, currency, locale));
 	const allKnown = (values: (number | null)[]): values is number[] =>
@@ -64,6 +74,11 @@
 	const isOut = $derived(view.direction === 'keluar');
 	const main = $derived(r?.stats[0]);
 	const range = $derived(r ? { from: r.from, to: r.to } : null);
+	/**
+	 * Nothing in or out in the period, in any currency (a figure too large to show is not "nothing"): one empty
+	 * state instead of an empty heatmap, a flat line and "Rp0 tersisa" (POLISH_AUDIT B6).
+	 */
+	const periodEmpty = $derived(!!r && r.stats.every((s) => s.inMinor === 0 && s.outMinor === 0));
 
 	function nameOf(c: { key: string; name: string | null; isPreset: boolean }) {
 		if (c.key === '*') return tr(OTHER);
@@ -86,7 +101,7 @@
 						name: nameOf(c),
 						tileKey: c.tileKey,
 						detail: c.percent === null ? per : `${c.percent}% · ${per}`,
-						amount: money(c.minor, r.currency),
+						amount: listMoney(c.minor, r.currency),
 						href: c.key ? laporanRiwayatHref(range, view.direction, c.key) : null
 					};
 				})
@@ -123,7 +138,7 @@
 		if (row.category)
 			parts.push(categoryLabel({ name: row.category.name, isPreset: row.category.isPreset }, tr));
 		if (row.wallet.name) parts.push(row.wallet.name);
-		return parts.join(' · ');
+		return joinMeta(parts);
 	}
 </script>
 
@@ -161,31 +176,31 @@
 					fallback={tr(TOO_LARGE)}
 				>
 					<!-- One line: the hero's context slot is a grid, so bare text nodes would stack. -->
-					<p class="hero-line num">
-						{#if isOut}
-							{@render rich(
-								richParts(tr('dari {jumlah} pemasukan'), {
-									jumlah: compact(main.inMinor, r.currency)
-								})
-							)}
-						{:else}
-							{@render rich(
-								richParts(tr('{jumlah} keluar'), { jumlah: compact(main.outMinor, r.currency) })
-							)}
-						{/if}
-						·
-						{#if main.netMinor !== null && main.netMinor < 0}
-							<span class="over"
-								>{trf('{jumlah} melebihi pemasukan', {
-									jumlah: compact(-main.netMinor, r.currency)
-								})}</span
-							>
-						{:else}
-							<span class="left"
-								>{trf('{jumlah} tersisa', { jumlah: compact(main.netMinor, r.currency) })}</span
-							>
-						{/if}
-					</p>
+					{#if !periodEmpty}<p class="hero-line num">
+							{#if isOut}
+								{@render rich(
+									richParts(tr('dari {jumlah} pemasukan'), {
+										jumlah: compact(main.inMinor, r.currency)
+									})
+								)}
+							{:else}
+								{@render rich(
+									richParts(tr('{jumlah} keluar'), { jumlah: compact(main.outMinor, r.currency) })
+								)}
+							{/if}
+							·
+							{#if main.netMinor !== null && main.netMinor < 0}
+								<span class="over"
+									>{trf('{jumlah} melebihi pemasukan', {
+										jumlah: compact(-main.netMinor, r.currency)
+									})}</span
+								>
+							{:else}
+								<span class="left"
+									>{trf('{jumlah} tersisa', { jumlah: compact(main.netMinor, r.currency) })}</span
+								>
+							{/if}
+						</p>{/if}
 				</HeroAmount>
 				{#each r.stats.slice(1) as s (s.currency)}
 					<p class="other num">
@@ -210,7 +225,14 @@
 				{/if}
 			</section>
 
-			{#if r.detail.mode === 'bulan'}
+			{#if periodEmpty}
+				<EmptyState
+					mascot={false}
+					text={tr('Belum ada transaksi di periode ini.')}
+					actionLabel={tr('Catat transaksi')}
+					actionHref="/riwayat/baru"
+				/>
+			{:else if r.detail.mode === 'bulan'}
 				{@const d = r.detail}
 				<section class="block" aria-labelledby="heat-title">
 					<h2 id="heat-title">{tr('Tren harian')}</h2>
@@ -272,7 +294,9 @@
 											{#if m.count > 1}<span class="meta num">{trf('{n}×', { n: m.count })}</span
 												>{/if}
 										</span>
-										<span class="amount num">{money(m.amountMinor, r.currency)}</span>
+										<span class="amount num" class:income={!isOut}
+											>{listMoney(m.amountMinor, r.currency)}</span
+										>
 									</GroupRow>
 								{/each}
 							</GroupList>
@@ -387,38 +411,47 @@
 			{/if}
 		</div>
 
-		<aside class="col side" aria-labelledby="where-title">
-			<section class="block">
-				<h2 id="where-title">{isOut ? tr('Ke mana uangnya') : tr('Dari mana uangnya')}</h2>
-				{#if r.categories.length === 0}
-					<p class="muted">{tr('Belum ada transaksi di periode ini.')}</p>
-				{:else}
-					{#if categoriesKnown}
-						<Donut
-							slices={donutSlices}
-							title={isOut ? tr('Uang keluar') : tr('Uang masuk')}
-							value={compact(r.directionMinor, r.currency)}
-							sub={trf('{n} kategori', { n: r.categories.length })}
-							label={isOut ? tr('Pengeluaran per kategori') : tr('Pemasukan per kategori')}
-						/>
+		{#if !periodEmpty}<aside class="col side" aria-labelledby="where-title">
+				<section class="block">
+					<h2 id="where-title">{isOut ? tr('Ke mana uangnya') : tr('Dari mana uangnya')}</h2>
+					{#if r.categories.length === 0}
+						<p class="muted">{tr('Belum ada transaksi di periode ini.')}</p>
 					{:else}
-						<p class="muted">{tr(TOO_LARGE)}</p>
+						{#if categoriesKnown}
+							<Donut
+								slices={donutSlices}
+								title={isOut ? tr('Uang keluar') : tr('Uang masuk')}
+								value={compact(r.directionMinor, r.currency)}
+								sub={trf('{n} kategori', { n: r.categories.length })}
+								label={isOut ? tr('Pengeluaran per kategori') : tr('Pemasukan per kategori')}
+							/>
+						{:else}
+							<p class="muted">{tr(TOO_LARGE)}</p>
+						{/if}
+						<CategoryList rows={categoryRows} income={!isOut} />
 					{/if}
-					<CategoryList rows={categoryRows} />
-				{/if}
-				<ChevronLinks
-					links={[
-						{
-							href: laporanRiwayatHref(range, view.direction),
-							label: tr('Lihat semua di Riwayat')
-						},
-						...(view.mode === 'bulan'
-							? [{ href: alurUangHref(view.month, today), label: tr('Lihat alur uang') }]
-							: [])
-					]}
-				/>
-			</section>
-		</aside>
+					<ChevronLinks
+						links={[
+							{
+								href: laporanRiwayatHref(range, view.direction),
+								label: tr('Lihat semua di Riwayat')
+							},
+							{
+								href:
+									view.mode === 'bulan'
+										? alurUangHref(view.month, today)
+										: reportPeriodHref(
+												'/alur-uang',
+												{ kind: 'tahun', year: view.year },
+												today,
+												'bulan'
+											),
+								label: tr('Lihat alur uang')
+							}
+						]}
+					/>
+				</section>
+			</aside>{/if}
 	</div>
 {/if}
 
@@ -440,7 +473,8 @@
 		/* .pair splits on the column's own width, never the window's (the column can be far narrower). */
 		container-type: inline-size;
 	}
-	@media (min-width: 1200px) {
+	/* The tablet tier (860 – 1023 px, no sidebar; app +layout.svelte) and the full desktop width. */
+	@media (min-width: 860px) and (max-width: 1023.98px), (min-width: 1200px) {
 		.cols {
 			/* 740 : 420 at the full 1200 px; narrower content keeps the same proportions. */
 			grid-template-columns: minmax(0, 37fr) minmax(300px, 21fr);
@@ -511,10 +545,12 @@
 		flex: 1;
 		min-width: 0;
 	}
+	/* Places read like the record rows beside them: 15 / 600 title, 15 / 700 amount (DESIGN_SYSTEM § Transaction row). */
 	.name {
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+		font-size: 15px;
 		font-weight: 600;
 	}
 	.meta {
@@ -523,7 +559,11 @@
 	}
 	.amount {
 		flex: none;
+		font-size: 15px;
 		font-weight: 700;
+	}
+	.income {
+		color: var(--money-in);
 	}
 	/* The meta line keeps wallet and category on a phone: two lines instead of an ellipsis. */
 	@media (max-width: 600px) {
@@ -533,6 +573,7 @@
 			-webkit-line-clamp: 2;
 			line-clamp: 2;
 			white-space: normal;
+			overflow-wrap: anywhere;
 		}
 	}
 </style>

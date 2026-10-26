@@ -13,7 +13,7 @@ Run this pipeline for the feature request above. Derive a kebab-case `<slug>` fr
 - **Small** (UI text, nav, docs, tooling, no data or access change): engineer, then one light review by the orchestrator; no separate QA and red-team runs.
 - **Medium** (a feature without migration, auth, money logic or new external input): engineer, then QA and a narrow red team in parallel.
 - **Large** (migration, auth, access control, money calculation, AI capture, payments, new external input): the full sequence below.
-  Models: CTO and QA on Sonnet 5 (high); engineer and red team on Opus 5.5 (medium). Start agents by named type (`cto-strategist`, `senior-software-engineer`, `qa-tester`, `red-team-pentester`) so their model pins apply.
+  Models: CTO and QA on Sonnet 5 (high); engineer and red team on Opus 5.5 (medium); Haiku 5.5 only for small mechanical helpers. Start agents by named type (`cto-strategist`, `senior-software-engineer`, `qa-tester`, `red-team-pentester`) so their model pins apply.
 
 0b. Branching: one worktree and branch per feature, from `main` (`git worktree add ../montra-worktrees/<slug> -b feat/<slug>`). Shared code needed by two features lands on `main` first. Before each engineer or QA dispatch, rebase the branch onto `main`. Engineers commit `wip(<slug>): cycle N`; re-checks read `git diff <previous cycle commit>..HEAD`. When QA and red team pass: squash to one Conventional Commit on `main`, run the gates on `main`, then update the trackers.
 

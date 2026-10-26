@@ -82,7 +82,7 @@ export const PRO_ICONS: IconSpec[] = [
  * The monochrome icon (Android themed icons use only its alpha). Same safe-zone cell size as the 512 maskable
  * icon, because a launcher masks it to a shape too.
  */
-export const MONOCHROME_ICON: IconSpec = {
+const MONOCHROME_ICON: IconSpec = {
 	file: 'icons/icon-monochrome-512.png',
 	size: 512,
 	cell: 12,
@@ -90,14 +90,14 @@ export const MONOCHROME_ICON: IconSpec = {
 };
 
 /** One manifest shortcut's icon: a 96 px white tile with one of the app's 24×24 stroke glyphs (src/lib/ui/icons.ts). */
-export interface ShortcutIconSpec {
+interface ShortcutIconSpec {
 	file: string;
 	glyph: IconName;
 }
 
-export const SHORTCUT_ICON_SIZE = 96;
+const SHORTCUT_ICON_SIZE = 96;
 
-export const SHORTCUT_ICONS: ShortcutIconSpec[] = [
+const SHORTCUT_ICONS: ShortcutIconSpec[] = [
 	{ file: 'icons/shortcut-tambah.png', glyph: 'plus' },
 	{ file: 'icons/shortcut-suara.png', glyph: 'mic' },
 	{ file: 'icons/shortcut-struk.png', glyph: 'receipt' },
@@ -157,7 +157,7 @@ export function iconSvg(spec: IconSpec): string {
 }
 
 /** A shortcut icon as an SVG: the rounded white tile (like the 'any' icons) and the glyph in ink, centred. */
-export function shortcutIconSvg(spec: ShortcutIconSpec): string {
+function shortcutIconSvg(spec: ShortcutIconSpec): string {
 	const size = SHORTCUT_ICON_SIZE;
 	const glyph = 56;
 	const offset = (size - glyph) / 2;

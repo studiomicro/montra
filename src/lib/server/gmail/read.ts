@@ -34,7 +34,7 @@ import { accessTokenFor, forgetAccessToken } from './token';
  * log: it lives in this function's variables only. The ledger update and the scan counter are one `db.batch`.
  */
 
-export type GmailReadEnv = GmailClientEnv & AiKeysEnv & AiGatewayEnv;
+type GmailReadEnv = GmailClientEnv & AiKeysEnv & AiGatewayEnv;
 
 export interface GmailReadDeps extends GmailJobDeps {
 	env: GmailReadEnv;

@@ -1,14 +1,18 @@
 <script lang="ts">
 	import Icon from '#lib/ui/Icon.svelte';
 	import type { IconName } from '#lib/ui/icons';
+	import type { ChipTone } from '#lib/ui/shell/nav';
+	import FeatureChip from './FeatureChip.svelte';
 	import Toggle from './Toggle.svelte';
 
 	/**
 	 * § 2 toggle row (the Fitur sheet): an icon circle, the title with an optional "Beta" badge, a grey
-	 * description and the switch on the right. The whole row is the switch's label (Toggle).
+	 * description and the switch on the right. The whole row is the switch's label (Toggle). With `tone` (FN-54) the
+	 * icon sits on the feature's tinted chip instead of the plain circle.
 	 */
 	let {
 		icon,
+		tone,
 		checked = $bindable(false),
 		label,
 		hint,
@@ -18,6 +22,7 @@
 		onchange
 	}: {
 		icon: IconName;
+		tone?: ChipTone;
 		checked?: boolean;
 		label: string;
 		hint?: string;
@@ -29,7 +34,11 @@
 </script>
 
 <div class="toggle-row">
-	<span class="circle" aria-hidden="true"><Icon name={icon} size={20} /></span>
+	{#if tone}
+		<FeatureChip {icon} {tone} size={40} />
+	{:else}
+		<span class="circle" aria-hidden="true"><Icon name={icon} size={20} /></span>
+	{/if}
 	<Toggle bind:checked {label} {hint} {badge} {name} {disabled} {onchange} />
 </div>
 

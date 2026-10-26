@@ -25,7 +25,7 @@ export interface ReleaseNote {
 }
 
 /** How many releases "Apa yang baru" lists (owner decision 2). */
-export const RELEASE_NOTES_SHOWN = 3;
+const RELEASE_NOTES_SHOWN = 3;
 
 const frontmatter = z.object({
 	version: z.string().regex(VERSION_PATTERN),

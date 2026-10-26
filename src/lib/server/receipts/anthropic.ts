@@ -28,9 +28,9 @@ import { interpretReceiptAnswer } from './schema.ts';
  */
 export const RECEIPT_MODEL = 'claude-sonnet-5-5';
 /** Output budget: a long itemised receipt as JSON fits well within it (the model's cap is far higher). */
-export const RECEIPT_MAX_TOKENS = 4096;
+const RECEIPT_MAX_TOKENS = 4096;
 /** "Every AI call … has a timeout" (checklist › Cost): the whole call, answer body included. */
-export const RECEIPT_READ_TIMEOUT_MS = 45_000;
+const RECEIPT_READ_TIMEOUT_MS = 45_000;
 /** Most bytes of a successful answer read (4096 tokens of JSON are far below). */
 const ANSWER_MAX_BYTES = 256 * 1024;
 /** Most bytes of an error body read to classify it. */

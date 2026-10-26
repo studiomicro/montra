@@ -57,8 +57,8 @@ test('the streak chip opens /beruntun: empty, then today closed with calendar, m
 	const csp = collectCspViolations(page);
 	const main = page.locator('main');
 
-	// The chip is a link with a ≥ 44 px hit area; its text is unchanged.
-	const chipLink = main.getByRole('link', { name: '0 hari berturut-turut' });
+	// The chip is a link with a ≥ 44 px hit area; before the first closed day it reads "Mulai hari ini".
+	const chipLink = main.getByRole('link', { name: 'Mulai hari ini' });
 	await expect(chipLink).toBeVisible();
 	expect((await chipLink.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 	await chipLink.click();

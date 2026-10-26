@@ -220,6 +220,20 @@ export function formatWeekdayDay(date: string, locale: Locale): string {
 	}).format(new Date(utcMidnight(date)));
 }
 
+/**
+ * A grouped list's day header (DESIGN_SYSTEM § Grouped list, § Formatting): "Kamis, 1 Okt" in the current year,
+ * "Rabu, 31 Des 2025" in another, so a header never wraps at 360 px. `today` is the WIB date the page was built for.
+ */
+export function formatDayHeader(date: string, today: string, locale: Locale): string {
+	return new Intl.DateTimeFormat(intlLocale(locale), {
+		timeZone: 'UTC',
+		weekday: 'long',
+		day: 'numeric',
+		month: 'short',
+		...(date.slice(0, 4) === today.slice(0, 4) ? {} : { year: 'numeric' as const })
+	}).format(new Date(utcMidnight(date)));
+}
+
 /** A WIB calendar date with its year, e.g. "8 Okt 2024" (a purchase date, FN-27). */
 export function formatShortDate(date: string, locale: Locale): string {
 	return new Intl.DateTimeFormat(intlLocale(locale), {

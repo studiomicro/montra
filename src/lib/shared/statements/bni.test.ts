@@ -206,6 +206,22 @@ describe('BNI self-checks: anything that does not check out refuses the whole st
 		expect(reasons(parse(single(noTime, '975,000', OK_TOTALS)).rows)).toEqual(['unparseable_date']);
 	});
 
+	it('reads row dates printed with English month abbreviations (Aug, May, Oct, Dec)', () => {
+		const cases: [string, string, string][] = [
+			['1 - 31 Agustus 2026', '01 Aug 2026', '2026-08-01'],
+			['1 - 31 Mei 2026', '15 May 2026', '2026-05-15'],
+			['1 - 31 Oktober 2026', '09 Oct 2026', '2026-10-09'],
+			['1 - 31 Desember 2026', '31 Dec 2026', '2026-12-31']
+		];
+		for (const [period, date, iso] of cases) {
+			const r = parse(
+				single(bniRow(date, 'Biaya', 'Biaya -25,000 975,000'), '975,000', OK_TOTALS, { period })
+			);
+			expect(r.inconsistent, date).toBe(false);
+			expect(values(r.rows)).toEqual([[iso, 'expense', 2_500_000, expect.any(String)]]);
+		}
+	});
+
 	it('a row whose amount is on the next page is unreadable', () => {
 		const split: BniFixture = {
 			...single([], '975,000', OK_TOTALS),

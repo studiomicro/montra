@@ -8,15 +8,17 @@ import { amounts } from '../kit/amounts.svelte';
 import AllocationBar from './AllocationBar.svelte';
 import CreditCardCard from './CreditCardCard.svelte';
 import MissingSuggestions from './MissingSuggestions.svelte';
+import PeriodTrend from './PeriodTrend.svelte';
 import TrendChart from './TrendChart.svelte';
+import { stripComments, stripTags } from '../../../../test/helpers/html';
 
 // FN-25b components, server-rendered: what each one shows, and that every figure follows the eye button.
 function html(component: unknown, props: Record<string, unknown>, locale: 'id' | 'en' = 'id') {
-	return render(I18nHarness, {
-		props: { component: component as Component<Record<string, unknown>>, props, locale }
-	})
-		.body.replace(/<!--[\s\S]*?-->/g, '')
-		.replaceAll(' ', ' ');
+	return stripComments(
+		render(I18nHarness, {
+			props: { component: component as Component<Record<string, unknown>>, props, locale }
+		}).body
+	).replaceAll(' ', ' ');
 }
 
 afterEach(() => {
@@ -38,6 +40,8 @@ describe('AllocationBar', () => {
 		expect(body).toContain('Rp21,6 jt · 54%');
 		expect(body).toContain('Rp18,5 jt · 46%');
 		expect(body).toMatch(/Utang<\/span>\s*<span class="num[^"]*">−Rp 250.000.000<\/span>/);
+		// Plain debt is ink with its minus sign, never red (red means "more than" or an error).
+		expect(body).not.toContain('minus');
 	});
 
 	it('masks every figure, share and segment width while amounts are hidden (owner decision 2026-10-13)', () => {
@@ -123,5 +127,38 @@ describe('CreditCardCard', () => {
 		expect(html(CreditCardCard, { card: { ...card, totals: [] } })).toContain('Rp 0');
 		amounts.hidden = true;
 		expect(html(CreditCardCard, { card })).not.toContain('Rp 2.330.000');
+	});
+});
+
+describe('PeriodTrend', () => {
+	const axis = (body: string) =>
+		stripTags([...body.matchAll(/<p class="axis[^>]*>([\s\S]*?)<\/p>/g)][0]![1]!, ' ')
+			.trim()
+			.split(/\s{2,}/);
+	const month = { key: '2026-10', date: '2026-10-15', minor: 15 * 100_000_000, partial: false };
+
+	it('names an opening from before the period "Awal"', () => {
+		const opening = { key: 'awal', date: '2026-09-30', minor: 100_000_000, partial: false };
+		expect(axis(html(PeriodTrend, { points: [opening, month], label: 'x' }))[0]).toBe('Awal');
+	});
+
+	it('names an opening taken inside the period by its date, never "Awal"', () => {
+		const since = { key: 'awal', date: '2026-10-11', minor: 100_000_000, partial: false };
+		const labels = axis(html(PeriodTrend, { points: [since, month], label: 'x' }));
+		expect(labels[0]).not.toBe('Awal');
+		expect(labels[0]).toMatch(/11/);
+	});
+
+	it('says why the plot is empty below two recorded values, and keeps the steppable slots', () => {
+		const lone = html(PeriodTrend, {
+			points: [{ key: 'awal', date: null, minor: null, partial: false }, month],
+			label: 'x'
+		});
+		expect(lone).toContain('role="slider"');
+		expect(lone).toContain('Grafik tampil setelah beberapa hari pencatatan.');
+		const opening = { key: 'awal', date: '2026-09-30', minor: 100_000_000, partial: false };
+		expect(html(PeriodTrend, { points: [opening, month], label: 'x' })).not.toContain(
+			'Grafik tampil setelah beberapa hari pencatatan.'
+		);
 	});
 });

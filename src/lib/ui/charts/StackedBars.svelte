@@ -90,7 +90,8 @@
 		{/each}
 		{#if max > 0}
 			<line class="avg" x1="0" x2={W} y1={avgY} y2={avgY} />
-			<text class="avg-label" x={W} y={avgY - 4} text-anchor="end">
+			<!-- At the left edge (POLISH_AUDIT B2): the latest month, at the right, is the bar most likely to be there. -->
+			<text class="avg-label" x="0" y={avgY - 4} text-anchor="start">
 				{compact(averageMinor)}
 			</text>
 		{/if}
@@ -145,6 +146,13 @@
 	.avg-label {
 		fill: var(--muted);
 		font-size: 10px;
+	}
+	/* A page-coloured halo keeps the figure legible where it crosses a bar. */
+	.avg-label {
+		paint-order: stroke;
+		stroke: var(--bg);
+		stroke-width: 3px;
+		stroke-linejoin: round;
 	}
 	.avg {
 		stroke: var(--faint);

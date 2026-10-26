@@ -1,5 +1,60 @@
 # Changelog
 
+## v0.17.0 — 2026-10-15 03:20 UTC (staging, d47800c)
+
+- Transfers between your own accounts now pair up by themselves after a statement import when the match is clear;
+  each one is marked "Otomatis" and can be undone. Unclear pairs still wait for you.
+- A cleaner look across the app: fields and buttons without frames, one link style, tidier rows and headers, clearer
+  charts in dark mode, and Struk as the main button on Beranda.
+- The net worth report no longer shows empty months before your first record and names a start value by its date.
+- Behind the scenes: database update 0048 (transfer match source and a lookup index).
+
+## v0.16.1 — 2026-10-14 17:10 UTC (staging, 02bc2b6)
+
+- OCBC Rekening Koran statements import again when the summary lists a currency with no transactions that month.
+- Behind the scenes: no database update.
+
+## v0.16.0 — 2026-10-13 17:51 UTC (staging, 2a8b6a7)
+
+- The drawings on empty pages and the city on Beranda look like blueprints: fine outlines on a light grid, with
+  dashed guide lines and small corner markers, in light and dark mode.
+- Behind the scenes: no database update.
+
+## v0.15.0 — 2026-10-13 16:00 UTC (staging, 6bfb84e)
+
+- The tab bar, sheets and other floating parts look like clear glass, with a soft light along the top edge; reduced
+  transparency keeps them solid.
+- BNI statements with English month names in their dates import again.
+- OCBC Rekening Koran statements with the summary on the last transaction page import again.
+- Behind the scenes: no database update.
+
+## v0.14.0 — 2026-10-13 12:50 UTC (staging, e516794)
+
+- Masuk and Daftar open with a slow-moving field of tiny letters on a blue card (black in dark mode); it rests after a
+  minute and stays still when reduced motion is on.
+- Behind the scenes: no database update.
+
+## v0.13.0 — 2026-10-13 08:44 UTC (staging, 1006e48)
+
+- Alur uang by month, quarter or year, with the previous-period comparison and an average per month; a new net worth
+  report with opening, closing and change per asset group.
+- A greeting on Beranda by time of day, a calendar of daily spending, closed days and bills from the date at the top,
+  feature icons, and an optional daily greeting from your own figures.
+- Credit cards as their own wallet: limit, statement and due days, the bill left to pay and bill payments as transfers.
+- Behind the scenes: database updates 0046–0047 (net worth by asset group, credit card details and statements).
+
+## v0.12.0 — 2026-10-13 05:20 UTC (staging, 47d9811)
+
+- Transfers between your own wallets no longer count twice: "Cocokkan transfer" on Impor matches them, you confirm
+  each pair, and every match can be undone.
+- Sign in with a passkey (fingerprint, face or device PIN); add or remove passkeys in Pengaturan › Akun.
+- Smoother motion: page changes, charts that draw in, and pull to refresh in the installed app.
+- Hidden amounts also hide charts and percentages; a shop name the AI recognises is now a "Pakai nama" suggestion.
+- Sturdier statement imports, better account-number masking, and no voucher card on Pro accounts. Montra is now open
+  source under AGPL-3.0.
+- Behind the scenes: database updates 0043–0045 (transfer matches, passkeys, Gmail reading limits and agent report
+  deletion).
+
 ## v0.11.0 — 2026-10-11 17:46 UTC (staging, a988a31)
 
 - Imported into the wrong wallet? "Pindahkan ke dompet lain" on Impor › Riwayat impor moves a whole import to another

@@ -6,6 +6,7 @@ import {
 	addDays,
 	daysBetween,
 	formatDateTimeWib,
+	formatDayHeader,
 	formatDayLabel,
 	formatMonthLabel,
 	isDateString,
@@ -152,6 +153,12 @@ describe('WIB calendar dates (occurred_on)', () => {
 		expect(formatDayLabel('2026-10-08', 'en')).toContain('Thursday');
 		expect(formatMonthLabel('2026-11', 'id')).toBe('November 2026');
 		expect(formatMonthLabel('2026-11', 'en')).toBe('November 2026');
+	});
+
+	it('day headers use the short month and drop the year only in the current year', () => {
+		expect(formatDayHeader('2026-10-01', '2026-10-15', 'id')).toBe('Kamis, 1 Okt');
+		expect(formatDayHeader('2025-12-31', '2026-01-02', 'id')).toBe('Rabu, 31 Des 2025');
+		expect(formatDayHeader('2026-10-01', '2026-10-15', 'en')).toBe('Thursday 1 Oct');
 	});
 });
 

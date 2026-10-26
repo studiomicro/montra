@@ -49,7 +49,7 @@ import { readXlsx, type XlsxRefusal } from './xlsx-read';
 export type SheetRefusal = XlsxRefusal | 'not_transactions' | 'fields_invalid' | 'nothing_mapped';
 
 /** Most distinct sheet categories the review lists (the counts cover all rows). */
-export const REVIEW_CATEGORIES_MAX = 50;
+const REVIEW_CATEGORIES_MAX = 50;
 /** Header rows offered in the picker: the tab's first rows. */
 const HEADER_CHOICES = 10;
 

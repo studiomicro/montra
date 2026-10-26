@@ -84,6 +84,37 @@ export default defineConfig({
 				viewport: { width: 430, height: 932 },
 				deviceScaleFactor: 1
 			}
-		}
+		},
+		// Owner request 2026-10-26: iPhone 17, 17 Pro and 18 Pro share one 402 x 874 viewport, so one project covers
+		// the three, upright and turned (874 px: the 860 px tablet tier, both columns). iPhone Duo: folded 466 x 678,
+		// unfolded 626 x 890 upright and 890 x 626 turned (the tablet tier).
+		...(
+			[
+				['ios-17', 402, 874],
+				['ios-17-landscape', 874, 402],
+				['ios-duo-folded', 466, 678],
+				['ios-duo-open', 626, 890],
+				['ios-duo-open-landscape', 890, 626]
+			] as const
+		).map(([name, width, height]) => ({
+			name,
+			testMatch: IOS_SPEC,
+			use: { ...devices['iPhone 15 Pro'], viewport: { width, height }, deviceScaleFactor: 1 }
+		})),
+		// Galaxy Z Fold (owner request 2026-10-26) on Chromium, the engine of Android Chrome, with Playwright's own
+		// presets: the cover screen (phone layout), and unfolded upright (Fold 7 984 px, Fold 6 928 px: the 860 px
+		// tablet tier, both columns). Unfolded and turned (1040 / 1028 px) is the desktop layout, which the
+		// `desktop` project covers.
+		...(
+			[
+				['android-fold7-cover', 'Galaxy Z Fold 7 Cover'],
+				['android-fold7-open', 'Galaxy Z Fold 7'],
+				['android-fold6-open', 'Galaxy Z Fold 6']
+			] as const
+		).map(([name, device]) => ({
+			name,
+			testMatch: IOS_SPEC,
+			use: { ...devices[device], deviceScaleFactor: 1 }
+		}))
 	]
 });

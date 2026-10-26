@@ -33,6 +33,7 @@ playwright/.auth
 .superpowers/
 .claude/settings.local.json
 .svelte-kit-build.lock
+.svelte-kit-build.lock.d/
 
 # FN-16g on-device OCR engine files: copied from node_modules and downloaded (pinned, hash-checked) by
 # `npm run ocr:assets`; never committed.

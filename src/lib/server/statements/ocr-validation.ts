@@ -19,10 +19,10 @@ import { ID_MAX_LENGTH } from '../transactions/validation';
 
 /** Largest body the OCR actions read (words of 12 pages; an image is never sent). */
 export const OCR_BODY_MAX_BYTES = 512 * 1024;
-export const OCR_MAX_PAGES = 12;
-export const OCR_MAX_LINES_PER_PAGE = 250;
-export const OCR_MAX_WORDS_PER_PAGE = 3000;
-export const OCR_WORD_MAX_LENGTH = 64;
+const OCR_MAX_PAGES = 12;
+const OCR_MAX_LINES_PER_PAGE = 250;
+const OCR_MAX_WORDS_PER_PAGE = 3000;
+const OCR_WORD_MAX_LENGTH = 64;
 /** Longest line text accepted on the wire (it is rebuilt anyway). */
 const OCR_LINE_TEXT_MAX = 4096;
 const COORD_MAX = 20_000;
@@ -88,7 +88,7 @@ function cleaned(doc: z.infer<typeof documentSchema>): OcrDocument {
 }
 
 /** Parses the `ocr` field: JSON of the expected shape within every bound, or null. */
-export function parseOcrDocument(text: string): OcrDocument | null {
+function parseOcrDocument(text: string): OcrDocument | null {
 	if (text.length === 0 || text.length > OCR_BODY_MAX_BYTES) return null;
 	let json: unknown;
 	try {

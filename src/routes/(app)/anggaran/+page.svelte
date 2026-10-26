@@ -208,6 +208,7 @@
 			: undefined
 	);
 	/** Categories with spending this month first; with none, all of them, so a first budget can still be set. */
+	const noneSpent = $derived((s?.unbudgeted ?? []).every((c) => (c.spentMinor ?? 0) === 0));
 	const unbudgetedShown = $derived.by(() => {
 		const all = s?.unbudgeted ?? [];
 		const spent = all.filter((c) => (c.spentMinor ?? 0) > 0);
@@ -443,6 +444,8 @@
 						text={tr('Semua kategori pengeluaran sudah punya anggaran.')}
 					/>
 				{:else}
+					<!-- No spending yet: one muted line instead of the same sentence on every row (POLISH_AUDIT B6). -->
+					{#if noneSpent}<p class="none-spent">{tr('Belum ada pengeluaran bulan ini')}</p>{/if}
 					<GroupList>
 						{#each unbudgetedShown as c (c.categoryId)}
 							{@render unbudgetedRow(c)}
@@ -469,11 +472,11 @@
 			<CategoryTile category={c.tileKey} />
 			<span class="cat-body">
 				<span class="cat-name">{nameOf(c)}</span>
-				<span class="cat-meta num">
-					{c.spentMinor === 0
-						? tr('Belum ada pengeluaran bulan ini')
-						: trf('{jumlah} bulan ini', { jumlah: money(c.spentMinor, s?.currency ?? 'IDR') })}
-				</span>
+				{#if c.spentMinor !== 0}
+					<span class="cat-meta num">
+						{trf('{jumlah} bulan ini', { jumlah: money(c.spentMinor, s?.currency ?? 'IDR') })}
+					</span>
+				{/if}
 			</span>
 			<Icon name="chevron-right" size={18} />
 		</a>
@@ -514,7 +517,8 @@
 		gap: 24px;
 		min-width: 0;
 	}
-	@media (min-width: 1200px) {
+	/* The tablet tier (860 – 1023 px, no sidebar; app +layout.svelte) and the full desktop width. */
+	@media (min-width: 860px) and (max-width: 1023.98px), (min-width: 1200px) {
 		.two-col {
 			grid-template-columns: minmax(0, 740px) minmax(300px, 420px);
 			gap: 40px;
@@ -569,6 +573,11 @@
 		font-size: 13px;
 		color: var(--muted);
 	}
+	.none-spent {
+		margin: 0 0 12px;
+		font-size: 14px;
+		color: var(--muted);
+	}
 	.cat-row {
 		display: flex;
 		flex: 1;
@@ -585,12 +594,18 @@
 		gap: 6px;
 		min-width: 0;
 	}
-	.cat-top,
 	.cat-bottom {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: space-between;
 		gap: 2px 12px;
+	}
+	/* The name gives way (ellipsis) so "Rp645 rb tersisa" always stays right on the name's row (POLISH_AUDIT B7). */
+	.cat-top {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: baseline;
+		gap: 12px;
 	}
 	.cat-name {
 		overflow: hidden;

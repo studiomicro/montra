@@ -2,7 +2,7 @@
 	import { formatMoney } from '#lib/shared/money-format';
 	import { useLocale } from '#lib/ui/i18n-context';
 	import { shown } from './amounts.svelte';
-	import { barHeights } from './chart-scale';
+	import { cappedBars } from './chart-scale';
 
 	let {
 		days,
@@ -32,12 +32,14 @@
 	const COL = 44;
 	const BAR = 22;
 
-	const heights = $derived(
-		barHeights(
+	/** One outlier (rent) no longer flattens the other days: it is capped and drawn with a break mark. */
+	const scale = $derived(
+		cappedBars(
 			days.map((d) => d.minor),
 			H
 		)
 	);
+	const heights = $derived(scale.heights);
 	const current = $derived(days[selected]);
 	const link = $derived(dayLink?.(selected));
 	const width = $derived(days.length * COL);
@@ -60,7 +62,7 @@
 <figure class="chart">
 	<figcaption class="readout num">
 		{#if current}<span class="day">{current.label}</span><span>{money(current.minor)}</span>{/if}
-		{#if link}<a class="link" href={link.href}>{link.text}</a>{/if}
+		{#if link}<a class="link text-link" href={link.href}>{link.text}</a>{/if}
 	</figcaption>
 	<div class="scroll" bind:this={scroller}>
 		<svg
@@ -81,6 +83,13 @@
 					rx="4"
 					aria-hidden="true"
 				/>
+				{#if scale.clipped[i]}
+					<path
+						class="break"
+						d="M{i * COL + (COL - BAR) / 2 - 1} {H - h + 16} l{BAR + 2} -6 m0 5 l-{BAR + 2} 6"
+						aria-hidden="true"
+					/>
+				{/if}
 				{#if days[i]?.tick}
 					<text
 						class="tick"
@@ -138,13 +147,7 @@
 		font-weight: 400;
 	}
 	.link {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
 		margin-left: auto;
-		color: var(--brand);
-		font-size: 14px;
-		font-weight: 600;
 	}
 	.scroll {
 		overflow-x: auto;
@@ -156,6 +159,13 @@
 	}
 	.bar.active {
 		fill: var(--accent);
+	}
+	/* Two page-coloured slashes across a bar cut at the top of the scale: "taller than drawn". */
+	.break {
+		fill: none;
+		stroke: var(--bg);
+		stroke-width: 2;
+		pointer-events: none;
 	}
 	/* FN-40: the bars grow from the baseline when the chart appears (not on a re-render: rows are keyed). */
 	@media (prefers-reduced-motion: no-preference) {

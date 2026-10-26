@@ -14,7 +14,7 @@ export const AI_KEY_STATUSES = ['active'] as const;
 
 /** The stored outcome of the last "Tes koneksi" (null: never tested, or replaced since). */
 export const AI_KEY_TEST_RESULTS = ['ok', 'invalid', 'quota', 'network'] as const;
-export type AiKeyTestResult = (typeof AI_KEY_TEST_RESULTS)[number];
+type AiKeyTestResult = (typeof AI_KEY_TEST_RESULTS)[number];
 
 /**
  * Every outcome of one "Tes koneksi": the stored results plus `model_unavailable` (Anthropic answered 404 for the
@@ -50,7 +50,6 @@ export type AiKeyAuditAction = (typeof AI_KEY_AUDIT_ACTIONS)[number];
  * sentence, a cookie); whether the key works is decided by "Tes koneksi" or first real use. No stricter pattern,
  * since Anthropic's exact format is not specified in its public docs.
  */
-export const AI_KEY_PREFIX = 'sk-ant-';
 export const AI_KEY_MIN_LENGTH = 20;
 export const AI_KEY_MAX_LENGTH = 300;
 /** Printable ASCII without spaces, starting with the prefix. */

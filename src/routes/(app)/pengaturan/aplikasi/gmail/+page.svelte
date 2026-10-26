@@ -496,8 +496,12 @@
 		align-items: center;
 		width: fit-content;
 		min-height: 44px;
-		color: var(--brand);
-		font-weight: 600;
+		/* The app's one standalone text link (app.css .text-link): ink, underlined, never blue or bold. */
+		color: var(--ink-2);
+		font-size: 15px;
+		font-weight: 500;
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 	.confirm summary {
 		display: flex;

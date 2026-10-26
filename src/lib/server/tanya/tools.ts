@@ -49,7 +49,7 @@ import { forModel, type Figure, type FigureBook } from './figures';
  */
 
 /** A tool's answer: JSON for the model (a `tool_result`) and the card the page shows, if any. */
-export interface ToolResult {
+interface ToolResult {
 	isError: boolean;
 	content: string;
 	card: TanyaCard | null;
@@ -96,7 +96,7 @@ export function readOnlyDb(db: Db): Db {
 }
 
 /** Longest merchant title in a tool result (criterion 11). */
-export const TITLE_MAX = 80;
+const TITLE_MAX = 80;
 
 export { dataText } from './data-text.ts';
 

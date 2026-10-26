@@ -92,6 +92,17 @@
 		padding: 0 max(20px, var(--sai-right)) calc(var(--tabbar-h) + 40px + var(--sai-bottom))
 			max(20px, var(--sai-left));
 	}
+	/*
+	 * Tablet tier (owner request 2026-10-26): from 860 px without the sidebar (iPhone Duo unfolded in landscape,
+	 * 890 px; iPhone 17 / 17 Pro / 18 Pro in landscape, 874 px) a page with a two-column body spreads over the whole
+	 * width and shows both columns; the tab bar stays.
+	 */
+	@media (min-width: 860px) and (max-width: 1023.98px) {
+		.content:has(:global(.two-col)) {
+			max-width: none;
+			padding-inline: max(32px, var(--sai-left)) max(32px, var(--sai-right));
+		}
+	}
 	/* Desktop (§ 1): left-aligned next to the sidebar; a page with a two-column body may use 1200 px. */
 	@media (min-width: 1024px) {
 		.content {

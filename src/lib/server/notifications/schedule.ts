@@ -89,7 +89,7 @@ export async function setCronCursor(db: Db, key: string, value: string, now: num
 }
 
 /** Notifications and push-delivery records older than this are removed (owner decision 7, red team L4). */
-export const NOTIFICATION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const NOTIFICATION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 /** Rows each sweep statement handles per tick; the hourly cron works through a backlog in steps. */
 export const SWEEP_BATCH = 500;
 

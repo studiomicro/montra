@@ -25,6 +25,9 @@ setup('sign up the shared e2e user', async ({ browser }, testInfo) => {
 	await tickSignUpBoxes(page);
 	await page.getByRole('button', { name: 'Daftar' }).click();
 	await expect(page).toHaveURL(`${APP_ORIGIN}/`);
+	// FN-54: the once-a-day greeting sheet is switched off for the shared user (a device cookie, as Pengaturan ›
+	// Tampilan sets it), so journeys that open Beranda are not covered by it; e2e/sapaan.spec.ts tests the sheet.
+	await context.addCookies([{ name: 'montra-sapaan-off', value: '1', url: APP_ORIGIN }]);
 	await context.storageState({ path: STORAGE_STATE });
 	await context.close();
 });

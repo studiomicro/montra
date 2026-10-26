@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { stripComments as stripHtmlComments, stripCssComments } from './helpers/html';
 
 // FN-13b criterion 23: three source rules that keep the app usable on a notched phone, and keep iOS from zooming.
 //   1. no `100vh` (it is taller than the visible screen under mobile browser chrome; use `dvh`);
@@ -9,8 +10,7 @@ import { describe, expect, it } from 'vitest';
 //   3. the viewport never disables zoom (`maximum-scale`, `user-scalable`).
 // Each scanner is shown to catch a planted violation first, then runs over src/.
 
-const stripComments = (text: string) =>
-	text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
+const stripComments = (text: string) => stripHtmlComments(stripCssComments(text));
 
 /** `--sai-*` definitions in app.css: the only place the raw env() may appear. */
 const SAI_DEFINITION = /--sai-(top|right|bottom|left):\s*env\(safe-area-inset-\1,\s*0px\);/g;

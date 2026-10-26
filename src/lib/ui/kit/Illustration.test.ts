@@ -9,14 +9,17 @@ import { SCENES, type IllustrationName } from './illustrations';
 import { box, disc, pt } from './illustrations/iso';
 
 const NAMES = Object.keys(SCENES) as IllustrationName[];
-/** The colour classes Illustration.svelte styles: faces of the five tones, line details, the shadow. */
+/** The colour classes Illustration.svelte styles: faces of the five tones, line details, the blueprint floor. */
 const CLASSES = new Set([
 	...['n', 'a', 'g', 'p', 'd'].flatMap((t) => [`${t}-t`, `${t}-l`, `${t}-r`]),
 	'ink',
 	'strong',
 	'mark',
-	'shadow',
+	'grid',
+	'guide',
+	'node',
 	'illustration',
+	'iso-art',
 	'float'
 ]);
 
@@ -86,12 +89,14 @@ describe('<Illustration>', () => {
 
 	it('its stylesheet maps every class to a theme token (no hard-coded colour; light, dark and mono repaint)', () => {
 		const file = 'src/lib/ui/kit/Illustration.svelte';
+		// FN-54: the tones live in a stylesheet Illustration shares with Beranda's HeroScene.
 		const css =
-			compile(readFileSync(file, 'utf8'), { filename: file, css: 'external' }).css?.code ?? '';
+			(compile(readFileSync(file, 'utf8'), { filename: file, css: 'external' }).css?.code ?? '') +
+			readFileSync('src/lib/ui/kit/illustrations/tones.css', 'utf8');
 		expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
 		expect(css).not.toMatch(/\b(?:rgb|hsl)a?\(/i);
 		for (const c of CLASSES) {
-			if (['illustration', 'float', 'strong'].includes(c)) continue;
+			if (['illustration', 'iso-art', 'float', 'strong'].includes(c)) continue;
 			expect(css, c).toMatch(
 				new RegExp(
 					`\\.${c}[^{]*\\{[^}]*(?:fill|stroke):\\s*(?:var\\(--|currentColor|color-mix\\(in srgb, var\\(--)`

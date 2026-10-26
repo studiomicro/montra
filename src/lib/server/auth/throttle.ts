@@ -15,7 +15,7 @@ export const THROTTLE_MAX_ATTEMPTS = 20;
  * The longest window any budget counts in (FN-20's sliding hourly AI budget, plus the one-minute bucket it reads
  * before the current one); expired rows older than it are swept.
  */
-export const THROTTLE_LONGEST_WINDOW_MS = 61 * 60 * 1000;
+const THROTTLE_LONGEST_WINDOW_MS = 61 * 60 * 1000;
 
 /**
  * Sign-in and sign-up each have their own budget per client; so do the account page's password-proving
@@ -241,7 +241,7 @@ export async function overUserAttemptLimit(
 }
 
 /** Bucket width of a sliding budget (overUserSlidingLimit). */
-export const SLIDING_BUCKET_MS = 60 * 1000;
+const SLIDING_BUCKET_MS = 60 * 1000;
 
 /**
  * Counts one attempt of `scope` against the signed-in user `userId` like overUserAttemptLimit, but over a

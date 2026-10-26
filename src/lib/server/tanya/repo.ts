@@ -18,7 +18,7 @@ import { sha256Hex } from '../util';
  */
 
 /** Expired rows one load deletes (owner decision 6). */
-export const TANYA_PURGE_BATCH = 200;
+const TANYA_PURGE_BATCH = 200;
 
 export interface TanyaScope {
 	userId: string;
@@ -126,7 +126,7 @@ export async function historyForModel(
 }
 
 /** The cards as stored: the leading ones that fit TANYA_CARDS_MAX_BYTES (the CHECK), null for none. */
-export function cardsJson(cards: readonly TanyaCard[]): string | null {
+function cardsJson(cards: readonly TanyaCard[]): string | null {
 	for (let n = cards.length; n > 0; n--) {
 		const json = JSON.stringify(cards.slice(0, n));
 		if (new TextEncoder().encode(json).byteLength <= TANYA_CARDS_MAX_BYTES) return json;

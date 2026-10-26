@@ -4,10 +4,21 @@ import { allowedTheme } from '#lib/shared/pro-look';
 import { planOf } from '#lib/server/billing/gate';
 import { readFormBody, textField } from '#lib/server/forms';
 import { isThemePref } from '#lib/server/prefs';
-import type { Actions } from './$types';
+import {
+	STORY_COOKIE_MAX_AGE,
+	STORY_OFF_COOKIE,
+	STORY_SEEN_COOKIE,
+	storyOff
+} from '#lib/shared/daily-story';
+import type { Actions, PageServerLoad } from './$types';
 
 // The theme is a per-browser cookie (FN-40 Part 1), never a D1 row: nothing here reads or writes space data.
-// The page itself reads the current choice from the root layout (`data.theme`).
+// The page itself reads the current choice from the root layout (`data.theme`). FN-54: the daily greeting's
+// off switch is a per-browser cookie too (owner decision 3: device-only, not synced).
+
+export const load: PageServerLoad = ({ cookies }) => ({
+	sapaanOn: !storyOff(cookies.get(STORY_OFF_COOKIE))
+});
 
 const THEME_INVALID = msg('Pilihan tampilan tidak dikenal.');
 /** FN-46: a Pro theme posted by an account without a paid plan in force (the row is a link to Paket there). */
@@ -22,7 +33,7 @@ export const actions: Actions = {
 	 * not a plan. Once the plan lapses, hooks.server.ts renders `system` for a Pro theme cookie but leaves the
 	 * cookie, so the chosen theme returns if the account pays again.
 	 */
-	default: async ({ request, cookies, locals }) => {
+	theme: async ({ request, cookies, locals }) => {
 		if (!locals.user) redirect(303, '/masuk?next=%2Fpengaturan%2Ftampilan');
 		const form = await readFormBody(request);
 		const theme = textField(form, 'theme');
@@ -42,5 +53,28 @@ export const actions: Actions = {
 		// This response already renders the new theme (<html data-theme>, theme-color) — no flash, no JS needed.
 		locals.theme = theme;
 		return { saved: theme };
+	},
+
+	/**
+	 * FN-54 D3: the daily greeting on (`enabled=on`) or off (anything else, as the sheet's "Matikan sapaan harian"
+	 * posts). Off sets `montra-sapaan-off=1`; on clears it and the "seen" date, so the sheet is due again today.
+	 * HttpOnly: only the server reads the off switch (the Beranda load).
+	 */
+	sapaan: async ({ request, cookies, locals }) => {
+		if (!locals.user) redirect(303, '/masuk?next=%2Fpengaturan%2Ftampilan');
+		const form = await readFormBody(request);
+		const on = textField(form, 'enabled') === 'on';
+		if (on) {
+			cookies.delete(STORY_OFF_COOKIE, { path: '/', secure: locals.secure });
+			cookies.delete(STORY_SEEN_COOKIE, { path: '/', secure: locals.secure });
+		} else
+			cookies.set(STORY_OFF_COOKIE, '1', {
+				path: '/',
+				maxAge: STORY_COOKIE_MAX_AGE,
+				sameSite: 'lax',
+				secure: locals.secure,
+				httpOnly: true
+			});
+		return { sapaan: on ? ('on' as const) : ('off' as const) };
 	}
 };

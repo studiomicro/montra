@@ -26,7 +26,7 @@ import { assertLocalBaseUrl } from './local-guard.ts';
  */
 
 /** The fictional demo account; its address ends in `.local`, which no mail server resolves. */
-export const DEMO_ACCOUNT = {
+const DEMO_ACCOUNT = {
 	name: 'Akun Demo',
 	email: 'demo-screens@montra.local',
 	password: 'terang-benderang-8'

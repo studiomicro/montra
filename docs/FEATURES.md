@@ -663,3 +663,179 @@ proposed deferred. PRD: `docs/features/fn-25b-wealth-page/PRD.md`.
   migration, no server query change, no new copy. Owner decisions (2026-10-12): subtle intensity; Koko waves
   "welcome back" once per WIB day in the installed app; pull-to-refresh in the installed app on Beranda and
   Riwayat. PRD: `docs/features/fn-51-motion/PRD.md`.
+
+### FN-53 Quarterly and yearly money flow, and a net-worth report
+
+- **Mirror:** none named (generic period reporting, not something read from the reference app); owner request 2026-10-13
+  ("add quarterly and yearly moneyflow, net worth report"). Extends FN-35 and FN-25/FN-25b.
+- **Ours:** Alur uang (`/alur-uang`) gains a **Bulan | Kuartal | Tahun** switcher (calendar quarters and years by
+  the WIB `occurred_on` date; shareable `?p=`, `?k=2026-Q3`, `?y=` URLs, plain-link stepper, works without
+  JavaScript): the same flow chart and breakdown aggregated over the period (7 categories per side and 6 wallets
+  before "Lainnya" for a quarter or year), a rupiah comparison with the previous period (never percent), the average
+  per month, and a per-month list that adds up to the total; one currency drawn, transfers, adjustments, deleted and
+  `Data demo` rows left out, the current quarter or year running "so far" to today. A new **Laporan kekayaan** page
+  (`/kekayaan/laporan`, Bulan | Kuartal | Tahun) reports the net-worth change from the stored daily snapshots only:
+  opening and closing value, the change in rupiah, one point per month with gaps shown (never bridged), and the
+  change by asset group (Dompet, Kas, Investasi, Kripto, Emas, Properti & aset, Utang) with the largest movers
+  first. A missing snapshot is never invented: the opening value may be carried back at most 7 days with its date
+  printed, otherwise the change is measured "sejak" the first record or shown as unavailable. The group split needs
+  one additive column on the daily snapshot (`classes`, migration 0046) written by the jobs Worker from the
+  deploy on, so older periods show the total change only. Amounts honour the eye toggle; free for every plan; no
+  AI, no cache, no export. PRD: `docs/features/fn-53-period-reports/PRD.md`.
+
+### FN-54 Greeting hero, calendar page, daily greeting and feature icons
+
+- **Mirror:** owner request 2026-10-13 ("add greetings page and calendar update the app icon and placement"), with
+  three screenshots of the reference app (local only): a time-of-day greeting hero on its home screen with the
+  date, a one-line state, the month's spending, an ask-the-assistant field and two comparison chips; a small
+  calendar date badge in the header beside the receipt and voice buttons; a once-a-day "on this day" story
+  sheet; and a sidebar and feature grid where every item has its own icon on a coloured chip. Behaviour and
+  layout structure only — never the reference app's name, mascot, illustrations, copy, brand colours or product
+  names (`CLAUDE.md` no-brand-copying rule).
+- **Ours:** four parts, built in order. **A:** one feature registry in `nav.ts` gives every sidebar and feature
+  item a distinct glyph (Impor, Kekayaan bersih and Koleksi change; `sparkle` stays the AI mark) on a tinted chip
+  using existing category hues (grey in mono), shown in the sidebar, the Fitur sheet and a new "Fitur" tile grid
+  on Beranda that follows FN-12's flags; the home-screen app icon is **not** redrawn — it waits for the owner's
+  logo file (`docs/TASKS.md`), only the swap path is prepared and documented. **B:** a greeting hero on Beranda
+  (Selamat pagi/siang/sore/malam by the WIB hour, the date, "Belum ada catatan hari ini" or the day's count, the
+  unchanged one big month figure, an ask field that prefills Tanya and sends nothing, a last-month comparison chip
+  and a budget-left chip computed from stored rows, amounts masked by the eye toggle, and an original isometric
+  skyline strip with a sun or moon that follows the time of day and a still Koko), a calendar badge showing the
+  server's WIB date, and on desktop Struk and Suara moved into the header beside it. **C:** a `/kalender` page — a
+  month grid of daily spending with closed days and the bills and recurring items still to come, a day detail that
+  reconciles with Riwayat. **D:** an optional once-a-day greeting sheet built from the user's own figures, with a
+  device cookie for "seen today" and a switch-off in Pengaturan › Tampilan, plus "on this day" cards only from a
+  curated, owner-reviewed, cited file (no scraping, no model-written facts; the build ships with the entries the
+  owner approves, possibly none). No migration by default; no AI call, plan gate or credit cost. PRD:
+  `docs/features/fn-54-greeting-calendar/PRD.md`.
+
+### FN-55 Credit cards and credit card e-statement import
+
+- **Mirror:** FN-04 already names the wallet type "Kartu kredit" and wallet matching "credit card → card wallet"; the
+  reference app's card handling beyond that is not read, so none is copied. Owner request 2026-10-13 ("add Credit card
+  also, and add creditcard e-statement import parser").
+- **Ours:** two parts, delivered in bounded passes (`docs/features/fn-55-credit-cards/PRD.md`). **Card wallet
+  (FN-55a):** a `kartu_kredit` wallet gains an optional credit limit, statement day and due day (the FN-25c
+  credit-card fields, same column names, migration 0047 planned; 0046 is FN-53's); a computed card page shows debt now,
+  available credit in rupiah (never a percent), the last statement's printed balance, due date and printed minimum
+  payment (shown as printed, never computed), what has been paid since that statement and what is still unbilled, and
+  a "Jatuh tempo" chip; card spending counts on the purchase date as it does today, paying the bill is a transfer from
+  a bank wallet (never an expense), and FN-48 Part C's "Cocokkan transfer" learns to pair an imported bank debit
+  "KARTU KREDIT/PL …" with the card's payment line (credit dated 1 day before to 3 days after, confirmed per pair);
+  fees, interest and the annual fee are expenses, a refund is income, a cicilan line is that month's expense with its
+  marker kept in the note, a foreign purchase keeps the IDR amount billed with the original in the note; a card's
+  negative balance counts as a liability in net worth with the total unchanged. **Card e-statement import (FN-55b and
+  per-issuer FN-55c):** card statements are a new parser kind read through the FN-16 pipeline (text-layer PDF only,
+  password used once and never stored, card number reduced to the last 4): the statement is imported only when
+  previous balance − payments − credits + purchases + fees = new balance, every printed total equals its rows and
+  every row is readable, else the whole file is refused and nothing is written (stricter than bank statements);
+  a stored `card_statements` record per statement, statement-level dedupe, a card-specific duplicate rule, and
+  statement-to-statement continuity. No issuer parser is written from guesswork: BCA, Mandiri, BNI, CIMB Niaga and
+  OCBC are each "waiting for sample" until the owner supplies a real redacted e-statement; the infrastructure is
+  proven with a test-only fictional issuer. No AI, no credits, no bank login, no advice. PRD:
+  `docs/features/fn-55-credit-cards/PRD.md`.
+
+### FN-56 ASCII field animation on sign-in and sign-up
+
+- **Mirror:** none for the content (the reference app's auth pages are not read). Owner request 2026-10-13 ("Add ascii
+  animation on login and register"), then a video of a third-party product page as a **style reference only**: a rounded
+  panel of tiny monospaced letters shown only inside slowly morphing noise blobs, denser and brighter in the core. We copy
+  none of its text, logo, brand or colour and use no code from it (`CLAUDE.md` no-brand-copying rule).
+- **Ours:** one shared, decorative ASCII field on `/masuk` and `/daftar` (rendered once by the `(auth)` layout): the rows
+  repeat Montra's own letters ("MONTRA", the digits 0-9 as a fixed ramp, "Rp") and appear only where a seeded value-noise
+  field (pure function in `src/lib/shared`, `(t, cols, rows)` in, string rows out, deterministic and Vitest-checked) is above
+  a threshold, so soft blobs drift, merge and split over about 10 s, with sparser, fainter glyphs at the edge and denser ones in
+  the core. White glyphs in three opacity tiers on an electric-blue card in light (`--brand-surface`, owner decision 8;
+  black in dark, near-black in mono; the app-wide blue accent is a separate feature, FN-57), Geist Mono with system monospace as fallback, text in `<pre>`s (no canvas, no library, no image, no network request) in a
+  CSS-fixed box so nothing shifts: a 140 px band above the form on phone and tablet, a tall 360 x 560 px card beside the form
+  from 1024 px. Drawn with `requestAnimationFrame` throttled to about 15 fps; the server renders one still frame (no JavaScript
+  and `prefers-reduced-motion` show it); paused in a hidden tab and when off-screen; frozen after 60 s of played time.
+  `aria-hidden`, no focus stop, no pointer events, never reacts to the form; the passkey button, the Turnstile widget and every
+  form state are untouched. Koko's wide-screen hero stays beside it (owner decision 3, 2026-10-13).
+  UI only: no migration, no server change, no new dependency, no new copy. PRD: `docs/features/fn-56-auth-ascii/PRD.md`.
+
+---
+
+## Second reference — CekSaldo (e-money card reader)
+
+**Source.** ceksaldo.hamanto.com (home page, privacy policy) and its App Store listing (v1.0.14), read on
+2026-10-26 (owner request: "Add feature from Ceksaldo.hamanto.com to montra research"). CekSaldo is a native iPhone and
+Android utility that reads the balance and on-card history of Indonesian e-money cards by NFC tap, with no account.
+**Mirror** = what CekSaldo does; **Ours** = what Montra would do and how it differs. The same rule applies as for
+any reference: match behaviour, never brand — no copying of its name, icon, screenshots, copy or plan names ("Premium+",
+"Community"), and no reconstruction of its app from bundles or network traffic.
+
+**Already in Montra (no new FN):** a daily streak (FN-34), hidden amounts on Beranda and lists, CSV export (FN-18), a
+weekly plan period (FN-30, `BILLING_PERIODS`), Indonesian and English UI.
+
+**Platform limit (applies to FN-58 and FN-62).** Montra is a PWA. Web NFC only reads and writes NDEF tags, only in
+Chrome on Android, and is absent from Safari on iPhone. Indonesian e-money cards (Flazz, e-Money, Brizzi, TapCash and the
+others) answer ISO 7816 / FeliCa commands that a browser cannot send. Reading a card therefore needs the native apps of
+FN-33 (Core NFC on iPhone, `IsoDep`/`NfcF` on Android), not the PWA.
+
+### FN-58 E-money card balance and history (NFC tap)
+
+- **Mirror:** tap a contactless e-money card on the back of the phone to read its balance and the history stored on the
+  card; seven issuers (Mandiri e-Money, BCA Flazz, BRI Brizzi, BNI TapCash, KMT Commuter Line, JakCard/JakLingko, Bank
+  Mega MegaCash); read-only (never tops up or changes a card); saved cards with a name, swiped between on Home; balance
+  can be hidden; card details page; every read happens on the device and no account is needed; the card number is kept as
+  read; a failed scan can be reported by the user, with raw NFC responses, through Telegram or WhatsApp.
+- **Ours:** a new wallet type, *Kartu e-money* (`e_money`, migration), so a card's balance counts in net worth like any
+  wallet. In the PWA (pass 1, no NFC): add the card by hand, record top-ups as a transfer from a bank or e-wallet, and fix
+  the balance with a balance adjustment (FN-37). In the native apps (pass 2, after FN-33): "Tap kartu" reads the
+  balance and the on-card rows on the device; rows become drafts with source `nfc` and a dedupe key built from the card,
+  terminal and the card's own sequence number, so a second tap never doubles a row; a balance that differs from Montra's
+  offers a balance adjustment instead of changing history; the card number is masked to the last 4 digits before it
+  leaves the device (`CLAUDE.md` data rule), and raw NFC responses are never stored or sent. Issuers in the order owner
+  samples arrive, one reader per issuer, each tested on a real card. Owner decisions: whether to build it, and when the
+  native apps come.
+- **Pass 1 built (2026-10-26):** owner chose the seven issuers above; the lead kept the card as `type = 'e_wallet'`
+  with a nullable `wallets.emoney_issuer` (migration 0049, `ALTER TABLE … ADD`) instead of a new `e_money` type, so
+  `wallets` is not rebuilt. The wallet form's "Kartu e-money" choice saves that pair; see HISTORY.
+
+### FN-59 Toll and trip receipts
+
+- **Mirror:** look up the online receipts of eight toll operators for a card over the last 7, 14 or 30 days (on request,
+  the app sends the card number and date range straight to each operator's receipt site); trip records that join card
+  rows with operator receipts; original receipts saved to Photos; a signed verification QR per toll or parking row, made
+  by a cloud function and checked on a public verify page.
+- **Ours:** not planned for now. It sends full card numbers to third-party sites that publish no API, and a fetch from
+  our Worker would route those numbers through Montra's servers; the operators' terms are unknown. If the owner wants
+  it later: toll rows from an e-money card (FN-58) get a *Tol* category suggestion, and receipts are only ever fetched
+  on the device, per explicit request, never stored on our side. The verification QR is not mirrored: it puts the full
+  card number in an image and needs a signing service for no use Montra has. Owner decision (and a legal read of the
+  operators' terms) before any work.
+
+### FN-60 Print and PDF export with receipts
+
+- **Mirror:** export a card's history as PDF or CSV, or print it, with the original receipts attached; a combined export
+  view; locations edited by the user appear in the export. Paid only.
+- **Ours:** next to the FN-18 CSV export, a printable period report (Riwayat filter or a month) as HTML with a print
+  stylesheet, so "Simpan sebagai PDF" in the browser makes the PDF with no PDF library; each row with an FN-15 receipt
+  photo can include it on its own page. Generated on demand, never stored. Whether it is Pro only is an owner decision
+  (FN-30).
+
+### FN-61 Share a status image without the amount
+
+- **Mirror:** share an image of the card's status that does not show the exact balance.
+- **Ours:** "Bagikan" on the streak (FN-34) and the month summary: an image drawn on the device (canvas, no upload)
+  with the streak, the month and words like "di bawah anggaran", never a rupiah amount; shared through the Web Share API
+  where available, otherwise downloaded.
+
+### FN-62 Voice assistant shortcuts and NFC automation
+
+- **Mirror:** Siri and Shortcuts actions, an iOS NFC personal automation, and a ready-made Shortcuts template in
+  Settings; optional spoken balances.
+- **Ours:** in the PWA, manifest `shortcuts` (none today) for "Tambah transaksi", "Catat suara" and "Riwayat", which also
+  give a Shortcuts "Open URL" target on iPhone; a "Bacakan" button on Beranda that reads the month's number aloud with
+  the browser's speech synthesis (`id-ID`), off by default and never while amounts are hidden. Siri intents and NFC
+  automation wait for the native apps (FN-33).
+
+### Not mirrored
+
+- **Community:** an opt-in public feed with profiles, a paid badge and shared location names. No social feed in
+  Montra (`CLAUDE.md` product boundaries: no data sale, no ads; records belong to spaces).
+- **Lifetime plan:** a one-time purchase next to weekly, monthly and yearly. Recorded as input for FN-30 pricing, an
+  owner decision; no work.
+- **Third-party analytics and crash SDKs:** CekSaldo uses Firebase Analytics, Crashlytics and RevenueCat. Montra keeps
+  its own Analytics Engine statistics (FN-31) and no third-party trackers.

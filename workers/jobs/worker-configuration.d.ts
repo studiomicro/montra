@@ -7,7 +7,7 @@ interface __BaseEnv_Env {
 	DB: D1Database;
 	STATS: AnalyticsEngineDataset;
 	JOBS_QUEUE: Queue;
-	APP_VERSION?: "0.11.0";
+	APP_VERSION?: "0.17.0";
 	APP_ENV?: "staging";
 	WORKFLOW_STATEMENT: Workflow<Parameters<import("./src/index").StatementWorkflow['run']>[0]['payload']>;
 }
@@ -21,7 +21,7 @@ declare namespace Cloudflare {
 		DB: D1Database;
 		STATS: AnalyticsEngineDataset;
 		JOBS_QUEUE: Queue;
-		APP_VERSION: "0.11.0";
+		APP_VERSION: "0.17.0";
 		APP_ENV: "staging";
 		WORKFLOW_STATEMENT: Workflow<Parameters<import("./src/index").StatementWorkflow['run']>[0]['payload']>;
 	}

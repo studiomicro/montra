@@ -8,9 +8,14 @@ import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import { TOMBSTONE_CONTENT } from '../transactions/repo';
 import { batchHasLiveTransferLink, settleTransferLinksOfBatch } from '../transfers/match';
 import { getWallet } from '../wallets/repo';
+import {
+	cardStatementOfBatch,
+	moveCardStatementsOfBatch,
+	tombstoneCardStatementsOfBatch
+} from '../cards/statements';
 
 /** Most batches the history lists (newest first). */
-export const IMPORT_LIST_MAX = 50;
+const IMPORT_LIST_MAX = 50;
 
 /** One import as Riwayat impor shows it. */
 export interface ImportBatchSummary {
@@ -28,7 +33,7 @@ export interface ImportBatchSummary {
 }
 
 /** Where a batch came from (`import_batches.source`). */
-export type ImportBatchSource = (typeof IMPORT_SOURCES)[number];
+type ImportBatchSource = (typeof IMPORT_SOURCES)[number];
 
 /** The counts and labels a new batch row records (never the file or its rows). */
 export interface NewImportBatch {
@@ -107,7 +112,8 @@ export type UndoResult = 'ok' | 'ok_transfer_kept' | 'already' | 'stale' | 'miss
 
 /**
  * "Urungkan": marks the batch undone and tombstones every live transaction it wrote (content-free, like a single
- * delete; the dedupe key stays, so the same file never re-creates them), in one `db.batch`. Only while the batch
+ * delete; the dedupe key stays, so the same file never re-creates them) and its stored card statement (FN-55b), in
+ * one `db.batch`. Only while the batch
  * is not yet undone, its `updated_at` is still `expectedUpdatedAt` and the user is a live member; the
  * transactions are touched only when that first statement changed the batch in this very batch (its `seq`).
  * A confirmed "Cocokkan transfer" merge (FN-48 Part C) with a row of the batch is settled first, in the same
@@ -162,7 +168,9 @@ export async function undoImportBatch(
 					isNull(transactions.deletedAt),
 					undoneNow
 				)
-			)
+			),
+		// FN-55b: a card batch's stored statement goes with it (the same statement may then be imported again).
+		tombstoneCardStatementsOfBatch(db, spaceId, batchId, now, undoneNow)
 	]);
 	if (undone.length === 1) return editedTransferKept.length > 0 ? 'ok_transfer_kept' : 'ok';
 	const row = await db
@@ -229,7 +237,7 @@ async function batchWalletSides(db: Db, spaceId: string, batchIds: string[]) {
  * Why a batch cannot be moved at all: its rows share no one wallet, it has no live row left, or a row of it is in
  * a confirmed transfer match (undo that match first).
  */
-export type MoveBlocked = 'mixed_wallets' | 'nothing_to_move' | 'transfer_linked';
+type MoveBlocked = 'mixed_wallets' | 'nothing_to_move' | 'transfer_linked';
 
 /** What the move control of one live batch needs: the wallet it would move from, or why it cannot move. */
 export interface ImportBatchMoveState {
@@ -280,6 +288,12 @@ export type MoveResult =
 				| 'same_wallet'
 				| 'currency_mismatch'
 				| 'source_archived'
+				/** FN-55b: a card batch moves only to another live `kartu_kredit` wallet. */
+				| 'card_wallet_required'
+				/** FN-55 red team L2: an account statement's rows never move into a card (the sign would flip). */
+				| 'bank_statement_to_card'
+				/** FN-55b: the target card already holds a live statement of the same date. */
+				| 'card_statement_exists'
 				| MoveBlocked;
 	  };
 
@@ -304,7 +318,11 @@ export async function moveImportBatch(
 	const refuse = (reason: Extract<MoveResult, { ok: false }>['reason']) =>
 		({ ok: false, reason }) as const;
 	const batch = await db
-		.select({ undoneAt: importBatches.undoneAt, updatedAt: importBatches.updatedAt })
+		.select({
+			undoneAt: importBatches.undoneAt,
+			updatedAt: importBatches.updatedAt,
+			source: importBatches.source
+		})
 		.from(importBatches)
 		.where(
 			and(
@@ -332,6 +350,26 @@ export async function moveImportBatch(
 	// FN-16j red team L2: rows of an archived wallet stay with it (restore the wallet first), never reappear elsewhere.
 	if (!from) return refuse('source_archived');
 	if (from.currency !== target.currency) return refuse('currency_mismatch');
+	// FN-55b: a card statement's rows keep the card sign convention: they move only to another card, with the
+	// statement record, never onto a card that already holds that statement.
+	const card = await cardStatementOfBatch(db, spaceId, batchId);
+	if (card && target.type !== 'kartu_kredit') return refuse('card_wallet_required');
+	if (!card && batch.source === 'statement' && target.type === 'kartu_kredit')
+		return refuse('bank_statement_to_card');
+	const targetIsCard = sql`exists (select 1 from wallets w where w.id = ${target.id}
+		and w.space_id = ${spaceId} and w.deleted_at is null and w.type = 'kartu_kredit')`;
+	const bankGuard = sql`not (${targetIsCard} and exists (select 1 from import_batches b
+		where b.id = ${batchId} and b.space_id = ${spaceId} and b.source = 'statement')
+		and not exists (select 1 from card_statements s where s.space_id = ${spaceId}
+			and s.import_batch_id = ${batchId} and s.deleted_at is null))`;
+	const cardGuard = sql`(not exists (select 1 from card_statements s where s.space_id = ${spaceId}
+			and s.import_batch_id = ${batchId} and s.deleted_at is null)
+		or (exists (select 1 from wallets w where w.id = ${target.id} and w.space_id = ${spaceId}
+				and w.deleted_at is null and w.type = 'kartu_kredit')
+			and not exists (select 1 from card_statements s join card_statements o
+				on o.space_id = s.space_id and o.statement_date = s.statement_date
+				where s.space_id = ${spaceId} and s.import_batch_id = ${batchId} and s.deleted_at is null
+					and o.wallet_id = ${target.id} and o.deleted_at is null)))`;
 
 	const live = and(
 		eq(transactions.spaceId, spaceId),
@@ -369,6 +407,8 @@ export async function moveImportBatch(
 						and t.import_batch_id = ${batchId} and t.deleted_at is null
 						and t.wallet_id <> ${source} and coalesce(t.transfer_to_wallet_id, '') <> ${source})`,
 					sql`not ${batchHasLiveTransferLink(spaceId, batchId)}`,
+					cardGuard,
+					bankGuard,
 					sql`exists (select 1 from wallets w where w.id = ${target.id} and w.space_id = ${spaceId}
 						and w.deleted_at is null and w.currency = (select f.currency from wallets f
 							where f.id = ${source} and f.space_id = ${spaceId} and f.deleted_at is null))`
@@ -420,7 +460,13 @@ export async function moveImportBatch(
 				)
 			)
 			.returning({ id: transactions.id }),
-		recordAuditEvent(db, { spaceId, actorUserId: userId, action: 'import_batch_moved' }, now, moved)
+		recordAuditEvent(
+			db,
+			{ spaceId, actorUserId: userId, action: 'import_batch_moved' },
+			now,
+			moved
+		),
+		moveCardStatementsOfBatch(db, spaceId, batchId, target.id, now, moved)
 	]);
 	if (changed.length !== 1) {
 		// A member removed while the move ran gets `missing`, as before it (FN-16j red team L1).
@@ -437,6 +483,12 @@ export async function moveImportBatch(
 			)
 			.get();
 		if (!row) return refuse('missing');
+		if (row.undoneAt === null && card) {
+			const taken = await db.get<{ n: number }>(sql`select count(*) as n from card_statements
+				where space_id = ${spaceId} and wallet_id = ${target.id} and deleted_at is null
+					and statement_date = ${card.statementDate}`);
+			if ((taken?.n ?? 0) > 0) return refuse('card_statement_exists');
+		}
 		return refuse(row.undoneAt !== null ? 'already' : 'stale');
 	}
 	return {

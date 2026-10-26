@@ -47,7 +47,7 @@ export interface SenderKeys {
 }
 
 /** A fresh ephemeral key pair and salt: never reused across messages (RFC 8291 §3.1, RFC 8188 §2.1). */
-export async function freshSenderKeys(): Promise<SenderKeys> {
+async function freshSenderKeys(): Promise<SenderKeys> {
 	const keyPair = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
 		'deriveBits'
 	])) as CryptoKeyPair;

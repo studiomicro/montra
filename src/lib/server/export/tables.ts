@@ -152,6 +152,8 @@ export const SPACE_TABLE_DECISIONS: Readonly<Record<SpaceTableName, TableDecisio
 	category_cleanup_items: { export: 'json' },
 	// FN-48 Part C "Cocokkan transfer": each confirmed merge with both rows' previous content (the user's own rows).
 	transfer_links: { export: 'json' },
+	// FN-55b: each imported card statement's printed figures (no text, no card number).
+	card_statements: { export: 'json' },
 	// FN-36: each series as the app shows it; the member it runs for may be someone else.
 	recurring_transactions: { export: 'json', omit: ['created_by_user_id'] },
 	budgets: { export: 'json' },
@@ -426,7 +428,7 @@ export type RowScope =
 	{ kind: 'space'; spaceId: string; userId: string } | { kind: 'account'; userId: string };
 
 /** The WHERE clause of `p` for `scope`; a space scope repeats the live membership on every page. */
-export function scopeWhere(p: TablePlan, scope: RowScope): SQL {
+function scopeWhere(p: TablePlan, scope: RowScope): SQL {
 	const parts: SQL[] = [];
 	if (scope.kind === 'space') {
 		parts.push(sql`space_id = ${scope.spaceId}`, isLiveMember(scope.spaceId, scope.userId));
@@ -439,7 +441,7 @@ export function scopeWhere(p: TablePlan, scope: RowScope): SQL {
 }
 
 /** Rows one page reads. */
-export const EXPORT_TABLE_PAGE = 500;
+const EXPORT_TABLE_PAGE = 500;
 
 /** Pages of `p`'s rows in `scope`, in rowid order (deterministic), each at most EXPORT_TABLE_PAGE rows. */
 export async function* tablePages(

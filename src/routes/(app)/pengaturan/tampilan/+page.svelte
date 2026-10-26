@@ -11,6 +11,7 @@
 	import GroupList from '#lib/ui/kit/GroupList.svelte';
 	import GroupRow from '#lib/ui/kit/GroupRow.svelte';
 	import ProBadge from '#lib/ui/kit/ProBadge.svelte';
+	import Toggle from '#lib/ui/kit/Toggle.svelte';
 	import ScreenTitle from '#lib/ui/shell/ScreenTitle.svelte';
 
 	let { data, form } = $props();
@@ -76,6 +77,24 @@
 		};
 	};
 
+	// FN-54 D3: the daily greeting switch. It shows the server's state; a flip is submitted at once (with JavaScript)
+	// and shows "Disimpan" only once the server wrote the cookie and the page reloaded its state.
+	let sapaanShown = $derived<boolean>(data.sapaanOn);
+	let sapaanBusy = $state(false);
+	const saveSapaan: SubmitFunction = ({ formData }) => {
+		sapaanShown = formData.get('enabled') === 'on';
+		sapaanBusy = true;
+		actionError = '';
+		return async ({ result, update }) => {
+			if (result.type === 'error')
+				actionError = tr('Tidak bisa menyimpan. Periksa koneksi lalu coba lagi.');
+			else await update({ reset: false });
+			sapaanShown = data.sapaanOn;
+			sapaanBusy = false;
+		};
+	};
+	const sapaanSaved = $derived(!sapaanBusy && form && 'sapaan' in form && form.sapaan);
+
 	const saved = $derived(!busy && form && 'saved' in form && form.saved);
 	const banner = $derived(
 		actionError || (form && 'error' in form && form.error ? tr(form.error) : undefined)
@@ -90,10 +109,10 @@
 
 <p class="intro">{tr('Berlaku di perangkat ini saja.')}</p>
 
-{#if saved}<p class="ok" role="status">{tr('Perubahan disimpan.')}</p>{/if}
+{#if saved || sapaanSaved}<p class="ok" role="status">{tr('Perubahan disimpan.')}</p>{/if}
 <FormBanner message={banner} />
 
-<form method="POST" bind:this={formEl} use:enhance={save}>
+<form method="POST" action="?/theme" bind:this={formEl} use:enhance={save}>
 	<fieldset disabled={busy}>
 		<legend class="sr-only">{tr('Tampilan')}</legend>
 		<GroupList>
@@ -132,6 +151,28 @@
 	{/if}
 </form>
 
+<!-- FN-54 D3: the once-a-day greeting sheet on Beranda, per device like the theme. -->
+<h2 class="sub">{tr('Beranda')}</h2>
+<form method="POST" action="?/sapaan" class="sapaan" use:enhance={saveSapaan}>
+	<GroupList>
+		<GroupRow>
+			<Toggle
+				name="enabled"
+				label={tr('Sapaan harian')}
+				hint={sapaanBusy
+					? tr('Menyimpan…')
+					: tr('Ringkasan singkat dari catatanmu, sekali sehari saat membuka Beranda.')}
+				bind:checked={() => sapaanShown, (v) => (sapaanShown = v)}
+				disabled={sapaanBusy}
+				onchange={(event) => event.currentTarget.form?.requestSubmit()}
+			/>
+			{#if !hydrated}
+				<Button type="submit" variant="secondary" size="sm">{tr('Simpan')}</Button>
+			{/if}
+		</GroupRow>
+	</GroupList>
+</form>
+
 <style>
 	.intro {
 		margin: 4px 0 16px;
@@ -167,6 +208,16 @@
 	}
 	.actions {
 		margin-top: 16px;
+	}
+	.sub {
+		margin: 28px 0 8px;
+		font-size: 15px;
+		font-weight: 600;
+		color: var(--muted);
+	}
+	.sapaan :global(.toggle) {
+		flex: 1;
+		min-width: 0;
 	}
 	.ok {
 		margin: 0 0 16px;

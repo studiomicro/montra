@@ -70,6 +70,15 @@ title, one line, full-width grey button — today's entries or an empty prompt);
 datang** list (bills from FN-26 and reminders, "dalam 2 hari"). Desktop: same content in the two-column layout (hero +
 chart + buttons left; Hari ini, Terbaru, Akan datang right).
 
+FN-54 (2026-10-13) changes the top of Beranda: the top bar is the date badge (→ `/kalender`) left and the actions
+right, with the streak chip under them; the first card is the **greeting hero** (WIB date, "Selamat pagi." and so on,
+one line about today, the month figure with the comparison and budget chips, an ask field that prefills Tanya, the
+scene strip with a still Koko), then the charts. Phone keeps Struk and Suara at the bottom of the main column. Desktop
+(≥ 1024 px) has a visible H1 "Beranda" with the streak chip under it and the badge, **Struk** and **Suara** on the
+right of that header row (the bottom pair is not rendered). The centred features link becomes a **"Fitur"** tile grid
+at the end of the side column (after Akan datang; "Kelola fitur" opens the Fitur sheet). Once per WIB day a short
+greeting sheet of the user's own figures may open (switch in Pengaturan › Tampilan).
+
 **Transaksi (`/riwayat`)** — header actions: Pilih (bulk select), Ekspor CSV, + Tambah transaksi. Row 1: search field
 ("Cari judul, catatan, kategori, dompet atau nominal", magnifier icon, no label above, searches on input with debounce)
 + period chips (Periode ini, 30 hari, 90 hari, Tahun ini, Semua). Row 2: type chips (Semua, Pengeluaran, Pemasukan,
@@ -125,7 +134,7 @@ The whole app follows one visual language, not only the pages above. Our neutral
   round panel. `--brand` blue stays only for the focus ring and inline text links; remove blue fills from toggles,
   segmented controls, charts, the sidebar and forms (switch on = ink).
 - **One data accent.** New tokens: `--accent` #6C63F0 (dark: #8B85F5) for the selected chart series, trend line,
-  today's bar and the heatmap's top step; `--heat-1..4` = #E2E0FC, #C4C0F8, #9C95F3, #6C63F0 (dark: accent at 22/40/62/100 %
+  today's bar and the heatmap's top step; `--heat-1..4` = #E2E0FC, #C4C0F8, #9C95F3, #6C63F0 (dark: accent at 32/48/68/100 %
   on `--panel`). Income stays `--money-in`, over-budget `--money-up`, "ahead of pace" amber: `--warn` #C27A0E for bars (new),
   `--warn-text` #A15F00 for text (#C27A0E is only 3.5:1 on white, below AA).
   Other chart series use the category hues already in `tokens.css`.

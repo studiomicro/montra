@@ -78,8 +78,12 @@ export const FLOW_BAR = 8;
 const FLOW_GAP = 10;
 /** Space between a bar and its label. */
 const FLOW_LABEL_PAD = 6;
+/** Below this width three columns are a phone layout (POLISH_AUDIT B1). */
+const FLOW_PHONE_WIDTH = 480;
+/** A phone's right-hand label column: room for "Tempat Tinggal" / "−Rp4,16 jt" at 12 px. */
+const FLOW_PHONE_RIGHT_LABEL = 104;
 
-export interface FlowBox {
+interface FlowBox {
 	x: number;
 	y: number;
 	width: number;
@@ -91,8 +95,11 @@ export interface FlowNode extends FlowBox {
 	column: number;
 	/** The compact colour bar the bands attach to, centred vertically in the node's slot. */
 	bar: FlowBox;
-	/** Where the name and amount are written: beside the bar, `width` px at most. */
-	label: { x: number; y: number; anchor: 'start' | 'end'; width: number };
+	/**
+	 * Where the name and amount are written: beside the bar, `width` px at most; on a phone the middle column's
+	 * label is centred on its bar (`middle`), across the ribbons on both sides.
+	 */
+	label: { x: number; y: number; anchor: 'start' | 'end' | 'middle'; width: number };
 }
 
 export interface FlowBand {
@@ -119,8 +126,12 @@ export function flowLayout(
 	const n = Math.max(1, columns.length);
 	// Two columns have room for longer names than three.
 	const labelWidth = Math.min(200, Math.max(76, Math.round(width * (n === 2 ? 0.32 : 0.24))));
+	// A phone's three columns: the expense names on the right get a fixed column, and the middle labels sit
+	// centred on their bar (over the ribbons, with a halo) instead of squeezing between two bars.
+	const phone = n === 3 && width < FLOW_PHONE_WIDTH;
+	const rightLabel = phone ? Math.max(labelWidth, FLOW_PHONE_RIGHT_LABEL) : labelWidth;
 	const first = n > 1 ? labelWidth : 0;
-	const last = n > 1 ? width - labelWidth - FLOW_BAR : 0;
+	const last = n > 1 ? width - rightLabel - FLOW_BAR : 0;
 	const barX = Array.from({ length: n }, (_, i) =>
 		round(n > 1 ? first + (i * (last - first)) / (n - 1) : 0)
 	);
@@ -172,25 +183,42 @@ export function flowLayout(
 			const slot = Math.max(FLOW_MIN_NODE, barHeight);
 			const bx = barX[ci] ?? 0;
 			const isFirst = ci === 0 && n > 1;
+			const prev = barX[ci - 1];
 			const next = barX[ci + 1];
+			const centred = phone && prev !== undefined && next !== undefined;
+			// Centred: half the label on each side of the bar, up to a pad before each neighbouring bar.
+			const half = centred
+				? Math.min(bx - (prev + FLOW_BAR) - FLOW_LABEL_PAD, next - (bx + FLOW_BAR) - FLOW_LABEL_PAD)
+				: 0;
 			const labelSpace = isFirst
 				? labelWidth - FLOW_LABEL_PAD
-				: next === undefined
-					? width - bx - FLOW_BAR - FLOW_LABEL_PAD
-					: Math.min(labelWidth, next - bx - FLOW_BAR - 2 * FLOW_LABEL_PAD);
-			const x = isFirst ? 0 : bx;
+				: centred
+					? 2 * half + FLOW_BAR
+					: next === undefined
+						? width - bx - FLOW_BAR - FLOW_LABEL_PAD
+						: Math.min(labelWidth, next - bx - FLOW_BAR - 2 * FLOW_LABEL_PAD);
+			const x = isFirst ? 0 : centred ? bx - half : bx;
 			nodes.push({
 				key: node.key,
 				column: ci,
 				x,
 				y,
-				width: isFirst ? bx + FLOW_BAR : FLOW_BAR + FLOW_LABEL_PAD + labelSpace,
+				width:
+					isFirst || centred
+						? isFirst
+							? bx + FLOW_BAR
+							: labelSpace
+						: FLOW_BAR + FLOW_LABEL_PAD + labelSpace,
 				height: slot,
 				bar: { x: bx, y: y + (slot - barHeight) / 2, width: FLOW_BAR, height: barHeight },
 				label: {
-					x: isFirst ? bx - FLOW_LABEL_PAD : bx + FLOW_BAR + FLOW_LABEL_PAD,
+					x: isFirst
+						? bx - FLOW_LABEL_PAD
+						: centred
+							? bx + FLOW_BAR / 2
+							: bx + FLOW_BAR + FLOW_LABEL_PAD,
 					y: y + slot / 2,
-					anchor: isFirst ? 'end' : 'start',
+					anchor: isFirst ? 'end' : centred ? 'middle' : 'start',
 					width: Math.max(0, labelSpace)
 				}
 			});

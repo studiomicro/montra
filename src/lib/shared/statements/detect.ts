@@ -51,7 +51,7 @@ export function decodeStatementText(bytes: Uint8Array): string | null {
 }
 
 /** Least confidence a parser must claim for its institution to be chosen automatically. */
-export const MIN_DETECT_CONFIDENCE = 0.5;
+const MIN_DETECT_CONFIDENCE = 0.5;
 
 export type InstitutionDetection =
 	{ institution: StatementParser; confidence: number } | { institution: null; confidence: 0 };

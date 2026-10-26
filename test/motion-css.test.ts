@@ -39,7 +39,16 @@ const MOTION_FILES = [
 	'src/lib/ui/pwa/UpdateBanner.svelte',
 	'src/lib/ui/offline-queue/OfflineQueueStatus.svelte',
 	'src/routes/(app)/+page.svelte',
-	'src/routes/(app)/dompet/+page.svelte'
+	'src/routes/(app)/dompet/+page.svelte',
+	// FN-54: static by design (only Koko's finite blink and the existing count-up move on Beranda's hero).
+	'src/lib/ui/home/GreetingHero.svelte',
+	'src/lib/ui/home/HeroScene.svelte',
+	'src/lib/ui/home/BudgetChip.svelte',
+	'src/lib/ui/home/FeatureTiles.svelte',
+	'src/lib/ui/home/DailyStory.svelte',
+	'src/lib/ui/kit/CalendarBadge.svelte',
+	'src/lib/ui/kit/FeatureChip.svelte',
+	'src/routes/(app)/kalender/+page.svelte'
 ];
 
 /** The files FN-51 added or changed: their durations are tokens (FN-40's illustrations and Koko's poses keep theirs). */

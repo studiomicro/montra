@@ -7,8 +7,8 @@ import { isDateString, isMonthString } from '../dates.ts';
  */
 
 /** Serial range treated as a date in the mapped date column without a date format (1990-01-01 … 2100-01-01). */
-export const SERIAL_MIN = 32_874;
-export const SERIAL_MAX = 73_051;
+const SERIAL_MIN = 32_874;
+const SERIAL_MAX = 73_051;
 
 const DAY_MS = 86_400_000;
 const pad = (n: number, width = 2) => String(n).padStart(width, '0');

@@ -14,6 +14,7 @@ import {
 	updateNetWorthItem,
 	type NetWorthWriteResult
 } from '#lib/server/net-worth/repo';
+import { cardSummaries } from '#lib/server/cards/summary';
 import { creditCardSpend } from '#lib/server/net-worth/credit-cards';
 import { sectionTotals } from '#lib/server/net-worth/sections';
 import { netWorthChange, netWorthSummary, type WalletLine } from '#lib/server/net-worth/summary';
@@ -142,7 +143,10 @@ async function loadTrend(db: App.Locals['db'], spaceId: string, range: TrendRang
 	}
 }
 
-/** The credit-card wallets' 30-day spend (FN-25b); a failure shows the section's own error line. */
+/**
+ * The credit-card wallets' 30-day spend (FN-25b) with each card's available credit and due chip (FN-55a); a
+ * failure shows the section's own error line.
+ */
 async function loadCreditCards(
 	db: App.Locals['db'],
 	spaceId: string,
@@ -150,7 +154,22 @@ async function loadCreditCards(
 	today: string
 ) {
 	try {
-		return { cards: await creditCardSpend(db, spaceId, wallets, today), failed: false };
+		const [spend, summaries] = await Promise.all([
+			creditCardSpend(db, spaceId, wallets, today),
+			cardSummaries(
+				db,
+				spaceId,
+				wallets.filter((w) => w.type === 'kartu_kredit'),
+				today
+			)
+		]);
+		const byWallet = new Map(summaries.map((c) => [c.walletId, c]));
+		const cards = spend.map((c) => ({
+			...c,
+			available: byWallet.get(c.walletId)?.available ?? null,
+			due: byWallet.get(c.walletId)?.due ?? null
+		}));
+		return { cards, failed: false };
 	} catch (e) {
 		console.error('kekayaan: credit cards failed', errorLabel(e));
 		return { cards: [], failed: true };

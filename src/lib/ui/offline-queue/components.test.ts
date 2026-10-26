@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { Locale } from '#lib/shared/i18n';
 import { QUEUE_STALE_MS, type QueueItem } from '#lib/shared/offline-queue';
 import Harness from '../../../../test/helpers/I18nHarness.svelte';
+import { stripComments } from '../../../../test/helpers/html';
 import OfflineBadge from './OfflineBadge.svelte';
 import PendingSheet from './PendingSheet.svelte';
 import { reopenHref } from './view';
@@ -12,11 +13,10 @@ const NOW = 1_800_000_000_000;
 const SPACE = '6a1f0c2e-8b3d-4e5f-9a0b-1c2d3e4f5a6b';
 
 function html(component: unknown, props: Record<string, unknown>, locale: Locale = 'id') {
-	return render(Harness, {
+	const { body } = render(Harness, {
 		props: { component: component as Component<Record<string, unknown>>, locale, props }
-	})
-		.body.replace(/<!--[\s\S]*?-->/g, '')
-		.replace(/\s+/g, ' ');
+	});
+	return stripComments(body).replace(/\s+/g, ' ');
 }
 
 const badge = (o: Record<string, unknown>, locale: Locale = 'id') =>

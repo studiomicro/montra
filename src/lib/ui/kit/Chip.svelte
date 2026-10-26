@@ -111,8 +111,8 @@
 	}
 	.chip[aria-pressed='true'],
 	.chip[aria-current='true'] {
-		background: var(--ink);
-		color: var(--bg);
+		background: var(--action);
+		color: var(--on-action);
 		/* The glass edge (FN-40): a specular top highlight on the selected pill. */
 		box-shadow: inset 0 1px 0 var(--glass-border);
 	}

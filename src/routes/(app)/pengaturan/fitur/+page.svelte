@@ -5,13 +5,15 @@
 	import { MODULE_LABELS, MODULES, type Module } from '#lib/shared/feature-flags';
 	import FormBanner from '#lib/ui/auth/FormBanner.svelte';
 	import { useI18n } from '#lib/ui/i18n-context';
+	import Icon from '#lib/ui/Icon.svelte';
 	import Button from '#lib/ui/kit/Button.svelte';
+	import FeatureChip from '#lib/ui/kit/FeatureChip.svelte';
 	import ErrorState from '#lib/ui/kit/ErrorState.svelte';
 	import GroupList from '#lib/ui/kit/GroupList.svelte';
 	import GroupRow from '#lib/ui/kit/GroupRow.svelte';
 	import Skeleton from '#lib/ui/kit/Skeleton.svelte';
 	import Toggle from '#lib/ui/kit/Toggle.svelte';
-	import { MODULE_NAV } from '#lib/ui/shell/nav';
+	import { featureItem, MODULE_NAV } from '#lib/ui/shell/nav';
 	import ScreenTitle from '#lib/ui/shell/ScreenTitle.svelte';
 
 	let { data, form } = $props();
@@ -81,7 +83,14 @@
 {:else}
 	<GroupList>
 		{#each MODULES as module (module)}
+			{@const item = featureItem(MODULE_NAV[module] ?? '')}
 			<GroupRow>
+				<!-- FN-54: the module's chip from the feature registry; Ruang bersama has no menu entry, so a plain circle. -->
+				{#if item}
+					<FeatureChip icon={item.icon} tone={item.tone} size={40} />
+				{:else}
+					<span class="circle" aria-hidden="true"><Icon name="user" size={20} /></span>
+				{/if}
 				<form method="POST" action="?/setFlag" class="row-form" use:enhance={save(module)}>
 					<input type="hidden" name="module" value={module} />
 					<!-- A module with no menu entry has nothing to hide: its switch stays off the table, with the reason. -->
@@ -118,6 +127,15 @@
 		align-items: center;
 		gap: 12px;
 		min-width: 0;
+	}
+	.circle {
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		border-radius: var(--r-pill);
+		background: var(--bg);
 	}
 	.ok {
 		margin: 0 0 16px;

@@ -8,8 +8,8 @@ export interface PushPayload {
 	url?: string;
 }
 
-export const PUSH_TITLE_MAX = 80;
-export const PUSH_BODY_MAX = 240;
+const PUSH_TITLE_MAX = 80;
+const PUSH_BODY_MAX = 240;
 
 /** A same-origin absolute path: starts with one `/`, no backslash, no scheme-relative `//`. */
 const SAME_ORIGIN_PATH = /^\/(?![/\\])[^\\\s]*$/;

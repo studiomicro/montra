@@ -48,7 +48,7 @@ export function cspHeader(): string {
  * root `_headers` file (Workers Assets serves these files without running the Worker); a test keeps the two
  * identical.
  */
-export const OCR_ASSET_DIRECTIVES = {
+const OCR_ASSET_DIRECTIVES = {
 	'default-src': ['none'],
 	'script-src': ['self', 'wasm-unsafe-eval'],
 	'connect-src': ['self'],

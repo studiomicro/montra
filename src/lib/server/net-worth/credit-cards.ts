@@ -4,7 +4,7 @@ import { walletExpenseTotals } from '../transactions/aggregate';
 import type { WalletLine } from './summary';
 
 /** The window of a card's "spent in the last 30 days": today and the 29 WIB days before it. */
-export const CARD_SPEND_DAYS = 30;
+const CARD_SPEND_DAYS = 30;
 
 /** A live credit-card wallet with what was spent from it in the window, per currency (FN-25b). */
 export interface CreditCardSpend {

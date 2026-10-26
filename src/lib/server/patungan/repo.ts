@@ -24,11 +24,11 @@ import { isUniqueViolation } from '../util';
  */
 
 /** Most live splits one space holds (keeps the list and every scan bounded). */
-export const MAX_SPLITS_PER_SPACE = 1000;
+const MAX_SPLITS_PER_SPACE = 1000;
 /** Most splits /patungan lists (newest first). */
-export const SPLIT_LIST_LIMIT = 100;
+const SPLIT_LIST_LIMIT = 100;
 /** Most transactions the "Dari transaksi" picker offers (newest first). */
-export const BILL_PICKER_LIMIT = 30;
+const BILL_PICKER_LIMIT = 30;
 
 export interface ParticipantInput {
 	kind: 'member' | 'guest';
@@ -54,7 +54,7 @@ export type BillChoice =
 	| { kind: 'link'; transactionId: string }
 	| { kind: 'own'; transactionId: string; walletId: string; categoryId: string };
 
-export interface SplitParticipant {
+interface SplitParticipant {
 	id: string;
 	position: number;
 	kind: 'member' | 'guest';
@@ -66,7 +66,7 @@ export interface SplitParticipant {
 	paidAt: number | null;
 }
 
-export interface LinkedTransaction {
+interface LinkedTransaction {
 	id: string;
 	title: string | null;
 	amountMinor: number;

@@ -9,7 +9,10 @@ const wallet = (currency: string, balanceMinor: number | null, n = 0): WalletLin
 	type: 'bank',
 	lastFour: null,
 	currency,
-	balanceMinor
+	balanceMinor,
+	creditLimitMinor: null,
+	dueDay: null,
+	emoneyIssuer: null
 });
 
 let ids = 0;

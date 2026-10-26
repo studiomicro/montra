@@ -48,7 +48,7 @@ export function amountFractionDigits(currency: string): number {
  * languages (IDR and JPY stay byte-identical to before FN-47); a currency with cents follows the UI language,
  * like formatMoney: `1.250,50` (id), `1,250.50` (en).
  */
-export function amountSeparators(
+function amountSeparators(
 	currency: string,
 	locale: Locale
 ): { group: string; decimal: string | null } {

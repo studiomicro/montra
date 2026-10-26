@@ -38,7 +38,7 @@ import type { ApiErrorBody, ApiErrorCode } from './schemas';
 export const API_AUTH_FAILURES_PER_WINDOW = 20;
 
 /** Largest request body: one transaction's fields are a few hundred bytes. */
-export const API_BODY_MAX_BYTES = 8 * 1024;
+const API_BODY_MAX_BYTES = 8 * 1024;
 
 const en = createTranslator('en');
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -56,7 +56,7 @@ export class ApiError extends Error {
 	}
 }
 
-export function errorResponse(e: ApiError): Response {
+function errorResponse(e: ApiError): Response {
 	const body: ApiErrorBody = {
 		error: { code: e.code, message: e.message, ...(e.fields ? { fields: e.fields } : {}) }
 	};

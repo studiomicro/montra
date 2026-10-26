@@ -2,7 +2,7 @@
  * FN-22 Tanya test doubles: synthetic Messages API answers as the provider (through the gateway) would send them.
  * Mocked model answers prove the loop, the guard and the scoping only; they never count as a working AI path.
  */
-export const usage = { input_tokens: 120, output_tokens: 30 };
+const usage = { input_tokens: 120, output_tokens: 30 };
 
 /** A final answer carrying `text`. */
 export const textAnswer = (text: string, stopReason = 'end_turn') =>

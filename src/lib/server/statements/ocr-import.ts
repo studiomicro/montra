@@ -38,7 +38,7 @@ import type { OcrFields } from './ocr-validation';
 
 export type OcrImportRefusal = OcrRefusal | 'picks_invalid';
 
-export interface OcrSummary {
+interface OcrSummary {
 	kind: OcrReading['kind'];
 	institution: { id: string; label: string };
 	manual: boolean;
@@ -51,7 +51,7 @@ export interface OcrSummary {
 }
 
 /** One row as the review list shows it (masked title; never the raw words). */
-export interface OcrPreviewRow {
+interface OcrPreviewRow {
 	index: number;
 	date: string;
 	type: CategoryKind;

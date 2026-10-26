@@ -96,8 +96,7 @@ const summarySchema = z.object({
 });
 export type QueueSummary = z.infer<typeof summarySchema>;
 
-export const QUEUE_STATUSES = ['pending', 'sending', 'failed'] as const;
-export type QueueStatus = (typeof QUEUE_STATUSES)[number];
+const QUEUE_STATUSES = ['pending', 'sending', 'failed'] as const;
 
 const itemSchema = pushShape
 	.extend({

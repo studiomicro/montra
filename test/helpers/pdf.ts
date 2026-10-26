@@ -219,8 +219,3 @@ export async function deflateStream(inflatedBytes: number, prefix = ''): Promise
 	await ended;
 	return new Uint8Array(Buffer.concat(parts));
 }
-
-/** A zlib stream that inflates to `inflatedBytes` spaces (spaces compress about 1000:1). */
-export function deflateBomb(inflatedBytes: number): Uint8Array {
-	return new Uint8Array(deflateSync(Buffer.alloc(inflatedBytes, 0x20), { level: 9 }));
-}

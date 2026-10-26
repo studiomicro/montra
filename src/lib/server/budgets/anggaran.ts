@@ -30,13 +30,13 @@ interface CategoryRef {
 }
 
 /** A budgeted category with its progress, in the budget's own currency. */
-export interface BudgetedCategory extends CategoryRef {
+interface BudgetedCategory extends CategoryRef {
 	budget: CategoryBudget;
 	progress: BudgetProgress;
 }
 
 /** An expense category without a budget, with this month's spending in the page's currency. */
-export interface UnbudgetedCategory extends CategoryRef {
+interface UnbudgetedCategory extends CategoryRef {
 	spentMinor: number | null;
 }
 

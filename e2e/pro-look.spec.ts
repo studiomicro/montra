@@ -57,7 +57,7 @@ test('Gratis sees locked Pro themes and a forged gold cookie renders as system; 
 	await context.addCookies([{ name: 'theme', value: 'gold', url: APP_ORIGIN }]);
 	await page.goto('/riwayat');
 	await expect(page.locator('html')).toHaveAttribute('data-theme', 'system');
-	const forged = await page.request.post('/pengaturan/tampilan', {
+	const forged = await page.request.post('/pengaturan/tampilan?/theme', {
 		form: { theme: 'gold' },
 		headers: { origin: APP_ORIGIN }
 	});
@@ -92,11 +92,14 @@ test('Gratis sees locked Pro themes and a forged gold cookie renders as system; 
 	await page.goto('/pengaturan/instal');
 	await expect(page.getByTestId('pro-icon-note')).toContainText('memasang ulang');
 
-	// Beranda: the hero frame, and Koko's crown on the first-wallet card.
+	// Beranda: the hero frame (FN-54: on the greeting card, once), and Koko's crown on the first-wallet card.
 	await page.goto('/');
-	await expect(page.locator('section.hero.pro')).toBeVisible();
+	await expect(page.locator('section.greeting.pro')).toBeVisible();
+	await expect(page.locator('section.hero.pro')).toHaveCount(0);
 	expect(
-		await page.locator('section.hero.pro').evaluate((el) => getComputedStyle(el).backgroundImage)
+		await page
+			.locator('section.greeting.pro')
+			.evaluate((el) => getComputedStyle(el).backgroundImage)
 	).toContain('gradient');
 	await expect(page.locator('.first-wallet svg.mascot rect.k-crown').first()).toBeAttached();
 	await expectNoHorizontalScroll(page);
@@ -110,7 +113,7 @@ test('Gratis sees locked Pro themes and a forged gold cookie renders as system; 
 	const plain = await noJs.newPage();
 	await plain.goto(`${APP_ORIGIN}/pengaturan/tampilan`);
 	await plain.getByRole('radio', { name: /^Hijau tua/ }).check();
-	await plain.getByRole('button', { name: 'Simpan' }).click();
+	await plain.getByRole('button', { name: 'Simpan' }).first().click();
 	await expect(plain.getByText('Perubahan disimpan.')).toBeVisible();
 	await expect(plain.locator('html')).toHaveAttribute('data-theme', 'emerald');
 	await plain.goto(`${APP_ORIGIN}/riwayat`);

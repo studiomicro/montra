@@ -381,6 +381,33 @@ describe('net-worth summary, snapshots and the 30-day change', () => {
 		expect(s.missingCount).toBe(1);
 	});
 
+	it('FN-58 pass 1: an e-money card counts like any e-wallet and carries its issuer', async () => {
+		const p = await account();
+		await wallet(p.scope, 1_000_000_00);
+		const card = await createWallet(
+			db,
+			p.scope,
+			{
+				name: 'KMT',
+				type: 'e_wallet',
+				currency: 'IDR',
+				openingBalanceMinor: 75_000_00,
+				isFavourite: false,
+				lastFour: '5678',
+				emoneyIssuer: 'kmt'
+			},
+			NOW
+		);
+		if (!card.ok) throw new Error('card failed');
+		const s = await netWorthSummary(db, p.scope.spaceId, emptyPriceBook(), NOW);
+		expect(s.totalMinor).toBe(1_000_000_00 + 75_000_00);
+		expect(s.wallets.find((w) => w.id === card.id)).toMatchObject({
+			type: 'e_wallet',
+			emoneyIssuer: 'kmt',
+			balanceMinor: 75_000_00
+		});
+	});
+
 	it('the change compares with the snapshot of exactly 30 WIB days ago, else an older one, else the oldest', async () => {
 		const p = await account();
 		const id = p.scope.spaceId;

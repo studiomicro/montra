@@ -15,13 +15,13 @@ import { z } from 'zod';
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
-export const GMAIL_API_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
+const GMAIL_API_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 export const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 
-export const OAUTH_TIMEOUT_MS = 10_000;
-export const GMAIL_TIMEOUT_MS = 15_000;
+const OAUTH_TIMEOUT_MS = 10_000;
+const GMAIL_TIMEOUT_MS = 15_000;
 /** `messages.get` answers above this are `too_large` (a payment notification is far smaller). */
-export const MESSAGE_MAX_BYTES = 2 * 1024 * 1024;
+const MESSAGE_MAX_BYTES = 2 * 1024 * 1024;
 const SMALL_MAX_BYTES = 64 * 1024;
 
 /**

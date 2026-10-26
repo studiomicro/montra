@@ -16,7 +16,7 @@ export type CategoryEdit = z.infer<typeof categoryEditSchema>;
 export type CategoryCreate = z.infer<typeof categoryCreateSchema>;
 
 /** The add/edit form as typed (a refused no-JavaScript form echoes it back). */
-export interface CategoryFormValues {
+interface CategoryFormValues {
 	name: string;
 	tileKey: string;
 	kind: string;

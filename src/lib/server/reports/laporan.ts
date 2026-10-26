@@ -44,9 +44,9 @@ import { listWallets } from '../wallets/repo';
 export const LAPORAN_LOAD_FAILED = msg('Laporan tidak bisa dimuat. Coba lagi sebentar lagi.');
 
 /** Places in "Tempat teratas" and rows in "Pengeluaran terbesar". */
-export const LAPORAN_TOP = 5;
+const LAPORAN_TOP = 5;
 /** Categories with their own colour in the yearly stacked bars; the rest is one "Lainnya" segment. */
-export const STACK_CATEGORIES = 4;
+const STACK_CATEGORIES = 4;
 /** Rows of "Kategori dari waktu ke waktu"; the rest is one "Lainnya" row. */
 export const GRID_CATEGORIES = 8;
 /** Key of the "Lainnya" (everything else) segment and row; '' is "Tanpa kategori". */
@@ -60,7 +60,7 @@ export interface LaporanStat {
 	netMinor: number | null;
 }
 
-export interface LaporanCategory extends CategorySlice {
+interface LaporanCategory extends CategorySlice {
 	/** floor(minor × 100 / the direction's total): never rounded up. Null when a figure is too large. */
 	percent: number | null;
 	/** floor(minor / elapsed days) in a month view, floor(minor / elapsed months) in a year view. */
@@ -102,7 +102,7 @@ export interface GridRow {
 	total: number | null;
 }
 
-export type LaporanDetail =
+type LaporanDetail =
 	| {
 			mode: 'bulan';
 			month: string;
