@@ -6,7 +6,7 @@
  * compares the two instruction lists, so a change to one side without the other fails.
  */
 
-import { hexBytes, normaliseHex } from './hex';
+import { hexBytes } from './hex';
 
 /** The card's connection as the bridge reports it: an ISO 14443-4 APDU link or a FeliCa frame link. */
 export type CardTech = 'isodep' | 'nfcf';
@@ -53,12 +53,6 @@ export function isReadOnly(tech: CardTech, hex: string): boolean {
 			isShortApdu(b)
 		);
 	return false;
-}
-
-/** The status word (last two bytes) of an APDU response, e.g. '9000', or null for a too-short answer. */
-export function statusWord(responseHex: string): string | null {
-	const clean = normaliseHex(responseHex);
-	return clean && clean.length >= 4 ? clean.slice(-4) : null;
 }
 
 export type Probe = { name: string; tech: CardTech; hex: string };

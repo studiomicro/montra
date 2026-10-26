@@ -4,7 +4,6 @@ import { formatCreditDelta, formatCredits, MAX_LEDGER_DELTA } from './credits';
 import {
 	effectivePlan,
 	isPaidPlan,
-	isPlan,
 	PLAN_CATALOGUE,
 	PLANS,
 	planRank,
@@ -33,9 +32,7 @@ describe('plan catalogue', () => {
 		expect(STARTER_CREDITS).toBe(300);
 	});
 
-	it('recognises plan ids only', () => {
-		expect(isPlan('pro')).toBe(true);
-		expect(isPlan('toString')).toBe(false);
+	it('recognises paid plan ids only', () => {
 		expect(isPaidPlan('gratis')).toBe(false);
 		expect(isPaidPlan('agen')).toBe(true);
 		expect(isPaidPlan('__proto__')).toBe(false);

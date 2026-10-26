@@ -1,3 +1,4 @@
+import { DAY_MS } from './dates.ts';
 import { currencyExponent } from './money-format.ts';
 
 /** Longest belonging name (FN-27), in code points after cleaning. */
@@ -25,7 +26,7 @@ function dayNumber(date: string): number {
 	at.setUTCFullYear(y, mo - 1, d);
 	if (y < 1 || at.getUTCFullYear() !== y || at.getUTCMonth() !== mo - 1 || at.getUTCDate() !== d)
 		throw new RangeError('not a calendar date');
-	return Math.floor(at.getTime() / 86_400_000);
+	return Math.floor(at.getTime() / DAY_MS);
 }
 
 /**

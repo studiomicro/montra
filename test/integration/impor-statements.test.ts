@@ -1,6 +1,7 @@
 import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
 import { inspect } from 'node:util';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import { signUp } from '#lib/server/auth/accounts';
 import { getDb, type Db } from '#lib/server/db';
 import { listImportBatches, undoImportBatch } from '#lib/server/imports/repo';
@@ -778,7 +779,7 @@ describe('/impor statement actions', () => {
 
 	it('a statement import counts as one creating action and is refused with 429 at the per-user limit', async () => {
 		const a = await account();
-		const now = Date.now();
+		const now = pinThrottleWindow();
 		await d1
 			.prepare(
 				`insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)

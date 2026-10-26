@@ -1,6 +1,6 @@
 import { daysBetween, wibDateParts } from './dates.ts';
 import type { Locale } from './i18n.ts';
-import { currencyExponent, SEPARATORS } from './money-format.ts';
+import { currencyExponent, groupThousands, SEPARATORS } from './money-format.ts';
 
 /**
  * Credit-card arithmetic (FN-55a), shared by the card page, Dompet, Kekayaan and the tests so the client and the
@@ -120,7 +120,7 @@ export function cardAmountText(minor: number | null, currency: string, locale: L
 	const fd = cardFractionDigits(currency);
 	const { group, decimal } = SEPARATORS[locale];
 	const digits = String(Math.abs(minor)).padStart(fd + 1, '0');
-	const whole = (fd === 0 ? digits : digits.slice(0, -fd)).replace(/\B(?=(\d{3})+(?!\d))/g, group);
+	const whole = groupThousands(fd === 0 ? digits : digits.slice(0, -fd), group);
 	const frac = fd === 0 ? '' : digits.slice(-fd);
 	return frac === '' || /^0+$/.test(frac) ? whole : `${whole}${decimal}${frac}`;
 }

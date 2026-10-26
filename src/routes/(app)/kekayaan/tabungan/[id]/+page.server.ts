@@ -1,4 +1,4 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { getEnv } from '#lib/server/env';
 import { readFormBody, textField } from '#lib/server/forms';
 import {
@@ -20,12 +20,11 @@ import {
 	getGoal,
 	restoreGoal,
 	updateGoal,
-	type GoalScope,
 	type GoalWriteResult
 } from '#lib/server/goals/repo';
 import { parseContributionForm, parseGoalForm } from '#lib/server/goals/validation';
 import { notifyGoalMilestone } from '#lib/server/notifications/triggers';
-import { requireSpaceAccess } from '#lib/server/spaces/access';
+import { currentSpaceAccess } from '#lib/server/spaces/current';
 import type { Actions, PageServerLoad, RequestEvent } from './$types';
 
 // One goal of the session's current space (locals.space, re-validated through requireSpaceAccess with
@@ -41,12 +40,7 @@ const UPDATED_AT = /^\d{1,15}$/;
 const CURSOR = /^(\d{1,15})_([0-9a-f-]{1,64})$/;
 
 async function goalScope(event: { locals: App.Locals; params: { id: string } }) {
-	const { locals } = event;
-	const user = locals.user;
-	if (!user) redirect(303, '/masuk');
-	if (!locals.space) error(404, 'Not found');
-	const access = await requireSpaceAccess(locals.db, user.id, locals.space.id);
-	const scope: GoalScope = { spaceId: access.space.id, userId: user.id };
+	const { scope } = await currentSpaceAccess(event.locals);
 	const goalId = event.params.id.length > ID_MAX_LENGTH ? '' : event.params.id;
 	return { scope, goalId };
 }

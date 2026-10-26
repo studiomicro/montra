@@ -1,7 +1,7 @@
-import { error, fail, redirect } from '@sveltejs/kit';
-import { ensurePresetCategories, getCategory, listCategories } from '#lib/server/categories/repo';
+import { fail } from '@sveltejs/kit';
+import { getCategory, listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { readFormBody } from '#lib/server/forms';
-import { requireSpaceAccess, type SpaceScope } from '#lib/server/spaces/access';
+import { currentSpaceScope } from '#lib/server/spaces/current';
 import { dismissCandidate, findCandidates } from '#lib/server/subscriptions/detect';
 import {
 	CANDIDATE_NOT_FOUND,
@@ -42,19 +42,11 @@ import type { Actions, PageServerLoad, RequestEvent } from './$types';
 // it through requireSpaceAccess with locals.user, so there is one access rule. Ids from a form are only looked
 // up inside that space: another space's id and an unknown id get the same 404.
 
-async function scopeOf(locals: App.Locals): Promise<SpaceScope> {
-	const user = locals.user;
-	if (!user) redirect(303, '/masuk');
-	if (!locals.space) error(404, 'Not found');
-	const access = await requireSpaceAccess(locals.db, user.id, locals.space.id);
-	return { spaceId: access.space.id, userId: user.id };
-}
-
 const queryId = (url: URL, name: string) =>
 	url.searchParams.get(name)?.slice(0, ID_MAX_LENGTH) ?? null;
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	const scope = await scopeOf(locals);
+	const scope = await currentSpaceScope(locals);
 	const db = locals.db;
 	const today = wibTodayString();
 	// Without JavaScript: `?tambah=1` (picker), `?tambah=<catalogue id>` / `?tambah=lainnya` (the form),
@@ -68,11 +60,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		fromCheck: queryId(url, 'kandidat')
 	};
 	try {
-		await ensurePresetCategories(db, scope.spaceId);
 		const [subscriptions, wallets, categories, expenses, candidates] = await Promise.all([
 			listSubscriptions(db, scope.spaceId, today),
 			listWallets(db, scope.spaceId),
-			listCategories(db, scope.spaceId),
+			listCategoriesWithPresets(db, scope.spaceId),
 			listPayableExpenses(db, scope.spaceId),
 			// FN-26b: the subscription check runs with every load (bounded), so its button needs no round trip.
 			findCandidates(db, scope.spaceId, today)
@@ -117,7 +108,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 async function guarded(event: RequestEvent) {
 	const form = await readFormBody(event.request);
-	const scope = await scopeOf(event.locals);
+	const scope = await currentSpaceScope(event.locals);
 	return { form, scope, db: event.locals.db, today: wibTodayString() };
 }
 

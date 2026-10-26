@@ -1,7 +1,8 @@
 import type { Component } from 'svelte';
 import { render } from 'svelte/server';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import Harness from '../../../../test/helpers/I18nHarness.svelte';
+import { loadEnglish } from '../client-i18n';
 import AmountInput from './AmountInput.svelte';
 
 const input = (body: string) => body.match(/<input[^>]*>/)?.[0] ?? '';
@@ -32,6 +33,9 @@ describe('AmountInput (server render)', () => {
 });
 
 describe('AmountInput FN-47: cents for every currency but IDR and JPY (server render)', () => {
+	// The root layout's load does this for an English user before the page renders.
+	beforeAll(() => loadEnglish('en'));
+
 	const inLocale = (locale: 'id' | 'en', props: Record<string, unknown>) =>
 		render(Harness, {
 			props: {

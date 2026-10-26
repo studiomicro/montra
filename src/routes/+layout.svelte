@@ -5,8 +5,8 @@
 	import { dev } from '$app/env';
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { createTranslator } from '#lib/shared/i18n';
 	import { SPLASH_LINKS } from '#lib/shared/splash';
+	import { createClientTranslator } from '#lib/ui/client-i18n';
 	import { focusMain } from '#lib/ui/focus-main';
 	import { setI18n } from '#lib/ui/i18n-context';
 	import { provideAmountsHiddenAtLoad } from '#lib/ui/kit/amounts.svelte';
@@ -19,7 +19,7 @@
 	let { data, children } = $props();
 	// Locale changes need a full reload (cookie + navigation), so reading it once is correct.
 	// svelte-ignore state_referenced_locally
-	setI18n(createTranslator(data.locale));
+	setI18n(createClientTranslator(data.locale));
 	// Every render starts with amounts shown (on the server the module state is shared between requests); only a
 	// HeroAmount with the eye button applies this request's cookie choice (FN-25b red team 1).
 	provideAmountsHiddenAtLoad(() => data.amountsHidden);

@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { readFormBody } from '#lib/server/forms';
 import { SERIES_LIMIT, SERIES_LOAD_FAILED } from '#lib/server/recurring/messages';
 import { createSeries } from '#lib/server/recurring/repo';
@@ -17,9 +17,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const { spaceId } = await currentSpaceScope(locals);
 	const today = wibTodayString();
 	try {
-		await ensurePresetCategories(locals.db, spaceId);
 		const [categories, wallets] = await Promise.all([
-			listCategories(locals.db, spaceId),
+			listCategoriesWithPresets(locals.db, spaceId),
 			listWallets(locals.db, spaceId)
 		]);
 		// Today's day and weekday as the default schedule; the favourite wallet (listed first) as the wallet.

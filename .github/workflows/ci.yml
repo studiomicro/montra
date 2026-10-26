@@ -1,5 +1,5 @@
-# CI (docs/RUNBOOK.md › CI/CD): the gates (check + lint, Vitest in 4 shards, build) and the Playwright journeys on
-# every pull request (forks included) and every push to main. Read-only token, no secrets: every value below is a
+# CI (docs/RUNBOOK.md › CI/CD): the gates (check + lint, Vitest in 4 shards, build) and the Playwright journeys (4
+# shards) on every pull request (forks included) and every push to main. Read-only token, no secrets: every value below is a
 # fictional local one, and the e2e server uses the fixed fake keys in playwright.config.ts.
 name: CI
 
@@ -94,8 +94,16 @@ jobs:
           key: ocr-${{ hashFiles('src/lib/shared/ocr/assets.ts') }}
 
   e2e:
+    name: e2e (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Each shard is a whole runner: its own build, migrated D1 and wrangler dev on the fixed port, so shards share
+    # nothing. Playwright re-runs the `setup` project (auth.setup.ts) in every shard, as a dependency of the shard's
+    # phone and desktop tests. One failing shard fails the matrix job, which fails `CI ok` below.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -121,12 +129,15 @@ jobs:
       # a fresh local D1 under .wrangler/e2e-state-8787 and starts the three Workers with wrangler dev and fake keys;
       # auth.setup.ts signs up a fictional user. No .dev.vars, no seed, no Cloudflare account.
       # 3 workers: the 4-core runner keeps one core for workerd.
-      - run: npx playwright test --workers=3 --reporter=line,html
+      - name: npx playwright test (shard)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: npx playwright test --workers=3 --shard="$SHARD/4" --reporter=line,html
       - name: Upload report and traces
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/

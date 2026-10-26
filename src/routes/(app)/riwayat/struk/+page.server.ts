@@ -3,8 +3,8 @@ import { isAiGatewayConfigured } from '#lib/server/ai-keys/anthropic';
 import { resolveAnthropicKey } from '#lib/server/ai-keys/lookup';
 import { overUserAttemptLimit } from '#lib/server/auth/throttle';
 import {
-	ensurePresetCategories,
 	listCategories,
+	listCategoriesWithPresets,
 	type CategorySummary
 } from '#lib/server/categories/repo';
 import { getEnv } from '#lib/server/env';
@@ -99,12 +99,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const env = getEnv();
 	const configured = isAiGatewayConfigured(env);
 	try {
-		await ensurePresetCategories(db, spaceId);
 		const [hasKey, wallets, categories] = await Promise.all([
 			// Only whether a key opens: the key itself never leaves the server.
 			configured ? resolveAnthropicKey(db, userId, env).then((k) => k !== null) : false,
 			listWallets(db, spaceId),
-			listCategories(db, spaceId)
+			listCategoriesWithPresets(db, spaceId)
 		]);
 		return {
 			configured,

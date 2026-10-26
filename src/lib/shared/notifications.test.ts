@@ -20,7 +20,6 @@ import {
 	tickPlan,
 	weekStart,
 	weeklyDataKey,
-	wibHour,
 	wibWeekday
 } from './notifications';
 
@@ -80,12 +79,6 @@ describe('dedupe keys', () => {
 });
 
 describe('WIB schedule', () => {
-	it('reads the WIB hour, not the UTC one', () => {
-		expect(wibHour(utc('2026-10-07T23:00:00Z'))).toBe(6);
-		expect(wibHour(utc('2026-10-08T16:59:00Z'))).toBe(23);
-		expect(wibHour(utc('2026-10-08T17:00:00Z'))).toBe(0);
-	});
-
 	it('quiet hours are 00:00–05:59 WIB', () => {
 		expect(isQuietHour(utc('2026-10-08T17:00:00Z'))).toBe(true); // 00:00 WIB
 		expect(isQuietHour(utc('2026-10-08T22:59:59Z'))).toBe(true); // 05:59:59 WIB

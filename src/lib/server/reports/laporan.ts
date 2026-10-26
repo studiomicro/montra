@@ -405,30 +405,45 @@ export async function laporanReport(
 	const { from, to } = periodRange(view, today);
 	const type = view.direction === 'masuk' ? 'income' : 'expense';
 	const key = view.direction === 'masuk' ? 'inMinor' : 'outMinor';
-	const wallets = await listWallets(db, spaceId);
-	const currency = wallets.find((w) => w.isFavourite)?.currency ?? 'IDR';
-
-	// "Tempat teratas" and "Pengeluaran terbesar" belong to the month view only (APP_PARITY § 3).
 	const monthView = view.mode === 'bulan';
-	const [totals, categories, merchants, largest] = await Promise.all([
+	const month = monthView ? view.month : '';
+	const previousMonth = monthView ? shiftMonth(month, -1) : '';
+	const year = monthView ? '' : view.year;
+	const previousYear = monthView ? '' : String(Number(year) - 1);
+	// Every read goes out at once; only "Tempat teratas" and "Pengeluaran terbesar" (the month view's, APP_PARITY
+	// § 3) wait for the wallets, whose favourite names the currency they rank in.
+	const currencyOf = listWallets(db, spaceId).then(
+		(wallets) => wallets.find((w) => w.isFavourite)?.currency ?? 'IDR'
+	);
+	const [currency, totals, categories, merchants, largest, daily, yearly] = await Promise.all([
+		currencyOf,
 		periodTotals(db, spaceId, filter(from, to, null)),
 		categoryTotals(db, spaceId, filter(from, to, type)),
 		monthView
-			? merchantTotals(db, spaceId, filter(from, to, type), currency, LAPORAN_TOP)
+			? currencyOf.then((c) => merchantTotals(db, spaceId, filter(from, to, type), c, LAPORAN_TOP))
 			: Promise.resolve([]),
 		monthView
-			? largestTransactions(db, spaceId, filter(from, to, type), currency, LAPORAN_TOP)
-			: Promise.resolve([])
+			? currencyOf.then((c) =>
+					largestTransactions(db, spaceId, filter(from, to, type), c, LAPORAN_TOP)
+				)
+			: Promise.resolve([]),
+		monthView
+			? dailyTotals(db, spaceId, filter(`${previousMonth}-01`, to, type))
+			: Promise.resolve([]),
+		monthView
+			? null
+			: Promise.all([
+					categoryMonthlyTotals(db, spaceId, filter(from, to, type)),
+					monthlyTotals(db, spaceId, filter(from, to, type)),
+					monthlyTotals(db, spaceId, filter(`${previousYear}-01-01`, `${previousYear}-12-31`, type))
+				])
 	]);
 	const slices = categorySlices(categories, currency, key);
 
 	let detail: LaporanDetail;
 	let units: number;
-	if (view.mode === 'bulan') {
-		const month = view.month;
-		const previousMonth = shiftMonth(month, -1);
+	if (monthView) {
 		const elapsed = monthOf(today) === month ? daysBetween(from, today) + 1 : daysIn(month);
-		const daily = await dailyTotals(db, spaceId, filter(`${previousMonth}-01`, to, type));
 		units = elapsed;
 		detail = {
 			mode: 'bulan',
@@ -439,14 +454,8 @@ export async function laporanReport(
 			lines: monthLines(daily, month, elapsed, currency, key)
 		};
 	} else {
-		const year = view.year;
-		const previousYear = String(Number(year) - 1);
 		const months = monthsBetween(`${year}-01`, monthOf(to));
-		const [byCategory, thisYear, lastYear] = await Promise.all([
-			categoryMonthlyTotals(db, spaceId, filter(from, to, type)),
-			monthlyTotals(db, spaceId, filter(from, to, type)),
-			monthlyTotals(db, spaceId, filter(`${previousYear}-01-01`, `${previousYear}-12-31`, type))
-		]);
+		const [byCategory, thisYear, lastYear] = yearly ?? [[], [], []];
 		const { stack, stackKeys, averageMinor } = yearStack(byCategory, slices, months, currency, key);
 		const keyed = new Map(slices.map((s) => [s.key, s]));
 		units = months.length;

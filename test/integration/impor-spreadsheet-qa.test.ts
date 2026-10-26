@@ -1,5 +1,6 @@
 import { isActionFailure, isHttpError, isRedirect } from '@sveltejs/kit';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import { saveKey } from '#lib/server/ai-keys/repo';
 import { signUp } from '#lib/server/auth/accounts';
 import { THROTTLE_WINDOW_MS } from '#lib/server/auth/throttle';
@@ -152,7 +153,7 @@ const xlsx = (bytes: Uint8Array, name = 'keuangan 1234567890123.xlsx') =>
 const small = () => unlabeledXlsx(generateRows(20));
 
 async function seedAttempts(scope: string, userId: string, count: number) {
-	const now = Date.now();
+	const now = pinThrottleWindow();
 	await d1
 		.prepare(
 			`insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)

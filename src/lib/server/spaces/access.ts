@@ -81,8 +81,16 @@ export async function resolveCurrentSpace(
 	userId: string,
 	cookieValue: string | undefined
 ): Promise<CurrentSpace | null> {
+	return (await currentSpaceQuery(db, userId, cookieValue))[0] ?? null;
+}
+
+/**
+ * The one query of `resolveCurrentSpace` (at most one row), as a statement a caller may also put into a
+ * `db.batch` (hooks.server.ts reads it beside the plan).
+ */
+export function currentSpaceQuery(db: Db, userId: string, cookieValue: string | undefined) {
 	const wanted = cookieValue && cookieValue.length <= SPACE_ID_MAX_LENGTH ? cookieValue : '';
-	const row = await db
+	return db
 		.select({ id: spaces.id, kind: spaces.kind, name: spaces.name, role: spaceMembers.role })
 		.from(spaceMembers)
 		.innerJoin(spaces, eq(spaces.id, spaceMembers.spaceId))
@@ -95,9 +103,7 @@ export async function resolveCurrentSpace(
 			)
 		)
 		.orderBy(sql`case when ${spaces.id} = ${wanted} then 0 else 1 end`)
-		.limit(1)
-		.get();
-	return row ?? null;
+		.limit(1);
 }
 
 /**

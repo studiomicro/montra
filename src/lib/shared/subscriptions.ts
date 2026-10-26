@@ -1,4 +1,4 @@
-import { addDays, daysBetween, monthRange, wibDateParts } from './dates.ts';
+import { addDays, daysBetween, monthRange, pad, wibDateParts } from './dates.ts';
 import { msg } from './i18n.ts';
 
 /**
@@ -41,8 +41,6 @@ export interface BillingSchedule {
 	day: number;
 	month: number | null;
 }
-
-const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Days in month `month` (1–12) of `year`, through the shared month range (never a hand-rolled table). */
 function daysInMonth(year: number, month: number): number {

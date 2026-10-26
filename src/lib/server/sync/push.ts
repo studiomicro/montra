@@ -2,7 +2,6 @@ import { isHttpError } from '@sveltejs/kit';
 import { addDays, wibInstantUtcMs, wibTodayString } from '#lib/shared/dates';
 import type { Locale } from '#lib/shared/i18n';
 import {
-	parsePushRequest,
 	QUEUE_INVALID,
 	QUEUE_ONLINE_ONLY,
 	QUEUE_SPACE_GONE,
@@ -10,6 +9,7 @@ import {
 	type PushResponse,
 	type PushResult
 } from '#lib/shared/offline-queue';
+import { parsePushRequest } from '#lib/shared/offline-queue-schema';
 import { SESSION_ENDED } from '../auth/gate';
 import type { Db } from '../db';
 import { getEnv } from '../env';

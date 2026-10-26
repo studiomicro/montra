@@ -6,7 +6,8 @@ export const WIB = 'Asia/Jakarta';
 
 /** WIB is UTC+7 all year (Indonesia has no daylight saving), so WIB dates are plain arithmetic. */
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+/** One day in milliseconds. */
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** `YYYY-MM-DD`, the shape of `occurred_on` and of a native `<input type="date">`. */
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -15,7 +16,7 @@ const MONTH = /^(\d{4})-(\d{2})$/;
 /** `HH:MM`, a native `<input type="time">` value (seconds are not used). */
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-const pad = (n: number, width = 2) => String(n).padStart(width, '0');
+export const pad = (n: number, width = 2) => String(n).padStart(width, '0');
 
 /** UTC midnight of a calendar date (used only to read and format the date itself, never as an instant). */
 function utcMidnight(date: string): number {
@@ -56,6 +57,12 @@ export function wibDateString(utcMs: number): string {
 /** Today in WIB (the compose form's default date). */
 export function wibTodayString(utcMs: number = Date.now()): string {
 	return wibDateString(utcMs);
+}
+
+/** The WIB hour (0–23) of a UTC instant, from the epoch arithmetic only (never `getHours()`, the device's zone). */
+export function wibHour(utcMs: number): number {
+	const hours = Math.floor(utcMs / 3_600_000) + WIB_OFFSET_MS / 3_600_000;
+	return ((hours % 24) + 24) % 24;
 }
 
 /** `HH:MM` of a UTC instant in WIB. */

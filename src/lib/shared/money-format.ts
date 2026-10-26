@@ -48,7 +48,8 @@ export const SEPARATORS: Readonly<Record<Locale, { group: string; decimal: strin
 	en: { group: ',', decimal: '.' }
 };
 
-function group(digits: string, separator: string): string {
+/** `1264000` → `1.264.000` with the given separator (digits only, no sign or decimals). */
+export function groupThousands(digits: string, separator: string): string {
 	return digits.replace(/\B(?=(\d{3})+(?!\d))/g, separator);
 }
 
@@ -67,7 +68,7 @@ export function formatMoney(
 	const exp = currencyExponent(currency);
 	const abs = BigInt(Math.abs(minor));
 	const base = 10n ** BigInt(exp);
-	const whole = group((abs / base).toString(), sep.group);
+	const whole = groupThousands((abs / base).toString(), sep.group);
 	const frac = abs % base;
 	const fracText = frac === 0n ? '' : sep.decimal + frac.toString().padStart(exp, '0');
 	const body = `${Object.hasOwn(SYMBOLS, currency) ? SYMBOLS[currency] : currency}${NBSP}${whole}${fracText}`;

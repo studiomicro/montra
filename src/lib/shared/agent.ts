@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isMonthString, monthRange } from './dates.ts';
+import { DAY_MS, isMonthString, monthRange } from './dates.ts';
 import { msg } from './i18n.ts';
 
 /**
@@ -107,7 +107,7 @@ export const AGENT_USER_DAILY_MAX = 5;
 export const AGENT_SPACE_DAILY_MAX = 15;
 /** Live reports one user keeps per space (the page lists them all). */
 export const AGENT_LIVE_MAX = 20;
-export const AGENT_DAY_MS = 24 * 60 * 60 * 1000;
+export const AGENT_DAY_MS = DAY_MS;
 /** A ready report lives 30 days from when it is ready (owner decision 5). */
 export const AGENT_READY_TTL_MS = 30 * AGENT_DAY_MS;
 /** An unfinished or failed run lives 7 days from when it was created. */

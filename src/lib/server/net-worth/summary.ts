@@ -260,17 +260,23 @@ export async function netWorthChange(
 	if (totalMinor === null) return null;
 	const today = wibDateString(now);
 	const target = addDays(today, -CHANGE_DAYS);
-	const [atOrBefore] = await db.all<{ date: string; total: number }>(sql`select date,
-			total_minor as total from net_worth_snapshots
-		where space_id = ${spaceId} and deleted_at is null and partial = 0 and date <= ${target}
-		order by date desc limit 1`);
-	const [oldest] = atOrBefore
-		? []
-		: await db.all<{ date: string; total: number }>(sql`select date, total_minor as total
-				from net_worth_snapshots
-				where space_id = ${spaceId} and deleted_at is null and partial = 0 and date < ${today}
-				order by date asc limit 1`);
-	const from = atOrBefore ?? oldest;
+	// One round trip: the newest complete snapshot on or before the target (`k` 0) and the oldest one before
+	// today (`k` 1, used only when there is no `k` 0 row), each one primary-key range step.
+	const rows = await db.all<{
+		k: number;
+		date: string;
+		total: number;
+	}>(sql`select 0 as k, date, total
+		from (select date, total_minor as total from net_worth_snapshots
+			where space_id = ${spaceId} and deleted_at is null and partial = 0 and date <= ${target}
+			order by date desc limit 1)
+		union all
+		select 1 as k, date, total
+		from (select date, total_minor as total from net_worth_snapshots
+			where space_id = ${spaceId} and deleted_at is null and partial = 0 and date < ${today}
+			order by date asc limit 1)`);
+	const atOrBefore = rows.find((r) => r.k === 0);
+	const from = atOrBefore ?? rows.find((r) => r.k === 1);
 	if (!from) return null;
 	const delta = safeMinor(BigInt(totalMinor) - BigInt(from.total));
 	if (delta === null) return null;

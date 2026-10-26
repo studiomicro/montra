@@ -360,6 +360,8 @@ Nothing yet.
 - [x] **Claude** — e2e failing on main 3867a6f (2026-10-26): `period-reports` and `period-reports-qa` seeded the newest
       space on the server, which a parallel test may own (now the test user's own space, by e-mail); `motion` reduced
       motion waited for `.illustration .shadow`, removed by the blueprint illustrations (1c93349).
+- [ ] **Claude** — `e2e/impor-ocr.spec.ts:207` cancel race: "Dibatalkan. Tidak ada yang dikirim." is missed when the
+      read finishes first (3 of 8 repeats fail on main e0d0580, phone and desktop); make the cancel deterministic.
 - [ ] **Claude** — Test flakes under load: fixed-window throttle tests (`public-api` 429 after 20 failures, `struk` 11th read) and local D1 `SocketError: other side closed` in integration files; pass on rerun.
 - [x] **Claude** — FN-43 brand badges (2026-10-09, no migration).
 - [ ] **You** — FN-43 red team L1 (trade dress): badge colours sit close to each brand's own colour and some

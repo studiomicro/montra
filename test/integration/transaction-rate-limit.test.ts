@@ -1,5 +1,6 @@
 import { isActionFailure, isRedirect } from '@sveltejs/kit';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pinThrottleWindow } from '../helpers/clock';
 import { signUp } from '#lib/server/auth/accounts';
 import { THROTTLE_WINDOW_MS } from '#lib/server/auth/throttle';
 import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
@@ -70,7 +71,7 @@ const counterKey = (userId: string) => sha256Hex(`transaction-create:user:${user
 
 /** Puts `userId`'s creation counter of the current window at `count`. */
 async function setCount(userId: string, count: number) {
-	const now = Date.now();
+	const now = pinThrottleWindow();
 	await d1
 		.prepare(
 			`insert into auth_attempts (client_hash, window_start, count) values (?, ?, ?)

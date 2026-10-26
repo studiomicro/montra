@@ -334,6 +334,10 @@ function listRow(r: ListRow): TransactionListRow {
  * grouped by WIB date. Pages continue with a keyset cursor, so "Muat lebih banyak" never repeats or skips a
  * row. Each day carries its whole-day totals for the same filter, so a day split over two pages shows the
  * same header on both.
+ *
+ * One statement, one D1 round trip: the page (`limit` + 1 rows, the extra one only tells whether a next page
+ * exists) is materialised once, and the whole-day sums of the dates of its first `limit` rows travel on each of
+ * its rows as JSON (`day_sums`, the `SumRow`s of that date; sums stay exact decimal text inside the JSON).
  */
 export async function listTransactionsByDay(
 	db: Db,
@@ -344,10 +348,30 @@ export async function listTransactionsByDay(
 	const limit = Math.min(Math.max(1, opts.limit ?? PAGE_SIZE), PAGE_SIZE);
 	const where = filterWhere(spaceId, filter);
 	const keyset = keysetAfter(opts.cursor ?? null);
-	const rows = await db.all<ListRow>(sql`${LIST_SELECT}
-		where ${where}${keyset}
-		order by t.occurred_on desc, t.occurred_at desc, t.id desc
-		limit ${limit + 1}`);
+	const rows = await db.all<ListRow & { day_sums: string | null }>(sql`with page as materialized (
+			${LIST_SELECT}
+			where ${where}${keyset}
+			order by t.occurred_on desc, t.occurred_at desc, t.id desc
+			limit ${limit + 1}
+		),
+		shown_days as (
+			select distinct occurred_on from (select occurred_on from page
+				order by occurred_on desc, occurred_at desc, id desc limit ${limit})
+		),
+		day_sums as (
+			select s.day as day, json_group_array(json_object('type', s.type, 'currency', s.currency,
+					'n', s.n, 'total', s.total)) as sums
+			from (select t.occurred_on as day, t.type as type, t.currency as currency, count(*) as n,
+					cast(sum(${EFFECTIVE_AMOUNT}) as text) as total
+				from transactions t
+				where ${where} and ${MONEY_ROWS} and t.is_demo = 0
+					and t.occurred_on in (select occurred_on from shown_days)
+				group by t.occurred_on, t.type, t.currency) s
+			group by s.day
+		)
+		select page.*, day_sums.sums as day_sums
+		from page left join day_sums on day_sums.day = page.occurred_on
+		order by page.occurred_on desc, page.occurred_at desc, page.id desc`);
 	const page = rows.slice(0, limit);
 	const last = page.at(-1);
 	const nextCursor =
@@ -355,24 +379,18 @@ export async function listTransactionsByDay(
 			? encodeCursor({ occurredOn: last.occurred_on, occurredAt: last.occurred_at, id: last.id })
 			: null;
 
-	const dates = [...new Set(page.map((r) => r.occurred_on))];
-	const dayRows =
-		dates.length === 0
-			? []
-			: await db.all<SumRow & { day: string }>(sql`select t.occurred_on as day, t.type as type,
-					t.currency as currency, count(*) as n, cast(sum(${EFFECTIVE_AMOUNT}) as text) as total
-				from transactions t
-				where ${where} and ${MONEY_ROWS} and t.is_demo = 0
-					and t.occurred_on in (select value from json_each(${JSON.stringify(dates)}))
-				group by t.occurred_on, t.type, t.currency`);
-
-	const days: DayGroup[] = dates.map((date) => ({
-		date,
-		totals: foldTotals(dayRows.filter((r) => r.day === date)),
-		rows: []
-	}));
-	const byDate = new Map(days.map((d) => [d.date, d]));
-	for (const r of page) byDate.get(r.occurred_on)?.rows.push(listRow(r));
+	const days: DayGroup[] = [];
+	const byDate = new Map<string, DayGroup>();
+	for (const r of page) {
+		let day = byDate.get(r.occurred_on);
+		if (!day) {
+			const sums = r.day_sums === null ? [] : (JSON.parse(r.day_sums) as SumRow[]);
+			day = { date: r.occurred_on, totals: foldTotals(sums), rows: [] };
+			byDate.set(r.occurred_on, day);
+			days.push(day);
+		}
+		day.rows.push(listRow(r));
+	}
 	return { days, nextCursor };
 }
 

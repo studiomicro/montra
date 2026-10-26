@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { getEnv } from '#lib/server/env';
 import { readFormBody, textField } from '#lib/server/forms';
 import { resolveMerchants } from '#lib/server/merchants/resolve';
@@ -44,10 +44,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const db = locals.db;
 	const today = wibTodayString();
 	try {
-		await ensurePresetCategories(db, spaceId);
 		const [wallets, categories, frequent] = await Promise.all([
 			listWallets(db, spaceId),
-			listCategories(db, spaceId),
+			listCategoriesWithPresets(db, spaceId),
 			frequentManualTransactions(db, spaceId, { limit: MAX_FREQUENT, today })
 		]);
 		// Spoken amounts are rupiah: the favourite wallet (listed first) unless it is not IDR, then the first IDR one.

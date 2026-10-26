@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { ensurePresetCategories, listCategories } from '#lib/server/categories/repo';
+import { listCategoriesWithPresets } from '#lib/server/categories/repo';
 import { getEnv } from '#lib/server/env';
 import { readFormBody, textField } from '#lib/server/forms';
 import { learnFromCorrection } from '#lib/server/merchants/learn';
@@ -78,9 +78,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const transaction = await getTransaction(db, spaceId, routeId(params));
 	// Unknown, deleted and other-space ids get the one same answer.
 	if (!transaction) error(404, 'Not found');
-	await ensurePresetCategories(db, spaceId);
 	const [categories, wallets, series, categoryReason] = await Promise.all([
-		listCategories(db, spaceId, { includeHidden: true }),
+		listCategoriesWithPresets(db, spaceId, { includeHidden: true }),
 		listWallets(db, spaceId, { includeArchived: true }),
 		// FN-36: the live series this row came from ("Ubah seri" links to it); this form edits the row only.
 		transaction.recurringSeriesId ? getSeries(db, spaceId, transaction.recurringSeriesId) : null,

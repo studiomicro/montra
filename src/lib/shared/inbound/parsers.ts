@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isDateString, wibInstantUtcMs } from '../dates.ts';
+import { isDateString, pad, wibInstantUtcMs } from '../dates.ts';
 import { findMoneyMentions, MAX_AMOUNT_MINOR, parseMoneyAmount } from '../money-parse.ts';
 import { cleanText, maskAccountNumbers } from '../text.ts';
 import { TITLE_MAX_LENGTH } from '../transactions.ts';
@@ -89,8 +89,6 @@ const MONTHS: Readonly<Record<string, number>> = {
 	desember: 12,
 	december: 12
 };
-
-const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
  * A printed WIB date and time → `occurred_on` and the UTC instant: `08 Okt 2026 14:32:05 WIB`,
