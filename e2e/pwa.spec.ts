@@ -432,7 +432,8 @@ test.describe('updates (FN-42, /pengaturan/tentang)', () => {
 		before = await loads(page);
 
 		await page.getByRole('button', { name: 'Muat ulang sekarang' }).click();
-		await expect.poll(() => loads(page).catch(() => before)).toBe(before + 1);
+		// The reload waits for the new service worker to take over, which can take several seconds on a CI runner.
+		await expect.poll(() => loads(page).catch(() => before), { timeout: 20_000 }).toBe(before + 1);
 		await waitForHydration(page);
 		// The new build took over; nothing waits any more, so no banner — and the page reloaded exactly once.
 		expect(await workers(page)).toEqual({ active: 'service-worker.js', waiting: null });
@@ -681,7 +682,8 @@ test.describe('automatic update checks (FN-42b)', () => {
 		expect(await queueSize(page)).toBe(1);
 
 		await page.getByRole('button', { name: 'Muat ulang sekarang' }).click();
-		await expect.poll(() => loads(page).catch(() => before)).toBe(before + 1);
+		// The reload waits for the new service worker to take over, which can take several seconds on a CI runner.
+		await expect.poll(() => loads(page).catch(() => before), { timeout: 20_000 }).toBe(before + 1);
 		await waitForHydration(page);
 		await expect(page.getByText(BANNER)).toHaveCount(0);
 		await page.waitForTimeout(1500);

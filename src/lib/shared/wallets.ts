@@ -63,9 +63,20 @@ export const WALLET_FORM_TYPE_LABELS: Readonly<Record<WalletFormType, string>> =
 	e_money: msg('Kartu e-money')
 };
 
-/** The form choice a stored wallet is edited as: an e-wallet with an issuer is a "Kartu e-money". */
-export function walletFormType(w: { type: WalletType; emoneyIssuer: string | null }): string {
-	return w.type === 'e_wallet' && w.emoneyIssuer !== null ? EMONEY_FORM_TYPE : w.type;
+/** A stored wallet that is an e-money card: an `e_wallet` with a known issuer (FN-58 pass 1). */
+export function isEmoneyCard(w: {
+	type: WalletType;
+	emoneyIssuer: string | null;
+}): w is { type: 'e_wallet'; emoneyIssuer: EmoneyIssuer } {
+	return w.type === 'e_wallet' && isEmoneyIssuer(w.emoneyIssuer);
+}
+
+/** The form choice a stored wallet is edited as: an e-money card is a "Kartu e-money", else its own type. */
+export function walletFormType(w: {
+	type: WalletType;
+	emoneyIssuer: string | null;
+}): WalletFormType {
+	return isEmoneyCard(w) ? EMONEY_FORM_TYPE : w.type;
 }
 
 /**
@@ -122,8 +133,8 @@ export function walletKindLabel(
 	w: { type: WalletType; emoneyIssuer: string | null },
 	tr: (phrase: string) => string
 ): string {
-	if (w.type === 'e_wallet' && isEmoneyIssuer(w.emoneyIssuer))
-		return `${tr(WALLET_FORM_TYPE_LABELS.e_money)} · ${EMONEY_ISSUER_LABELS[w.emoneyIssuer]}`;
+	if (isEmoneyCard(w))
+		return `${tr(WALLET_FORM_TYPE_LABELS[EMONEY_FORM_TYPE])} · ${EMONEY_ISSUER_LABELS[w.emoneyIssuer]}`;
 	return tr(WALLET_TYPE_LABELS[w.type]);
 }
 

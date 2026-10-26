@@ -5,6 +5,7 @@ import type { Locale } from '#lib/shared/i18n';
 import { EMONEY_QUICK_PICKS, WALLET_QUICK_PICKS, type WalletFormValues } from '#lib/shared/wallets';
 import Harness from '../../../../test/helpers/I18nHarness.svelte';
 import WalletForm from './WalletForm.svelte';
+import { stripComments } from '../../../../test/helpers/html';
 
 vi.mock('$app/forms', () => ({ enhance: () => ({ destroy() {} }) }));
 
@@ -25,22 +26,22 @@ const values: WalletFormValues = {
 };
 
 function html(props: Record<string, unknown>, locale: Locale) {
-	return render(Harness, {
-		props: {
-			component: WalletForm as unknown as Component<Record<string, unknown>>,
-			locale,
+	return stripComments(
+		render(Harness, {
 			props: {
-				action: '?/createWallet',
-				values,
-				busy: false,
-				firstWallet: false,
-				submit: () => {},
-				...props
+				component: WalletForm as unknown as Component<Record<string, unknown>>,
+				locale,
+				props: {
+					action: '?/createWallet',
+					values,
+					busy: false,
+					firstWallet: false,
+					submit: () => {},
+					...props
+				}
 			}
-		}
-	})
-		.body.replace(/<!--[\s\S]*?-->/g, '')
-		.replace(/\s+/g, ' ');
+		}).body
+	).replace(/\s+/g, ' ');
 }
 
 describe('WalletForm quick picks (FN-39)', () => {

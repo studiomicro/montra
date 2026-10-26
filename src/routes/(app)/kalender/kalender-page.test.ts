@@ -2,6 +2,7 @@ import type { Component } from 'svelte';
 import { render } from 'svelte/server';
 import { describe, expect, it, vi } from 'vitest';
 import AmountsAtLoadHarness from '../../../../test/helpers/AmountsAtLoadHarness.svelte';
+import { stripComments } from '../../../../test/helpers/html';
 
 // FN-54 QA cycle 2 (criterion 7): /kalender is rendered masked from the first server render when the
 // `montra-amounts-hidden` cookie is set, like Beranda, Dompet and Laporan. SvelteKit-only imports are stubbed.
@@ -72,9 +73,11 @@ const data = {
 	}
 };
 const html = (hidden: boolean, day = '2026-10-13') =>
-	render(AmountsAtLoadHarness, {
-		props: { component: Page, hidden, props: { data: { ...data, day } } }
-	}).body.replace(/<!--[\s\S]*?-->/g, '');
+	stripComments(
+		render(AmountsAtLoadHarness, {
+			props: { component: Page, hidden, props: { data: { ...data, day } } }
+		}).body
+	);
 
 describe('/kalender with hidden amounts (cold load)', () => {
 	it('the cookie masks the day figure, every cell label, the rows and the due items; dates stay readable', () => {

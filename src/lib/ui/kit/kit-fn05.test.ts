@@ -1,14 +1,11 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
+import { stripComments, stripTags } from '../../../../test/helpers/html';
 import Chip from './Chip.svelte';
 import Segmented from './Segmented.svelte';
 import TransactionRow from './TransactionRow.svelte';
 
-const text = (html: string) =>
-	html
-		.replace(/\u00a0/g, ' ')
-		.replace(/<!--[\s\S]*?-->/g, '')
-		.replace(/<[^>]+>/g, ' ');
+const text = (html: string) => stripTags(stripComments(html.replace(/\u00a0/g, ' ')), ' ');
 
 describe('Segmented (native radios: arrow keys, one tab stop, posts without JavaScript)', () => {
 	const options = [

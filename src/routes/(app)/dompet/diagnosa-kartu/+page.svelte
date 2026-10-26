@@ -1,49 +1,55 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { maskLongDigitRuns, PROBES } from '#lib/shared/emoney/commands';
-	import {
-		idmFromPolling,
-		kmtBalanceFrame,
-		kmtPollingFrame,
-		parseKmtBalance,
-		type KmtBalance
-	} from '#lib/shared/emoney/kmt';
+	import { diagnoseCard, type CardInfo, type Diagnosis } from '#lib/shared/emoney/diagnose';
 	import { formatMoney } from '#lib/shared/money-format';
-	import { cardTech, nfcBridge, send, type CardInfo, type NfcBridge } from '#lib/ui/emoney/nfc';
+	import { nfcBridge, send, type NfcBridge } from '#lib/ui/emoney/nfc';
 	import { useI18n } from '#lib/ui/i18n-context';
 	import Button from '#lib/ui/kit/Button.svelte';
 	import ScreenTitle from '#lib/ui/shell/ScreenTitle.svelte';
 
 	/**
 	 * FN-58 "Diagnosa kartu": tap an e-money card on the Android app and record how it answers the standard read
-	 * probes (commands.ts), so the owner can send the log for an issuer's reader to be checked. Read-only (the bridge
-	 * refuses anything else), nothing is saved, and long digit runs are masked before the log is shown or copied.
+	 * probes, so the owner can send the log for an issuer's reader to be checked. The reading and masking live in
+	 * diagnose.ts; this page only starts and stops the reader and renders the log. Read-only (the bridge refuses
+	 * anything else), nothing is saved, and the log is masked before it is shown or copied.
 	 */
 	const { tr, locale } = useI18n();
-
-	type Answer = { name: string; command: string; response: string };
-	type Log = { card: CardInfo; kmt: KmtBalance | null; answers: Answer[] };
 
 	let hydrated = $state(false);
 	let bridge = $state<NfcBridge | null>(null);
 	let nfcOff = $state(false);
+	/** Waiting for a tap, from "Mulai membaca" until a card is read. */
 	let reading = $state(false);
-	let log = $state<Log | null>(null);
+	/** A tapped card is being probed; a second tap meanwhile is ignored. */
+	let probing = false;
+	/** The page has gone: a probe still running stops sending and its result is dropped. */
+	let disposed = false;
+	let log = $state<Diagnosis | null>(null);
 	let copied = $state(false);
+	let copyFailed = $state(false);
 
 	onMount(() => {
 		hydrated = true;
-		bridge = nfcBridge();
-		let remove: (() => Promise<void>) | undefined;
+		const found = nfcBridge();
+		bridge = found;
+		let removeListener: (() => Promise<void>) | undefined;
 		void (async () => {
-			if (!bridge) return;
-			const state = await bridge.isAvailable();
-			nfcOff = !state.available || !state.enabled;
-			remove = (await bridge.addListener('card', (info) => void probe(info))).remove;
+			if (!found) return;
+			try {
+				const state = await found.isAvailable();
+				nfcOff = !state.available || !state.enabled;
+				const listener = await found.addListener('card', (info) => void probe(found, info));
+				// Left before the listener was registered: remove it now, or it would outlive the page.
+				if (disposed) void listener.remove();
+				else removeListener = () => listener.remove();
+			} catch {
+				nfcOff = true;
+			}
 		})();
 		return () => {
-			void remove?.();
-			void bridge?.stopReading();
+			disposed = true;
+			void removeListener?.().catch(() => {});
+			if (found) void found.stopReading().catch(() => {});
 		};
 	});
 
@@ -51,71 +57,45 @@
 		if (!bridge) return;
 		log = null;
 		copied = false;
+		copyFailed = false;
+		// Set before the call: the bridge may report a card before its startReading answer reaches the page.
+		reading = true;
 		try {
 			await bridge.startReading();
-			reading = true;
 		} catch {
+			reading = false;
 			nfcOff = true;
 		}
 	}
 
-	async function probe(card: CardInfo) {
-		if (!bridge) return;
-		const tech = cardTech(card);
-		const answers: Answer[] = [];
-		for (const p of PROBES.filter((p) => p.tech === tech)) {
-			let response: string;
-			try {
-				response = await send(bridge, p.tech, p.hex);
-			} catch (error) {
-				response = error instanceof Error ? error.message : 'error';
-			}
-			answers.push({ name: p.name, command: p.hex, response });
+	async function probe(found: NfcBridge, card: CardInfo) {
+		// Only the first tap after "Mulai membaca" counts; a tap while one is probed would reset its connection.
+		if (!reading || probing || disposed) return;
+		probing = true;
+		try {
+			const result = await diagnoseCard(card, (tech, hex) => {
+				if (disposed) return Promise.reject(new Error('stopped'));
+				return send(found, tech, hex);
+			});
+			if (disposed) return;
+			log = result;
+			reading = false;
+			await found.stopReading().catch(() => {});
+		} finally {
+			probing = false;
 		}
-		// KMT (FeliCa system 90B7): the reader's own two reads, so one log both identifies and checks it.
-		let kmt: KmtBalance | null = null;
-		let idm: string | null = null;
-		if (tech === 'nfcf') {
-			try {
-				const poll = await send(bridge, 'nfcf', kmtPollingFrame());
-				answers.push({ name: 'KMT Polling (90B7)', command: kmtPollingFrame(), response: poll });
-				idm = idmFromPolling(poll);
-				if (idm) {
-					const read = await send(bridge, 'nfcf', kmtBalanceFrame(idm));
-					answers.push({
-						name: 'KMT balance (1017)',
-						command: kmtBalanceFrame(idm),
-						response: read
-					});
-					kmt = parseKmtBalance(read);
-				}
-			} catch (error) {
-				answers.push({
-					name: 'KMT',
-					command: '',
-					response: error instanceof Error ? error.message : 'error'
-				});
-			}
-		}
-		// The card's IDm is a unique identifier: only its last 2 bytes stay in the log.
-		const mask = (hex: string) =>
-			maskLongDigitRuns(
-				idm ? hex.toUpperCase().replaceAll(idm, '••••••••••••' + idm.slice(-4)) : hex
-			);
-		log = {
-			card,
-			kmt,
-			answers: answers.map((a) => ({ ...a, command: mask(a.command), response: mask(a.response) }))
-		};
-		reading = false;
-		await bridge.stopReading();
 	}
 
 	const logText = $derived(log ? JSON.stringify({ app: 'montra-android', ...log }, null, 2) : '');
 
 	async function copy() {
-		await navigator.clipboard.writeText(logText);
-		copied = true;
+		try {
+			await navigator.clipboard.writeText(logText);
+			copied = true;
+			copyFailed = false;
+		} catch {
+			copyFailed = true;
+		}
 	}
 </script>
 
@@ -151,6 +131,7 @@
 	<section class="section" aria-labelledby="log-title">
 		<h2 id="log-title">{tr('Hasil')}</h2>
 		{#if log.kmt?.ok}
+			<!-- The card holds whole rupiah; formatMoney takes minor units (sen), hence × 100. -->
 			<p class="balance">
 				{tr('Saldo KMT')}
 				<strong class="num">{formatMoney(log.kmt.balance * 100, 'IDR', 'auto', locale)}</strong>
@@ -168,6 +149,9 @@
 		<Button variant="secondary" size="md" onclick={copy}>
 			{copied ? tr('Tersalin') : tr('Salin log')}
 		</Button>
+		{#if copyFailed}
+			<p class="note" role="alert">{tr('Tidak bisa menyalin. Salin log secara manual.')}</p>
+		{/if}
 	</section>
 {/if}
 

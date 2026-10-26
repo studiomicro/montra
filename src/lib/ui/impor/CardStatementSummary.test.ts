@@ -4,17 +4,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import I18nHarness from '../../../../test/helpers/I18nHarness.svelte';
 import { amounts } from '../kit/amounts.svelte';
 import CardStatementSummary from './CardStatementSummary.svelte';
+import { stripComments } from '../../../../test/helpers/html';
 
 function html(props: Record<string, unknown>) {
-	return render(I18nHarness, {
-		props: {
-			component: CardStatementSummary as unknown as Component<Record<string, unknown>>,
-			props,
-			locale: 'id'
-		}
-	})
-		.body.replace(/<!--[\s\S]*?-->/g, '')
-		.replaceAll('\u00a0', ' ');
+	return stripComments(
+		render(I18nHarness, {
+			props: {
+				component: CardStatementSummary as unknown as Component<Record<string, unknown>>,
+				props,
+				locale: 'id'
+			}
+		}).body
+	).replaceAll('\u00a0', ' ');
 }
 
 afterEach(() => {

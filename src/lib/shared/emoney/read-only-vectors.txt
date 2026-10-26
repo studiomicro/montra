@@ -1,0 +1,55 @@
+# FN-58 read-only guard vectors: `<tech> <hex> <allow|refuse> <note>`, one per line.
+# Run by src/lib/shared/emoney/commands.test.ts (isReadOnly, the page's guard) and by
+# native/android-app/android/app/src/test/java/id/montra/app/MontraNfcPluginGuardTest.java (the bridge's guard), so
+# both guards give the same answer for every line. Add a line whenever either guard changes.
+
+# Standard reads under an inter-industry class
+isodep 00A40000023F00 allow SELECT MF, case 3
+isodep 00A404000E325041592E5359532E444446303100 allow SELECT PPSE, case 4
+isodep 00b0000010 allow READ BINARY, case 2, lower-case hex
+isodep 00B2010C00 allow READ RECORD
+isodep 00CA9F7F00 allow GET DATA
+isodep 00C0000010 allow GET RESPONSE
+isodep 00B00000 allow READ BINARY, case 1
+isodep 0CB0000010 allow READ BINARY with secure messaging (first inter-industry class)
+isodep 40B0000010 allow READ BINARY, further inter-industry class
+isodep 10A40000023F00 allow SELECT with command chaining
+
+# Writes, debits and instructions not on the list
+isodep 00D6000002AABB refuse UPDATE BINARY
+isodep 00DC010402AABB refuse UPDATE RECORD
+isodep 00E2000002AABB refuse APPEND RECORD
+isodep 8054000000 refuse a proprietary instruction
+isodep 00B5000010 refuse an issuer's own read, not on the list yet
+
+# A listed INS under a proprietary or reserved class means something else
+isodep 80A4040000 refuse INS A4 under proprietary class 80
+isodep 90B0000000 refuse INS B0 under DESFire wrapped class 90
+isodep CAA4000000 refuse a native DESFire CreateApplication frame whose second byte is A4
+isodep FFCA000000 refuse PC/SC GET DATA pseudo-APDU, class FF
+isodep 20B0000010 refuse reserved class 20
+
+# Malformed APDUs
+isodep 00A4 refuse too short
+isodep 00A40000 allow header only is a valid case 1
+isodep 00A4000002 allow case 2 with Le 02
+isodep 00A40000023F refuse Lc 2 but one data byte
+isodep 00A40000023F000000 refuse Lc 2 but three bytes follow
+isodep 00A4000000AABB refuse Lc 0 with data
+isodep 00B000000000FF refuse extended length
+isodep zz refuse not hex
+isodep 0 refuse half a byte
+
+# FeliCa
+nfcf 0600FFFF0100 allow Polling, any system
+nfcf 060090B70000 allow Polling, KMT system 90B7
+nfcf 10060123456789ABCDEF011710018000 allow Read Without Encryption
+nfcf 0A0C0123456789ABCDEF allow Request System Code
+nfcf 0600FFFF010 refuse half a byte
+nfcf 0A080123456789ABCDEF refuse Write Without Encryption
+nfcf 0700FFFF0100 refuse length byte too big
+nfcf 0500FFFF0100 refuse length byte too small
+nfcf 06 refuse too short
+
+# Any other tech
+nfca 00A40000023F00 refuse unknown tech

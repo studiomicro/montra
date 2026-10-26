@@ -15,11 +15,12 @@ import DailyStory from './DailyStory.svelte';
 import FeatureTiles from './FeatureTiles.svelte';
 import GreetingHero from './GreetingHero.svelte';
 import HeroScene from './HeroScene.svelte';
+import { stripComments } from '../../../../test/helpers/html';
 
 // SvelteKit-only imports are stubbed for a plain server render (the story's "Matikan" form).
 vi.mock('$app/forms', () => ({ enhance: () => ({ destroy() {} }) }));
 
-const strip = (html: string) => html.replace(/<!--[\s\S]*?-->/g, '');
+const strip = stripComments;
 const html = (component: unknown, props: Record<string, unknown>, locale: 'id' | 'en' = 'id') =>
 	strip(
 		render(I18nHarness, {

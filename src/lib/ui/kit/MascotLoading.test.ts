@@ -4,6 +4,7 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import { cssOf, declarations } from '../../../../test/helpers/css';
 import Harness from '../../../../test/helpers/I18nHarness.svelte';
+import { stripComments } from '../../../../test/helpers/html';
 import MascotLoading from './MascotLoading.svelte';
 
 const FILE = 'src/lib/ui/kit/MascotLoading.svelte';
@@ -28,7 +29,7 @@ describe('MascotLoading (FN-44 Part 4)', () => {
 		const body = html(false);
 		expect(body).not.toContain('nav-loading');
 		expect(body).not.toContain('<svg');
-		expect(body.replace(/<!--[\s\S]*?-->/g, '').trim()).toBe('');
+		expect(stripComments(body).trim()).toBe('');
 	});
 
 	it('in flight: Koko (loading pose, decorative) and the text "Memuat…" / "Loading…"', () => {

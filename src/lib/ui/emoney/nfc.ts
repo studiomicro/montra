@@ -1,23 +1,12 @@
-import { isReadOnly, normaliseHex, type CardTech } from '#lib/shared/emoney/commands';
+import { isReadOnly, type CardTech } from '#lib/shared/emoney/commands';
+import type { CardInfo } from '#lib/shared/emoney/diagnose';
+import { normaliseHex } from '#lib/shared/emoney/hex';
 
 /**
  * FN-58: the page side of the Android app's read-only NFC bridge (native/android-app, MontraNfcPlugin.java). The
  * Capacitor shell injects `window.Capacitor`; in a browser it is absent and `nfcBridge()` is null, so every page that
  * reads cards says the reader needs the Android app instead.
  */
-
-/** What the bridge reports when a card is tapped. Never the card's UID, only its length. */
-export type CardInfo = {
-	techs: string[];
-	uidLength: number;
-	atqa?: string;
-	sak?: number;
-	historicalBytes?: string;
-	hiLayerResponse?: string;
-	systemCode?: string;
-	manufacturer?: string;
-	error?: string;
-};
 
 type Listener = { remove(): Promise<void> };
 
@@ -38,13 +27,6 @@ export function nfcBridge(): NfcBridge | null {
 	const cap = (globalThis as { Capacitor?: CapacitorGlobal }).Capacitor;
 	if (!cap?.isPluginAvailable?.('MontraNfc')) return null;
 	return (cap.Plugins?.MontraNfc as NfcBridge | undefined) ?? null;
-}
-
-/** The tech a tapped card speaks, or null when it is neither an ISO-DEP nor a FeliCa card. */
-export function cardTech(info: CardInfo): CardTech | null {
-	if (info.techs.includes('IsoDep')) return 'isodep';
-	if (info.techs.includes('NfcF')) return 'nfcf';
-	return null;
 }
 
 /** Sends one command, refused here first when it is not a read (the bridge refuses it again natively). */

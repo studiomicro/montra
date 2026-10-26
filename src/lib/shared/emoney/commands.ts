@@ -1,8 +1,12 @@
 /**
  * FN-58 e-money cards: the read-only command rules and the diagnostic probes, shared by the web page and its tests.
- * The Android bridge (native/android-app, MontraNfcPlugin.java) enforces the same lists natively; this copy lets the
- * page refuse a command before it reaches the card and keeps both lists under one test.
+ * The Android bridge (native/android-app, MontraNfcPlugin.java `isReadOnlyCommand`) enforces the same rules natively;
+ * this copy lets the page refuse a command before it reaches the card. Both are checked against one vector file,
+ * `read-only-vectors.txt` (commands.test.ts here, MontraNfcPluginGuardTest.java on Android), and this test also
+ * compares the two instruction lists, so a change to one side without the other fails.
  */
+
+import { hexBytes, normaliseHex } from './hex';
 
 /** The card's connection as the bridge reports it: an ISO 14443-4 APDU link or a FeliCa frame link. */
 export type CardTech = 'isodep' | 'nfcf';
@@ -13,23 +17,42 @@ export const READ_ONLY_INS: readonly number[] = [0xa4, 0xb0, 0xb2, 0xca, 0xc0];
 /** FeliCa command codes that only read: Polling, Request Service, Request Response, Read Without Encryption, Request System Code. */
 export const READ_ONLY_FELICA: readonly number[] = [0x00, 0x02, 0x04, 0x06, 0x0c];
 
-const HEX = /^(?:[0-9A-F]{2})+$/;
-
-/** Upper-case hex without spaces, or null when it is not whole bytes of hex. */
-export function normaliseHex(hex: string): string | null {
-	const clean = hex.replace(/\s+/g, '').toUpperCase();
-	return HEX.test(clean) ? clean : null;
+/**
+ * An inter-industry class byte (ISO 7816-4 §5.4.1): first inter-industry `000x xxxx` or further `01xx xxxx`. Only
+ * under these does an INS keep its standard meaning; under a proprietary class (`1xxx xxxx`, e.g. the 0x80 and 0x90
+ * of bank and DESFire commands) the same INS byte may write or debit, and `001x xxxx` is reserved.
+ */
+function isInterIndustryClass(cla: number): boolean {
+	return (cla & 0xe0) === 0x00 || (cla & 0xc0) === 0x40;
 }
 
-/** True when `hex` is a command the bridge lets through: an APDU with a read-only INS, or a read-only FeliCa frame. */
+/**
+ * A short APDU whose length matches its header (ISO 7816-3 cases 1–4): `CLA INS P1 P2`, `+ Le`, `+ Lc data`, or
+ * `+ Lc data Le`. Extended-length APDUs are refused; no reader needs them.
+ */
+function isShortApdu(b: readonly number[]): boolean {
+	if (b.length === 4 || b.length === 5) return true;
+	const lc = b[4]!;
+	return lc > 0 && (b.length === 5 + lc || b.length === 6 + lc);
+}
+
+/**
+ * True when `hex` is a command the bridge lets through: a well-formed short APDU with an inter-industry class and a
+ * read-only INS, or a FeliCa frame whose length byte is right and whose command code is a read.
+ */
 export function isReadOnly(tech: CardTech, hex: string): boolean {
-	const clean = normaliseHex(hex);
-	if (!clean) return false;
-	const byte = (i: number) => parseInt(clean.slice(i * 2, i * 2 + 2), 16);
-	const length = clean.length / 2;
+	const b = hexBytes(hex);
+	if (!b) return false;
 	if (tech === 'nfcf')
-		return length >= 2 && byte(0) === length && READ_ONLY_FELICA.includes(byte(1));
-	return length >= 4 && READ_ONLY_INS.includes(byte(1));
+		return b.length >= 2 && b[0] === b.length && READ_ONLY_FELICA.includes(b[1]!);
+	if (tech === 'isodep')
+		return (
+			b.length >= 4 &&
+			isInterIndustryClass(b[0]!) &&
+			READ_ONLY_INS.includes(b[1]!) &&
+			isShortApdu(b)
+		);
+	return false;
 }
 
 /** The status word (last two bytes) of an APDU response, e.g. '9000', or null for a too-short answer. */
@@ -39,6 +62,34 @@ export function statusWord(responseHex: string): string | null {
 }
 
 export type Probe = { name: string; tech: CardTech; hex: string };
+
+/** One command sent to a card and what came back (the response hex, or the error when the send failed). */
+export type Exchange = { name: string; command: string; response: string };
+
+/** The message of a failed send as the log shows it (the bridge's reject message, or 'error'). */
+export function errorText(error: unknown): string {
+	return error instanceof Error ? error.message : 'error';
+}
+
+/**
+ * Sends `command` through `transceive` and appends the exchange to `log`. Gives the response hex, or null when the
+ * send failed (the failure is in the log, never thrown), so a reader can stop at the first missing answer.
+ */
+export async function recordExchange(
+	log: Exchange[],
+	name: string,
+	command: string,
+	transceive: (hex: string) => Promise<string>
+): Promise<string | null> {
+	try {
+		const response = await transceive(command);
+		log.push({ name, command, response });
+		return response;
+	} catch (error) {
+		log.push({ name, command, response: errorText(error) });
+		return null;
+	}
+}
 
 /**
  * What "Diagnosa kartu" sends to a tapped card: only standard ISO 7816-4 and FeliCa reads that any reader may send,

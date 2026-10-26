@@ -10,14 +10,15 @@ import CreditCardCard from './CreditCardCard.svelte';
 import MissingSuggestions from './MissingSuggestions.svelte';
 import PeriodTrend from './PeriodTrend.svelte';
 import TrendChart from './TrendChart.svelte';
+import { stripComments, stripTags } from '../../../../test/helpers/html';
 
 // FN-25b components, server-rendered: what each one shows, and that every figure follows the eye button.
 function html(component: unknown, props: Record<string, unknown>, locale: 'id' | 'en' = 'id') {
-	return render(I18nHarness, {
-		props: { component: component as Component<Record<string, unknown>>, props, locale }
-	})
-		.body.replace(/<!--[\s\S]*?-->/g, '')
-		.replaceAll(' ', ' ');
+	return stripComments(
+		render(I18nHarness, {
+			props: { component: component as Component<Record<string, unknown>>, props, locale }
+		}).body
+	).replaceAll(' ', ' ');
 }
 
 afterEach(() => {
@@ -131,8 +132,7 @@ describe('CreditCardCard', () => {
 
 describe('PeriodTrend', () => {
 	const axis = (body: string) =>
-		[...body.matchAll(/<p class="axis[^>]*>([\s\S]*?)<\/p>/g)][0]![1]!
-			.replace(/<[^>]+>/g, ' ')
+		stripTags([...body.matchAll(/<p class="axis[^>]*>([\s\S]*?)<\/p>/g)][0]![1]!, ' ')
 			.trim()
 			.split(/\s{2,}/);
 	const month = { key: '2026-10', date: '2026-10-15', minor: 15 * 100_000_000, partial: false };

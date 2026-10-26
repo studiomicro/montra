@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
-import { E2E_PORT, expectNoHorizontalScroll, simulatedClientIp, waitForHydration } from './helpers';
+import { expectNoHorizontalScroll, simulatedClientIp, waitForHydration } from './helpers';
+import { d1, spaceIdOf } from './d1';
 import { addWallet, freshUser } from './ledger';
 
 /**
@@ -8,34 +8,9 @@ import { addWallet, freshUser } from './ledger';
  * written into the e2e server's local D1 with wrangler (never a remote); the page reads them like any snapshot.
  */
 const SHOTS = process.env.QA_SHOTS ?? 'test-results/qa-shots';
-const PERSIST = `.wrangler/e2e-state-${E2E_PORT}`;
-
-function d1(sql: string): string {
-	return execFileSync(
-		'npx',
-		[
-			'wrangler',
-			'd1',
-			'execute',
-			'montra',
-			'--local',
-			'--persist-to',
-			PERSIST,
-			'--json',
-			'--command',
-			sql
-		],
-		{ encoding: 'utf8' }
-	);
-}
 
 async function seedSnapshots(email: string) {
-	const out = JSON.parse(
-		d1(
-			`select m.space_id as id from space_members m join users u on u.id = m.user_id where u.email = '${email}' limit 1`
-		)
-	) as { results: { id: string }[] }[];
-	const space = out[0]!.results[0]!.id;
+	const space = spaceIdOf(email);
 	const row = (date: string, total: number, partial: number, classes: object | null) =>
 		`('${space}','${date}',${total},'IDR',${partial},1,1,null,1,${classes ? `'${JSON.stringify(classes)}'` : 'null'})`;
 	const M = 1_000_000_00;

@@ -3606,6 +3606,7 @@ export const en: Record<string, string> = {
 		'Send this log only to the Montra team. Long numbers are masked, but the log still holds your card data.',
 	Tersalin: 'Copied',
 	'Salin log': 'Copy log',
+	'Tidak bisa menyalin. Salin log secara manual.': 'Could not copy. Copy the log by hand.',
 	'Saldo KMT': 'KMT balance',
 	'Cocokkan dengan saldo di mesin stasiun. Pembacaan KMT masih diuji.':
 		'Compare it with the balance at a station machine. KMT reading is still being tested.',

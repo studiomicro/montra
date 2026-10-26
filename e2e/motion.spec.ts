@@ -19,6 +19,17 @@ async function open(context: BrowserContext): Promise<Page> {
 	cspLogs.push(collectCspViolations(page));
 	return page;
 }
+
+/**
+ * Plays every animation on the page at a tenth of its speed (Chromium DevTools protocol), for the tests that must
+ * look at an animation while it is still running: a 200–300 ms fade or rise is easily over by the time a slow CI
+ * runner reads it. Durations are unchanged in the app; only the test's clock is stretched.
+ */
+async function slowAnimations(page: Page) {
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Animation.enable');
+	await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.1 });
+}
 test.beforeEach(() => {
 	cspLogs = [];
 });
@@ -95,9 +106,10 @@ test.describe('motion', () => {
 		browser
 	}) => {
 		const { context, page } = await kit(browser, 'no-preference');
+		await slowAnimations(page);
 		await page.getByRole('button', { name: 'Dompet', exact: true }).click();
 		const dialog = page.locator('dialog[open]');
-		// Read at once, inside the 300 ms rise: neither the sheet nor its scrim takes a tap.
+		// Read at once, inside the 300 ms rise (3 s at the test's slowed speed): neither the sheet nor its scrim takes a tap.
 		const during = await dialog.evaluate((el) => ({
 			sheet: getComputedStyle(el).pointerEvents,
 			scrim: getComputedStyle(el, '::backdrop').pointerEvents
@@ -108,9 +120,9 @@ test.describe('motion', () => {
 		await page.mouse.click(option.x + option.width / 2, option.y + option.height / 2);
 		await page.mouse.click(180, 40);
 		await expect(dialog).toHaveCount(1);
-		// Settled: it takes taps again (300 ms rise; the poll only waits for that).
+		// Settled: it takes taps again (300 ms rise, slowed to 3 s; the poll only waits for that).
 		await expect
-			.poll(() => dialog.evaluate((el) => getComputedStyle(el).pointerEvents), { timeout: 2000 })
+			.poll(() => dialog.evaluate((el) => getComputedStyle(el).pointerEvents), { timeout: 10_000 })
 			.toBe('auto');
 		await dialog.getByRole('radio', { name: /Tunai/ }).first().click();
 		await expect(page.locator('dialog[open]')).toHaveCount(0);
@@ -184,6 +196,7 @@ test.describe('motion', () => {
 				storageState: STORAGE_STATE
 			});
 			const page = await open(context);
+			await slowAnimations(page);
 			await page.goto(`${APP_ORIGIN}/pengaturan`);
 			const row = page.locator('main ul.group > li:nth-child(2) a').first();
 			const href = await row.getAttribute('href');
@@ -330,6 +343,7 @@ test.describe('motion', () => {
 				storageState: STORAGE_STATE
 			});
 			const page = await open(context);
+			await slowAnimations(page);
 			await page.goto(`${APP_ORIGIN}/dev/ui`);
 			await waitForHydration(page);
 			await page.getByRole('button', { name: 'Dompet', exact: true }).click();
@@ -346,7 +360,7 @@ test.describe('motion', () => {
 				expect(during.pointer).toBe('none');
 				await expect
 					.poll(() => dialog.evaluate((el) => getComputedStyle(el).pointerEvents), {
-						timeout: 2000
+						timeout: 10_000
 					})
 					.toBe('auto');
 			}

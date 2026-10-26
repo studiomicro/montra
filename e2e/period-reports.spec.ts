@@ -1,14 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
-import {
-	E2E_PORT,
-	expectNoHorizontalScroll,
-	isPhone,
-	simulatedClientIp,
-	waitForHydration
-} from './helpers';
+import { expectNoHorizontalScroll, isPhone, simulatedClientIp, waitForHydration } from './helpers';
+import { d1, spaceIdOf } from './d1';
 import { addWallet, BASE, freshUser, ids, postForm, rp, today } from './ledger';
+import { stripScripts, stripTags } from '../test/helpers/html';
 
 /**
  * FN-53 period reports: the Bulan | Kuartal | Tahun switcher on /alur-uang (with and without JavaScript, Back
@@ -229,26 +224,6 @@ test('Laporan kekayaan: a space without wallets or assets shows the empty state'
 	await context.close();
 });
 
-/** SQL against the e2e server's own local D1 (never a remote), as the QA spec seeds snapshots. */
-function localD1(sql: string): string {
-	return execFileSync(
-		'npx',
-		[
-			'wrangler',
-			'd1',
-			'execute',
-			'montra',
-			'--local',
-			'--persist-to',
-			`.wrangler/e2e-state-${E2E_PORT}`,
-			'--json',
-			'--command',
-			sql
-		],
-		{ encoding: 'utf8' }
-	);
-}
-
 /** A user whose net worth fell this quarter by Rp 124.900.000 (a debt of Rp 10.000.000 paid off). */
 async function fall(browser: Browser, testInfo: TestInfo) {
 	const { context, page, email } = await freshUser(browser, testInfo, 'periode');
@@ -268,20 +243,12 @@ async function fall(browser: Browser, testInfo: TestInfo) {
 		occurredOn: firstOfLastMonth,
 		occurredTime: ''
 	});
-	const space = (
-		JSON.parse(
-			localD1(
-				`select m.space_id as id from space_members m join users u on u.id = m.user_id where u.email = '${email}' limit 1`
-			)
-		) as {
-			results: { id: string }[];
-		}[]
-	)[0]!.results[0]!.id;
+	const space = spaceIdOf(email);
 	// The day before this quarter: Rp 133.929.000 with a debt of Rp 10.000.000 (live now: Rp 9.029.000, no debt).
 	const dayBefore = new Date(Date.UTC(Number(year()), (quarter() - 1) * 3, 1) - 86_400_000)
 		.toISOString()
 		.slice(0, 10);
-	localD1(
+	d1(
 		`insert into net_worth_snapshots(space_id,date,total_minor,currency,partial,created_at,updated_at,deleted_at,seq,classes)
 		values ('${space}','${dayBefore}',13392900000,'IDR',0,1,1,null,1,'{"wallets":14392900000,"debt":-1000000000}')`
 	);
@@ -312,11 +279,7 @@ test('hidden amounts hide every direction word, sign and glyph from the server H
 	const direction =
 		/Naik|Turun|Tetap|Utang berkurang|Utang bertambah|lebih banyak|lebih sedikit|Sama dengan|[↑↓]|[\u2212+]Rp/;
 	for (const path of ['/kekayaan/laporan', '/alur-uang']) {
-		const html = (await (await page.request.get(path)).text()).replace(
-			/<script[\s\S]*?<\/script>/g,
-			''
-		);
-		const text = html.replace(/<[^>]+>/g, ' ');
+		const text = stripTags(stripScripts(await (await page.request.get(path)).text()), ' ');
 		expect(text, path).not.toMatch(direction);
 		expect(text, path).toContain('••••');
 	}

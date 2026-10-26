@@ -151,9 +151,9 @@ export function parseWalletForm(form: FormData, locale: Locale): ParsedWalletFor
 	}
 	const cardValue = (v: number | null | 'invalid') => (card && v !== 'invalid' ? v : null);
 	const emoney = values.type === EMONEY_FORM_TYPE;
+	const issuer = emoney && isEmoneyIssuer(values.emoneyIssuer) ? values.emoneyIssuer : null;
 	if (!emoney && values.emoneyIssuer !== '') errors.emoneyIssuer = EMONEY_FIELD_ONLY;
-	else if (emoney && !isEmoneyIssuer(values.emoneyIssuer))
-		errors.emoneyIssuer = EMONEY_ISSUER_REQUIRED;
+	else if (emoney && issuer === null) errors.emoneyIssuer = EMONEY_ISSUER_REQUIRED;
 	const parsed = walletInputSchema.safeParse({
 		name: cleanText(values.name, WALLET_NAME_MAX_LENGTH),
 		type: emoney ? 'e_wallet' : values.type,
@@ -164,7 +164,7 @@ export function parseWalletForm(form: FormData, locale: Locale): ParsedWalletFor
 		creditLimitMinor: cardValue(limit),
 		statementDay: cardValue(statementDay),
 		dueDay: cardValue(dueDay),
-		emoneyIssuer: emoney && isEmoneyIssuer(values.emoneyIssuer) ? values.emoneyIssuer : null
+		emoneyIssuer: issuer
 	});
 	if (!parsed.success) {
 		for (const issue of parsed.error.issues) {

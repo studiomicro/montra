@@ -110,27 +110,23 @@
 
 	// FN-39 quick picks: each is a plain link (`?tambah=1&dompet=<id>`, the page prefills the form without
 	// JavaScript); with it, a pick fills the name and selects E-wallet in place. Both stay editable.
-	const pick = (choice: WalletQuickPick) => (event: MouseEvent) => {
+	/** Fills the name and the type choice in place; false (the link then opens) while the form is not ready. */
+	function fillPick(event: MouseEvent, pickName: string, type: string): boolean {
 		const name = formEl?.elements.namedItem('name');
-		const type = formEl?.elements.namedItem('type');
-		if (!(name instanceof HTMLInputElement) || !(type instanceof RadioNodeList)) return;
+		const field = formEl?.elements.namedItem('type');
+		if (!(name instanceof HTMLInputElement) || !(field instanceof RadioNodeList)) return false;
 		event.preventDefault();
-		name.value = choice.name;
-		type.value = 'e_wallet';
-		chooseType('e_wallet');
+		name.value = pickName;
+		field.value = type;
+		chooseType(type);
 		name.focus();
-	};
+		return true;
+	}
+	const pick = (choice: WalletQuickPick) => (event: MouseEvent) =>
+		void fillPick(event, choice.name, 'e_wallet');
 	/** FN-58 pass 1: an e-money card quick pick fills the name, the "Kartu e-money" choice and its issuer. */
 	const pickEmoney = (choice: EmoneyQuickPick) => (event: MouseEvent) => {
-		const name = formEl?.elements.namedItem('name');
-		const type = formEl?.elements.namedItem('type');
-		if (!(name instanceof HTMLInputElement) || !(type instanceof RadioNodeList)) return;
-		event.preventDefault();
-		name.value = choice.name;
-		type.value = EMONEY_FORM_TYPE;
-		chooseType(EMONEY_FORM_TYPE);
-		issuer = choice.issuer;
-		name.focus();
+		if (fillPick(event, choice.name, EMONEY_FORM_TYPE)) issuer = choice.issuer;
 	};
 	/** FN-55a: "Kartu kredit" as a quick start: a link without JavaScript, the card type in place with it. */
 	const pickCard = (event: MouseEvent) => {

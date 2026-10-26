@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
+import { stripComments } from '../../../../test/helpers/html';
 import TwoSheets from '../../../../test/fixtures/TwoSheets.svelte';
 
 describe('Sheet', () => {
@@ -8,7 +9,7 @@ describe('Sheet', () => {
 		const { body } = render(TwoSheets);
 		const labels = [...body.matchAll(/<dialog[^>]*aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
 		const headings = [...body.matchAll(/<h2[^>]*\sid="([^"]+)"[^>]*>([\s\S]*?)<\/h2>/g)].map(
-			(m) => [m[1], m[2]?.replace(/<!--[\s\S]*?-->/g, '')]
+			(m) => [m[1], m[2] === undefined ? undefined : stripComments(m[2])]
 		);
 		expect(labels).toHaveLength(2);
 		expect(new Set(labels).size).toBe(2);

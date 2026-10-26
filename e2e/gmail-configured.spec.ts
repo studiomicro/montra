@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
 import {
 	collectCspViolations,
@@ -6,6 +5,7 @@ import {
 	expectNoHorizontalScroll,
 	waitForHydration
 } from './helpers';
+import { d1 } from './d1';
 
 /**
  * FN-19 Gmail, configured states in a real browser (QA cycle 1). Skipped in the default run: it needs the server of
@@ -13,25 +13,6 @@ import {
  * Google: the Google URL is only read, and the browser request to it is stubbed.
  */
 test.skip(!process.env.QA_GMAIL_CONFIGURED, 'needs playwright.gmail-configured.config.ts');
-
-const PERSIST = `.wrangler/e2e-state-${E2E_PORT}`;
-const sql = (command: string) =>
-	execFileSync(
-		'npx',
-		[
-			'wrangler',
-			'd1',
-			'execute',
-			'montra',
-			'--local',
-			'--persist-to',
-			PERSIST,
-			'--json',
-			'--command',
-			command
-		],
-		{ encoding: 'utf8', env: { ...process.env, CI: 'true' } }
-	);
 
 test.describe.configure({ mode: 'serial' });
 
@@ -96,14 +77,14 @@ test('connected: settings, toggle and target persist across reload; 360 px; no h
 	const csp = collectCspViolations(page);
 	// Seed one connection for the signed-up user (a placeholder sealed token; nothing opens it in this test).
 	const user = JSON.parse(
-		sql(
+		d1(
 			'select u.id as uid, s.id as sid from users u join space_members m on m.user_id = u.id join spaces s on s.id = m.space_id order by u.created_at desc limit 1'
 		)
 	) as [{ results: { uid: string; sid: string }[] }];
 	const row = user[0].results[0];
 	expect(row).toBeTruthy();
 	const now = Date.now();
-	sql(
+	d1(
 		`insert into gmail_connections (id, user_id, space_id, status, google_address, encrypted_token, token_nonce, token_key_id, scope, auto_check, checked_through, created_at, updated_at) values ('qa-conn-1', '${row!.uid}', '${row!.sid}', 'connected', 'qa.user@example.test', 'placeholder', '0123456789abcdef', '01234567890', 'https://www.googleapis.com/auth/gmail.readonly', 1, ${Math.floor(now / 1000)}, ${now}, ${now})`
 	);
 	await page.goto('/pengaturan/aplikasi/gmail');

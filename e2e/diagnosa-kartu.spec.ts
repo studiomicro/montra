@@ -33,7 +33,11 @@ test('a KMT tap through the bridge shows the balance and a masked log', async ({
 				MontraNfc: {
 					isAvailable: async () => ({ available: true, enabled: true }),
 					startReading: async () => {
-						setTimeout(() => onCard?.({ techs: ['NfcF'], uidLength: 8, systemCode: '90B7' }), 50);
+						// Two taps in a row: the second arrives while the first is probed and must be ignored.
+						setTimeout(() => {
+							onCard?.({ techs: ['NfcF'], uidLength: 8, systemCode: '90B7' });
+							onCard?.({ techs: ['NfcF'], uidLength: 8, systemCode: '90B7' });
+						}, 50);
 					},
 					stopReading: async () => {},
 					addListener: async (_event: string, cb: (info: unknown) => void) => {
@@ -57,8 +61,9 @@ test('a KMT tap through the bridge shows the balance and a masked log', async ({
 	const log = await page.locator('pre.log').textContent();
 	expect(log).not.toContain('0123456789ABCDEF');
 	expect(log).toContain('CDEF');
-	// Only read frames reached the bridge.
+	// Only read frames reached the bridge, once each: the any-system Polling, the KMT Polling, the balance read.
 	const sent = await page.evaluate(() => (window as unknown as { __sent: string[] }).__sent);
+	expect(sent).toHaveLength(3);
 	for (const hex of sent) expect(['00', '06']).toContain(hex.slice(2, 4));
 });
 
