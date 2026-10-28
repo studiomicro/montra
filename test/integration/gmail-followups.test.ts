@@ -1289,7 +1289,11 @@ describe('red team L1: only a deterministic reading of a confirmed sender names 
 			categoryName: null,
 			saved: false
 		});
-		expect(row!.params).not.toMatch(/HADIAH|Hadiah|91/);
+		// The mail's merchant and amount (Rp 119.000) appear nowhere; the random draft id is left out of the check.
+		const shown = JSON.stringify({ ...params, draftId: null });
+		expect(shown).not.toMatch(/HADIAH|Hadiah/);
+		expect(shown).not.toContain(String(qrisMinor(91)));
+		expect(shown).not.toMatch(/119[.,]?000/);
 		const { notificationText, parseParams } = await import('#lib/shared/notifications');
 		const { createTranslator } = await import('#lib/shared/i18n');
 		expect(
