@@ -25,9 +25,10 @@ import { bounds, crown, GRID, POSES, runs, type Pixel } from '../src/lib/ui/kit/
 
 const LIGHT: Record<Pixel, string> = {
 	o: '#171717', // --ink
-	b: '#6c63f0', // --accent
-	l: '#aea9f7', // color-mix(--accent 55%, --bg)
-	c: '#ffffff', // --bg
+	b: '#3a332f', // --koko-fur
+	l: '#58524e', // color-mix(--koko-fur 85%, --bg)
+	c: '#f6ecd9', // --koko-chest
+	m: '#d9a86c', // --koko-muzzle
 	s: '#3a3a3c', // --ink-2
 	e: '#171717', // --ink
 	g: '#ffffff', // --bg
@@ -56,14 +57,14 @@ export interface IconSpec {
 }
 
 /**
- * Maskable: Koko's box is 20×22 cells × 12 px = 240×264 px, so its corners lie 178 px from the centre — inside the
+ * Maskable: Koko's box is 20×23 cells × 12 px = 240×276 px, so its corners lie 183 px from the centre — inside the
  * 204.8 px safe-zone circle (the centre 80 % of 512 px). test/icons.test.ts checks the generated pixels.
  */
 export const ICONS: IconSpec[] = [
 	{ file: 'icons/icon-192.png', size: 192, cell: 6, background: 'rounded' },
 	{ file: 'icons/icon-512.png', size: 512, cell: 16, background: 'rounded' },
 	{ file: 'icons/icon-maskable-512.png', size: 512, cell: 12, background: 'full' },
-	// 192 × 0.4 = 76.8 px safe radius; Koko's corners lie 14.9 cells from the centre: 5 px cells give 74.3 px.
+	// 192 × 0.4 = 76.8 px safe radius; Koko's corners lie 15.2 cells from the centre: 5 px cells give 76.2 px.
 	{ file: 'icons/icon-maskable-192.png', size: 192, cell: 5, background: 'full' },
 	{ file: 'icons/apple-touch-icon.png', size: 180, cell: 6, background: 'full' }
 ];

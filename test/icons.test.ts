@@ -101,17 +101,17 @@ describe('manifest icons', () => {
 	});
 
 	it.each(ICONS.map((s) => [s.file, s] as const))(
-		'%s shows Koko: purple body, ink outline',
+		'%s shows Koko: black fur, ink outline',
 		(file) => {
 			const png = readPng(`static/${file}`);
 			let accent = 0;
 			let ink = 0;
 			for (let i = 0; i < png.pixels.length; i += 4) {
 				const [r, g, b] = png.pixels.subarray(i, i + 3);
-				if (r === 0x6c && g === 0x63 && b === 0xf0) accent++;
+				if (r === 0x3a && g === 0x33 && b === 0x2f) accent++;
 				if (r === 0x17 && g === 0x17 && b === 0x17) ink++;
 			}
-			// Koko's body covers a good part of the icon; its outline is drawn too.
+			// Koko's fur covers a good part of the icon; its outline is drawn too.
 			expect(accent / (png.width * png.height)).toBeGreaterThan(0.1);
 			expect(ink).toBeGreaterThan(0);
 		}
@@ -184,30 +184,35 @@ describe('Pro icons (FN-46 Part 3)', () => {
 	});
 
 	it.each(PRO_ICONS.map((s) => [s.file, s] as const))(
-		'%s: Koko (purple body, ink outline) with a gold crown above the body',
+		'%s: Koko (black fur, ink outline) with a gold crown on the head, between the ears',
 		(file, spec) => {
 			const png = readPng(`static/${file}`);
 			expect([png.width, png.height]).toEqual([spec.size, spec.size]);
-			let accent = 0;
+			const at = (x: number, y: number) =>
+				png.pixels.subarray((y * png.width + x) * 4, (y * png.width + x) * 4 + 3);
+			const isFur = ([r, g, b]: Uint8Array) => r === 0x3a && g === 0x33 && b === 0x2f;
+			const isCrown = ([r, g, b]: Uint8Array) => r === CROWN[0] && g === CROWN[1] && b === CROWN[2];
+			let fur = 0;
 			let crown = 0;
 			let crownBottom = -1;
-			let accentTop = png.height;
+			let [crownLeft, crownRight] = [png.width, -1];
 			for (let y = 0; y < png.height; y++)
 				for (let x = 0; x < png.width; x++) {
-					const i = (y * png.width + x) * 4;
-					const [r, g, b] = png.pixels.subarray(i, i + 3);
-					if (r === 0x6c && g === 0x63 && b === 0xf0) {
-						accent++;
-						accentTop = Math.min(accentTop, y);
-					}
-					if (r === CROWN[0] && g === CROWN[1] && b === CROWN[2]) {
+					if (isFur(at(x, y))) fur++;
+					if (isCrown(at(x, y))) {
 						crown++;
 						crownBottom = Math.max(crownBottom, y);
+						crownLeft = Math.min(crownLeft, x);
+						crownRight = Math.max(crownRight, x);
 					}
 				}
-			expect(accent / (png.width * png.height)).toBeGreaterThan(0.08);
+			// The highest fur under the crown's columns (the head; the ears stand either side of the crown).
+			let furTop = png.height;
+			for (let y = 0; y < png.height && furTop === png.height; y++)
+				for (let x = crownLeft; x <= crownRight; x++) if (isFur(at(x, y))) furTop = y;
+			expect(fur / (png.width * png.height)).toBeGreaterThan(0.08);
 			expect(crown).toBeGreaterThan(spec.cell * spec.cell * 10);
-			expect(crownBottom).toBeLessThan(accentTop);
+			expect(crownBottom).toBeLessThan(furTop);
 		}
 	);
 

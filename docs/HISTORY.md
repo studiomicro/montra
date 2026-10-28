@@ -6,6 +6,16 @@ Open work: `docs/TASKS.md`. What is verified and how: `docs/ACCEPTANCE.md`.
 
 ## Completed work
 
+- **Super-app landing page and Koko as a Formosan bear (2026-10-28, owner request)** — the public site's home page
+  now leads with "Semua urusan uangmu, satu aplikasi" and a module tree after the owner's reference screenshot:
+  Koko at the hub, a line down to a bar, and an arrow down to six module cards (Catat, Beranda dan Laporan,
+  Anggaran dan Langganan, Kekayaan, Ruang dan Patungan, Tanya dan Agen), each with an isometric scene from the
+  FN-40 kit (new `ask` scene), its app path, a Tersedia/Segera status (Tanya and Agen, Gmail and receipt photos
+  marked as not active yet) and its features. Six columns with connectors from 1280 px; a card grid below. New
+  FAQ entry: a super app here never moves money. The hero phone mock and the separate capture and feature
+  sections are gone. Koko v3 is a Formosan black bear (round ears, tan muzzle, cream chest V) on the same grid and
+  poses, with `--koko-fur`/`--koko-muzzle`/`--koko-chest` tokens per theme; the crown rests between the ears; the
+  favicon, PWA icons and iOS splash screens are regenerated.
 - **FN-19b Gmail follow-ups (2026-10-28)** — push per captured payment (new FN-24 kind `gmail_payment`, 5 single
   pushes per WIB day then one grouped push; merchant and amount only for authenticated deterministic captures),
   opt-in auto-save (expense only, deterministic parser, registry domain, Gmail DMARC + aligned DKIM pass, caps

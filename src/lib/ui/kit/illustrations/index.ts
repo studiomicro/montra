@@ -1,4 +1,5 @@
 import type { Component } from 'svelte';
+import Ask from './Ask.svelte';
 import Broken from './Broken.svelte';
 import Budget from './Budget.svelte';
 import Calendar from './Calendar.svelte';
@@ -16,6 +17,7 @@ import Welcome from './Welcome.svelte';
  * Rive file per name can replace a scene behind the same name.
  */
 export const SCENES = {
+	ask: Ask,
 	broken: Broken,
 	budget: Budget,
 	calendar: Calendar,

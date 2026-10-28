@@ -40,6 +40,48 @@ export const en: Record<string, string> = {
 	'Pembayaranmu tercatat sendiri dari email, suara, struk dan mutasi bank.':
 		'Your payments record themselves from e-mail, voice, receipts and bank statements.',
 	// FN-32 public site: chrome, landing page, blog, install guide, legal drafts.
+	// Super-app landing page (2026-10-28): the module tree.
+	'{app} — super app keuangan untuk Indonesia': '{app} — the money super app for Indonesia',
+	'Catat, lihat, atur, miliki, bagi dan tanya: semua urusan uangmu dalam satu aplikasi. Bukan bank, tidak memindahkan uang.':
+		'Record, see, plan, own, share and ask: all your money matters in one app. Not a bank, and it never moves money.',
+	'Super app keuangan untuk Indonesia': 'The money super app for Indonesia',
+	'Semua urusan uangmu, satu aplikasi': 'All your money matters, one app',
+	'Catat, lihat, atur, miliki, bagi dan tanya. Enam modul, satu akun, satu catatan.':
+		'Record, see, plan, own, share and ask. Six modules, one account, one record.',
+	'Satu aplikasi, semua urusan uang': 'One app, every money matter',
+	'Modul di dalam {app}': 'The modules inside {app}',
+	'menemanimu di setiap modul': 'keeps you company in every module',
+	segera: 'soon',
+	Mencatat: 'Record',
+	'Ucapkan, impor atau teruskan: setiap pembayaran masuk ke satu catatan yang kamu periksa.':
+		'Say it, import it or forward it: every payment lands in one record that you check.',
+	Melihat: 'See',
+	'Beranda dan Laporan': 'Home and Reports',
+	'Satu angka besar lebih dulu, lalu ke mana uangnya pergi bulan ini, dalam rupiah.':
+		'One big number first, then where the money went this month, in rupiah.',
+	'Hari beruntun': 'Streak',
+	Mengatur: 'Plan',
+	'Anggaran dan Langganan': 'Budgets and Subscriptions',
+	'Batas per kategori, langganan yang berjalan dan pengingat sebelum tagihan jatuh tempo.':
+		'Limits per category, running subscriptions and a reminder before a bill is due.',
+	'Anggaran per kategori': 'Budget per category',
+	Memiliki: 'Own',
+	'Total aset dikurangi utang, termasuk barang dan koleksi yang kamu simpan.':
+		'Total assets minus debts, including the things and collectibles you keep.',
+	'Dompet dan rekening': 'Wallets and accounts',
+	Berbagi: 'Share',
+	'Ruang dan Patungan': 'Spaces and Split bills',
+	'Ruang pribadi untukmu, ruang bersama sampai lima orang, dan patungan yang tercatat sampai lunas.':
+		'A personal space for you, shared spaces for up to five people, and split bills tracked until they are settled.',
+	'Pemilik dan Anggota': 'Owner and Members',
+	Bertanya: 'Ask',
+	'Tanya dan Agen': 'Ask and Agent',
+	'Asisten yang menjawab dari catatanmu sendiri, dan agen yang menyusun laporan untukmu.':
+		'An assistant that answers from your own records, and an agent that writes reports for you.',
+	'Laporan agen': 'Agent reports',
+	'Super app berarti bisa membayar dari sini?': 'Does super app mean I can pay from here?',
+	'Tidak. Semua urusan mencatat uang ada dalam satu aplikasi: mencatat, anggaran, kekayaan, ruang bersama dan asisten. Pembayaran tetap kamu lakukan di bank atau dompet digitalmu; kami tidak pernah memindahkan uang.':
+		'No. Everything about keeping track of money is in one app: recording, budgets, net worth, shared spaces and the assistant. You still pay with your bank or e-wallet; we never move money.',
 	'Langsung ke isi': 'Skip to content',
 	'Navigasi situs': 'Site navigation',
 	Pasang: 'Install',

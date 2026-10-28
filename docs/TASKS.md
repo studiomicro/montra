@@ -19,6 +19,11 @@ verification work that can run in a session.
 ### Owner decisions (before FN-00/FN-01)
 
 - [ ] **You** — Product name, domain, logo and brand hue (design system v1 uses blue `#1F6FEB` as a placeholder).
+      2026-10-28: the owner named montra.id for the landing page and made Koko a Formosan black bear; the
+      domain's DNS and the site host binding are not set up yet.
+- [ ] **You** — Super-app landing and Koko v3 look check on staging: the module tree at desktop and phone width,
+      light and dark; Koko the bear in the app (sign-in wave, empty states, loading walk), the installed app icon
+      and the iOS splash screen.
 - [x] **You** — Local-first scope: decided 2026-10-07, server-first like the earlier project with an offline write queue; guest
       mode and full local-first deferred.
 - [x] **You** — Google sign-in: decided 2026-10-07, e-mail + password only.
