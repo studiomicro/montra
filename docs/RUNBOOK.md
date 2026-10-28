@@ -574,6 +574,22 @@ column"; if an apply stops after the ALTER but before wrangler records 0049, che
 `emoney_issuer`, record `0049_emoney_cards.sql` in `d1_migrations` by hand as for 0037, and re-run. Rollback is the
 bookmark restore. No binding, secret or cron change. Locally: `npm run db:migrate:local` only.
 
+`0050_gmail_followups` (FN-19b, 2026-10-28) rebuilds `notification_prefs` and `space_notifications` for the new
+space kind `gmail_payment` (every row copied with the same ids and `seq`, every index recreated; no table references
+either), then adds by `ALTER TABLE … ADD` the opt-in Gmail auto-save columns on `gmail_connections` (`auto_save` 0,
+`auto_save_wallet_id` ON DELETE SET NULL, `auto_save_day`, `auto_saves`), `gmail_scans.undone_at` and
+`gmail_mail.reread_at` (the "Baca ulang" mark). Take the Time
+Travel bookmark and record `select count(*)` of `notification_prefs`, `space_notifications` and `gmail_connections`
+BEFORE applying it remotely; apply through `wrangler d1 migrations apply`, compare the counts, then deploy the app and
+jobs Workers (old code ignores the new columns and kind; only the new code creates a `gmail_payment` row). The
+rebuilds are re-runnable (a leftover copy is dropped); a re-run stops at the first ALTER with "duplicate column": if an
+apply stops after the ALTERs but before wrangler records 0050, check `pragma table_info(gmail_scans)` lists
+`undone_at`, record `0050_gmail_followups.sql` in `d1_migrations` by hand as for 0037, and re-run. Rollback is the
+bookmark restore (the rebuilt tables are a superset, so old code also runs against them). Auto-save stays inert in
+production until a confirmed sender domain is added to `src/lib/shared/inbound/sender-domains.ts` from the owner's
+redacted samples (`npm run compat:senders` reads `.superpowers/ref/samples/mail/`). No binding, secret or cron
+change. Locally: `npm run db:migrate:local` only.
+
 **Logs:** the app Worker has Workers Logs on but its invocation logs off (`observability.logs.invocation_logs:
 false`): they record every full request URL, invite tokens included (FN-03 red team L3). `src/hooks.server.ts`
 writes one `request` line per request instead (method, route id or the path with any invite token masked, status,

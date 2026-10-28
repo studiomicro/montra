@@ -17,8 +17,8 @@ import { upsertMail, type MailRecord, type Recipient } from './repo';
 
 /**
  * The one insert path of an e-mail capture (FN-19 PRD § 9), shared by the inbound Worker (deterministic parsers)
- * and the jobs Worker (AI reads). A capture is always a DRAFT for review in Kotak masuk (owner decision 1:
- * nothing from mail is auto-saved), source `gmail` (owner decision 2, shown as "E-mail"), no wallet (the user
+ * and the jobs Worker (AI reads). A capture is always a DRAFT for review in Kotak masuk (owner decision 1; FN-19b's
+ * opt-in Gmail auto-save then saves some through `saveDrafts`, gmail/autosave.ts), source `gmail` (owner decision 2, shown as "E-mail"), no wallet (the user
  * sets it there), never `is_demo`. FN-20: the title is the cleaned merchant name and the category the one the
  * space's rules, history or the shared dictionary name (deterministic only: no AI call without a user session);
  * none is invented for an unknown merchant. The draft, its seq bump and the ledger row are one `db.batch`.

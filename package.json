@@ -29,6 +29,7 @@
 		"db:seed:local": "node scripts/seed-local.ts",
 		"db:reset:local": "node scripts/reset-local.ts",
 		"compat:statements": "node scripts/compat-statements.ts",
+		"compat:senders": "node scripts/compat-senders.ts",
 		"compat:receipts": "node scripts/compat-receipts.ts",
 		"compat:tanya": "node scripts/compat-tanya.ts",
 		"compat:agent": "node scripts/compat-agent.ts",

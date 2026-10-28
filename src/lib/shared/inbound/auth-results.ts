@@ -35,24 +35,82 @@ export interface AuthResults {
 /** Longest header value parsed; a real Authentication-Results header is a few hundred bytes. */
 const MAX_HEADER = 4096;
 
-/** `value` without RFC 5322 comments (nested parentheses; quoted strings kept). */
-function stripComments(value: string): string {
-	let out = '';
+/**
+ * The header split into its `;`-separated parts per RFC 8601 / RFC 5322: a `;` separates only outside quoted
+ * strings (with backslash escapes) and nested comments. Each part is a list of words (whitespace-separated outside
+ * quotes and comments; whitespace around `=` dropped; comments removed; a quoted string kept with its quotes,
+ * unescaped inside). `suspicious` is set when a quoted string or a comment carries `;` or text that looks like a
+ * result or a property (`dmarc=`, `header.from=` …): a sender-chosen value (an `smtp.mailfrom` local part) trying
+ * to pass for a result (red team M2). Null when the quoting or the comment nesting is unbalanced.
+ */
+function tokenize(value: string): { parts: string[][]; suspicious: boolean } | null {
+	const parts: string[][] = [];
+	let words: string[] = [];
+	let word = '';
+	let quoted: string | null = null;
+	let comment = '';
 	let depth = 0;
-	let quoted = false;
+	let suspicious = false;
+	const looksInjected = (text: string) =>
+		/;|\b(?:dkim|dmarc|spf|arc|auth|iprev|dkim-atps)\s*=|\b(?:header|smtp|policy|body)\s*\.\s*[a-z-]+\s*=/i.test(
+			text
+		);
+	const endWord = () => {
+		if (word !== '') words.push(word);
+		word = '';
+	};
 	for (let i = 0; i < value.length; i++) {
 		const c = value[i] as string;
-		if (c === '\\' && i + 1 < value.length) {
-			if (depth === 0) out += c + value[i + 1];
-			i++;
+		if (quoted !== null) {
+			if (c === '\\') {
+				if (i + 1 >= value.length) return null;
+				quoted += value[++i];
+			} else if (c === '"') {
+				if (looksInjected(quoted)) suspicious = true;
+				word += `"${quoted}"`;
+				quoted = null;
+			} else quoted += c;
 			continue;
 		}
-		if (depth === 0 && c === '"') quoted = !quoted;
-		if (!quoted && c === '(') depth++;
-		else if (!quoted && c === ')' && depth > 0) depth--;
-		else if (depth === 0) out += c;
+		if (depth > 0) {
+			if (c === '\\') {
+				if (i + 1 >= value.length) return null;
+				comment += value[++i];
+			} else if (c === '(') {
+				depth++;
+				comment += c;
+			} else if (c === ')') {
+				depth--;
+				if (depth === 0) {
+					if (looksInjected(comment)) suspicious = true;
+					comment = '';
+				} else comment += c;
+			} else if (c === '"') {
+				// A quote inside a comment is plain text, but one that tries to reach past it is suspicious.
+				comment += c;
+			} else comment += c;
+			continue;
+		}
+		if (c === '"') quoted = '';
+		else if (c === '(') {
+			depth = 1;
+			endWord();
+		} else if (c === ')') return null;
+		else if (c === ';') {
+			endWord();
+			parts.push(words);
+			words = [];
+		} else if (/\s/.test(c)) {
+			// Whitespace around "=" joins: `header.from = x` is one word.
+			const rest = /^\s*(.?)/.exec(value.slice(i));
+			if (word.endsWith('=') || rest?.[1] === '=') continue;
+			endWord();
+		} else word += c;
 	}
-	return out;
+	if (quoted !== null || depth > 0) return null;
+	endWord();
+	parts.push(words);
+	return { parts, suspicious };
 }
 
 const DOMAIN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
@@ -66,33 +124,75 @@ function domainOf(value: string): string | null {
 
 /** One Authentication-Results value parsed, or null when it is not one. */
 export function parseAuthResults(value: string): AuthResults | null {
+	return parseStrict(value)?.result ?? null;
+}
+
+/** What the strict reading adds: every `dmarc` result seen, and whether anything looked forged or unexpected. */
+interface StrictAuth {
+	result: AuthResults;
+	/** The authserv-id exactly as written (case kept). */
+	rawAuthservId: string;
+	dmarcResults: string[];
+	/**
+	 * A quoted string or comment carried result-like text, or a word was neither `method=result` nor
+	 * `ptype.property=value` (or the version after the authserv-id), or a property was given twice.
+	 */
+	unexpected: boolean;
+}
+
+/** The domain of a property value: a bare token, or one whole quoted string. */
+const propertyDomain = (v: string) =>
+	domainOf(v.startsWith('"') && v.endsWith('"') ? v.slice(1, -1) : v);
+
+/** RFC 8601 reading: parts split by the tokenizer, never by a raw `;` (red team M2). */
+function parseStrict(value: string): StrictAuth | null {
 	if (value.length > MAX_HEADER) return null;
-	const parts = stripComments(value.replace(/\r?\n[ \t]*/g, ' '))
-		.split(';')
-		.map((p) => p.trim());
-	const head = (parts[0] ?? '').split(/\s+/)[0]?.toLowerCase() ?? '';
-	if (!/^[a-z0-9.-]{1,253}$/.test(head)) return null;
-	const result: AuthResults = { authservId: head, dmarc: null, dmarcFrom: null, dkimPass: [] };
-	for (const part of parts.slice(1)) {
-		const m = /^(dkim|dmarc|spf|arc)\s*=\s*([a-z]+)\b(.*)$/i.exec(part);
-		if (!m) continue;
+	const tokens = tokenize(value.replace(/\r?\n[ \t]*/g, ' '));
+	if (!tokens) return null;
+	const [head = [], ...resinfos] = tokens.parts;
+	const rawAuthservId = head[0] ?? '';
+	const authservId = rawAuthservId.toLowerCase();
+	if (!/^[a-z0-9.-]{1,253}$/.test(authservId)) return null;
+	let unexpected =
+		tokens.suspicious || head.length > 2 || (head.length === 2 && !/^\d+$/.test(head[1] as string));
+	const result: AuthResults = { authservId, dmarc: null, dmarcFrom: null, dkimPass: [] };
+	const dmarcResults: string[] = [];
+	for (const words of resinfos) {
+		if (words.length === 0) continue;
+		const m = /^([a-z0-9-]+)=([a-z]+)$/i.exec(words[0] as string);
+		if (!m) {
+			// `none` (no result at all) is a valid resinfo; anything else is not.
+			if (!(words.length === 1 && (words[0] as string).toLowerCase() === 'none')) unexpected = true;
+			continue;
+		}
 		const method = (m[1] as string).toLowerCase();
 		const outcome = (m[2] as string).toLowerCase();
 		const props = new Map<string, string>();
-		for (const p of (m[3] as string).matchAll(/([a-z]+\.[a-z-]+)\s*=\s*("[^"]*"|[^\s;]+)/gi))
-			props.set((p[1] as string).toLowerCase(), p[2] as string);
-		if (method === 'dmarc' && result.dmarc === null) {
-			result.dmarc = outcome;
-			const from = props.get('header.from');
-			result.dmarcFrom = from ? domainOf(from) : null;
+		for (const w of words.slice(1)) {
+			const p = /^([a-z0-9-]+(?:\.[a-z0-9-]+)?)=(.+)$/i.exec(w);
+			if (!p) {
+				unexpected = true;
+				continue;
+			}
+			const key = (p[1] as string).toLowerCase();
+			if (props.has(key)) unexpected = true;
+			props.set(key, p[2] as string);
+		}
+		if (method === 'dmarc') {
+			dmarcResults.push(outcome);
+			if (result.dmarc === null) {
+				result.dmarc = outcome;
+				const from = props.get('header.from');
+				result.dmarcFrom = from ? propertyDomain(from) : null;
+			}
 		}
 		if (method === 'dkim' && outcome === 'pass') {
 			const d = props.get('header.d') ?? props.get('header.i');
-			const domain = d ? domainOf(d) : null;
+			const domain = d ? propertyDomain(d) : null;
 			if (domain) result.dkimPass.push(domain);
 		}
 	}
-	return result;
+	return { result, rawAuthservId, dmarcResults, unexpected };
 }
 
 /** The topmost Authentication-Results header, parsed, when it is the one `authservId` names; else null. */
@@ -144,4 +244,34 @@ export function mailTrust(input: {
 	if (from === input.ownerEmail.trim().toLowerCase()) return 'forwarded';
 	if (authenticatedFrom(auth, from) && input.allowlisted(fromDomain)) return 'verified';
 	return 'unverified';
+}
+
+/** FN-19b: the authserv-id Gmail writes on the `Authentication-Results` header it prepends to received mail. */
+export const GMAIL_AUTHSERV_ID = 'mx.google.com';
+
+/**
+ * FN-19b (red team M1): whether Gmail itself authenticated a mail as coming from `domain`, for auto-save only. The
+ * TOPMOST `Authentication-Results` header must be Gmail's (`mx.google.com`; a sender cannot place a header above
+ * the one Gmail prepends), with DMARC pass whose `header.from` is exactly `domain`, and a passing DKIM signature
+ * aligned with the From address, whose own domain must be `domain`. Anything else (no header, another authserv-id
+ * on top, spf/dmarc fail, a misaligned DKIM) is false: the capture stays a draft. The capture's trust label stays
+ * `unverified` regardless (owner decision 2026-10-13).
+ */
+export function gmailSenderAuthenticated(
+	headers: readonly MailHeader[],
+	fromAddress: string,
+	domain: string | null
+): boolean {
+	if (!domain) return false;
+	const top = headers.find((h) => h.key === 'authentication-results');
+	if (!top) return false;
+	// Red team M2: fail closed on anything a sender could have shaped inside Gmail's own header: exactly Gmail's
+	// authserv-id, nothing unexpected or result-like in quotes or comments, exactly one DMARC result, a pass.
+	const strict = parseStrict(top.value);
+	if (!strict || strict.unexpected || strict.rawAuthservId !== GMAIL_AUTHSERV_ID) return false;
+	if (strict.dmarcResults.length !== 1 || strict.dmarcResults[0] !== 'pass') return false;
+	const auth = strict.result;
+	if (auth.dmarcFrom !== domain) return false;
+	if (domainOf(fromAddress.trim().toLowerCase()) !== domain) return false;
+	return authenticatedFrom(auth, fromAddress);
 }

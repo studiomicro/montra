@@ -3573,5 +3573,90 @@ export const en: Record<string, string> = {
 	'Cocokkan dengan saldo di mesin stasiun. Pembacaan KMT masih diuji.':
 		'Compare it with the balance at a station machine. KMT reading is still being tested.',
 	'Baca kartu e-money': 'Read an e-money card',
-	'Tempelkan kartu ke ponsel lewat NFC': 'Hold the card to the phone over NFC'
+	'Tempelkan kartu ke ponsel lewat NFC': 'Hold the card to the phone over NFC',
+	// FN-19b Gmail follow-ups
+	'{n} dibatalkan': '{n} cancelled',
+	'{n} dibatalkan, {skipped} dilewati karena sudah kamu ubah':
+		'{n} cancelled, {skipped} skipped because you changed them',
+	'{n} pembayaran baru dari Gmail': '{n} new payments from Gmail',
+	'{n} tersimpan': '{n} saved',
+	'{n} tersimpan, {incomplete} belum lengkap tetap di Kotak masuk':
+		'{n} saved, {incomplete} incomplete stay in the Inbox',
+	'Ada draf yang berubah di tab lain. Muat ulang lalu coba lagi.':
+		'A draft changed in another tab. Reload and try again.',
+	'Atur pemberitahuan perangkat': 'Device notification settings',
+	'Batas jumlah transaksi ruang ini sudah tercapai.':
+		'This space has reached its transaction limit.',
+	'Belum ada transaksi dari Gmail': 'No transactions from Gmail yet',
+	'Belum terhubung': 'Not connected',
+	'Beri tahu di perangkat ini: mati': 'Notify on this device: off',
+	'Beri tahu di perangkat ini: nyala (paling banyak 5 per hari, lalu satu ringkasan)':
+		'Notify on this device: on (at most 5 a day, then one summary)',
+	'Buka di Gmail': 'Open in Gmail',
+	'Buka pengaturan Gmail': 'Open Gmail settings',
+	'Dari Gmail': 'From Gmail',
+	'Draf dari pemindaian ini dibuang dan transaksi yang tersimpan darinya dihapus (sampai 7 hari setelah pemindaian). Transaksi yang sudah kamu ubah tetap ada.':
+		'Drafts from this scan are discarded and transactions saved from it are deleted (up to 7 days after the scan). Transactions you changed stay.',
+	Duplikat: 'Duplicate',
+	'Hubungkan Gmail dulu untuk melihat pembayaran yang dibawanya.':
+		'Connect Gmail first to see the payments it brings in.',
+	'Kamu bukan anggota ruang tujuan lagi. Pilih ruang lain dulu.':
+		'You are no longer a member of the target space. Choose another space first.',
+	'Kembali ke Gmail': 'Back to Gmail',
+	'Lihat ke belakang {n} hari': 'Look back {n} days',
+	'Matikan pemberitahuan': 'Turn off notifications',
+	'Matikan simpan otomatis': 'Turn off auto-save',
+	'Nyalakan pemberitahuan': 'Turn on notifications',
+	'Nyalakan simpan otomatis': 'Turn on auto-save',
+	'Pembayaran {amount} di {merchant}': 'Paid {amount} at {merchant}',
+	'Pembayaran {amount} di {merchant}, {category}': 'Paid {amount} at {merchant}, {category}',
+	'Pembayaran dari Gmail': 'Payments from Gmail',
+	'Pembayaran keluar sampai Rp 5.000.000 dari pengirim yang sudah dikonfirmasi langsung disimpan ke dompet pilihanmu, paling banyak 20 per hari. Bacaan AI, uang masuk, duplikat dan yang belum berkategori tetap masuk Kotak masuk. Semua bisa diurungkan per pemindaian.':
+		'Outgoing payments up to Rp 5.000.000 from confirmed senders are saved straight to the wallet you choose, at most 20 a day. AI readings, money in, duplicates and uncategorised ones still go to the Inbox. Everything can be undone per scan.',
+	'Pembayaran yang ditemukan pemeriksaan Gmail dalam 90 hari terakhir akan tampil di sini.':
+		'Payments Gmail checks found in the last 90 days will show here.',
+	Pemberitahuan: 'Notifications',
+	'Pemberitahuan pembayaran dari Gmail dimatikan.':
+		'Notifications for payments from Gmail turned off.',
+	'Pemberitahuan pembayaran dari Gmail dinyalakan.':
+		'Notifications for payments from Gmail turned on.',
+	Pemeriksaan: 'Check',
+	'Pemeriksaan otomatis {date}': 'Automatic check {date}',
+	'Pemindaian itu tidak ditemukan. Muat ulang halaman.':
+		'That scan was not found. Reload the page.',
+	'Pilih dompet': 'Choose a wallet',
+	'Pilih dompet rupiah dari ruang tujuan.': 'Choose a rupiah wallet of the target space.',
+	'Saat pemeriksaan Gmail menemukan pembayaran baru': 'When a Gmail check finds a new payment',
+	'Sebagian sudah pernah disimpan. Muat ulang lalu coba lagi.':
+		'Some were already saved. Reload and try again.',
+	'Simpan ke dompet': 'Save to wallet',
+	'Simpan otomatis': 'Auto-save',
+	'Simpan otomatis aktif untuk pengirim yang sudah dikonfirmasi: belum ada':
+		'Auto-save works for confirmed senders: none yet',
+	'Simpan otomatis dimatikan.': 'Auto-save turned off.',
+	'Simpan otomatis dinyalakan.': 'Auto-save turned on.',
+	'Simpan otomatis: mati': 'Auto-save: off',
+	'Simpan otomatis: nyala': 'Auto-save: on',
+	'Simpan semua yang lengkap': 'Save all complete ones',
+	'Sudah diurungkan': 'Already undone',
+	'Tambahkan dompet rupiah di ruang tujuan dulu.': 'Add a rupiah wallet to the target space first.',
+	Tersimpan: 'Saved',
+	'Tersimpan otomatis': 'Saved automatically',
+	'Tersimpan: {amount}': 'Saved: {amount}',
+	'Tidak ada draf yang menunggu dari pemindaian ini.': 'No drafts from this scan are waiting.',
+	'Transaksi dari Gmail': 'Transactions from Gmail',
+	'Transaksi dari Gmail tidak bisa dimuat. Periksa koneksi lalu coba lagi.':
+		'Transactions from Gmail could not be loaded. Check your connection and try again.',
+	'Uang masuk {amount} dari {merchant}': 'Received {amount} from {merchant}',
+	'Uang masuk {amount} dari {merchant}, {category}':
+		'Received {amount} from {merchant}, {category}',
+	'Urungkan pemindaian': 'Undo scan',
+	'Yang dibawa Gmail, per hari dan per pemeriksaan': 'What Gmail brought in, per day and per check',
+	Biarkan: 'Leave as is',
+	'Dompet untuk yang belum punya': 'Wallet for those without one',
+	'Kategori untuk pengeluaran yang belum punya': 'Category for expenses without one',
+	'Pembayaran baru dari Gmail': 'New payment from Gmail',
+	'Pengaturan pemberitahuan berubah di tab lain. Muat ulang halaman lalu coba lagi.':
+		'Notification settings changed in another tab. Reload the page and try again.',
+	'Pilih kategori pengeluaran dari daftar.': 'Choose an expense category from the list.'
 };

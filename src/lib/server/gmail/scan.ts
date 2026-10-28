@@ -166,12 +166,12 @@ export async function processGmailCheck(
 		scan.listed + ids.length >= GMAIL_SCAN_MAX_IDS;
 	const [inserted, advanced] = await db.batch([
 		// Columns in table order: id, connection_id, user_id, space_id, gmail_id, received_at, status, reason,
-		// trust, parser, sender_domain, subject, draft_id, scan_id, updated_at.
+		// trust, parser, sender_domain, subject, draft_id, scan_id, updated_at, reread_at (FN-19b).
 		db
 			.insert(gmailMail)
 			.select(
 				sql`select lower(hex(randomblob(16))), c.id, c.user_id, c.space_id, j.value, ${now}, 'listed',
-					null, null, null, null, null, null, ${scan.id}, ${now}
+					null, null, null, null, null, null, ${scan.id}, ${now}, null
 				from json_each(${JSON.stringify(ids)}) j join gmail_connections c on c.id = ${conn.id}
 				where c.status = 'connected'`
 			)

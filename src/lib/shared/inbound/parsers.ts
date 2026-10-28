@@ -4,6 +4,7 @@ import { findMoneyMentions, MAX_AMOUNT_MINOR, parseMoneyAmount } from '../money-
 import { cleanText, maskAccountNumbers } from '../text.ts';
 import { TITLE_MAX_LENGTH } from '../transactions.ts';
 import type { InboundParser } from './address.ts';
+import { SENDER_DOMAINS, type SenderDomain } from './sender-domains.ts';
 
 /**
  * Deterministic readers of payment notification mails (FN-19 PRD § 6), tried before any AI. Each knows one mail
@@ -241,10 +242,33 @@ export const MAIL_PARSERS: readonly MailParser[] = [
 	}
 ];
 
-/** The parser that reads mail from `domain`, or null. */
-export function parserFor(domain: string | null): MailParser | null {
+/**
+ * The fictional fixture domains the parsers read (tests and local review only), tagged `fixture: true`: they are
+ * never a confirmed sender (sender-domains.ts), so Gmail auto-save never trusts one.
+ */
+export const FIXTURE_SENDER_DOMAINS: readonly {
+	domain: string;
+	parserId: MailParser['id'];
+	fixture: true;
+}[] = MAIL_PARSERS.flatMap((p) =>
+	p.domains.map((domain) => ({ domain, parserId: p.id, fixture: true as const }))
+);
+
+/**
+ * The parser that reads mail from `domain` (exact, case-folded match), or null: a confirmed registry domain
+ * (FN-19b, `registry` defaults to SENDER_DOMAINS) names its parser by id; else a fixture domain. A look-alike
+ * (`evil-<domain>`, `<domain>.evil.tld`) matches nothing and goes to the AI path; a registry domain whose mail
+ * does not fit its parser's shape also does (`parsePaymentMail` returns null), never a guessed amount.
+ */
+export function parserFor(
+	domain: string | null,
+	registry: readonly SenderDomain[] = SENDER_DOMAINS
+): MailParser | null {
 	if (!domain) return null;
-	return MAIL_PARSERS.find((p) => p.domains.includes(domain)) ?? null;
+	const d = domain.toLowerCase();
+	const confirmed = registry.find((e) => e.domain === d);
+	if (confirmed) return MAIL_PARSERS.find((p) => p.id === confirmed.parserId) ?? null;
+	return MAIL_PARSERS.find((p) => p.domains.includes(d)) ?? null;
 }
 
 /** Whether `domain` is a sender some parser reads (the allowlist of `verified` trust). */

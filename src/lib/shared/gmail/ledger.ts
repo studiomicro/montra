@@ -94,3 +94,22 @@ export const GMAIL_SCAN_STALE_MS = 6 * 60 * 60 * 1000;
 export const GMAIL_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 /** Rows "Baca ulang yang tertunda" re-queues at most. */
 export const GMAIL_REREAD_MAX = 200;
+
+// ---- FN-19b follow-ups (docs/features/fn-19b-gmail-followups/PRD.md) ----------------------------------------------
+
+/** Single `gmail_payment` pushes per recipient per WIB day; past it, one grouped notification per space and day. */
+export const GMAIL_PUSHES_PER_DAY = 5;
+/** Auto-saves per connection per WIB day (burst cap); the rest stay drafts for review. */
+export const GMAIL_AUTOSAVE_PER_DAY = 20;
+/** Largest capture auto-save writes: Rp 5.000.000 in IDR minor units (owner answer 4). */
+export const GMAIL_AUTOSAVE_MAX_MINOR = 500_000_000;
+/** "Urungkan pemindaian" still tombstones a scan's saved transactions this long after the scan finished. */
+export const GMAIL_UNDO_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+/** Rows one page of "Transaksi dari Gmail" lists. */
+export const GMAIL_REVIEW_PAGE_SIZE = 50;
+/** Undo requests per user per throttle window (`gmail-undo`). */
+export const GMAIL_UNDO_PER_WINDOW = 10;
+/** Auto-save setting changes per user per throttle window (`gmail-autosave-setting`). */
+export const GMAIL_AUTOSAVE_SETTING_PER_WINDOW = 10;
+/** "Beri tahu di perangkat ini" changes per user per throttle window (`gmail-notify-setting`). */
+export const GMAIL_NOTIFY_SETTING_PER_WINDOW = 10;

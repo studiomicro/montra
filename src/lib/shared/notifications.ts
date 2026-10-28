@@ -18,7 +18,8 @@ export const NOTIFICATION_KINDS = [
 	'bill_reminder',
 	'daily_nudge',
 	'close_reminder',
-	'weekly_summary'
+	'weekly_summary',
+	'gmail_payment'
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
@@ -27,7 +28,8 @@ export const SPACE_NOTIFICATION_KINDS = [
 	'budget_80',
 	'budget_100',
 	'goal_milestone',
-	'bill_reminder'
+	'bill_reminder',
+	'gmail_payment'
 ] as const;
 export type SpaceNotificationKind = (typeof SPACE_NOTIFICATION_KINDS)[number];
 /** Kinds about the user (stored in `user_notifications`, deleted with the account). */
@@ -70,6 +72,10 @@ export const NOTIFICATION_KIND_LABELS: Record<NotificationKind, { label: string;
 	weekly_summary: {
 		label: msg('Ringkasan mingguan'),
 		hint: msg('Senin pagi: pengeluaran minggu lalu')
+	},
+	gmail_payment: {
+		label: msg('Pembayaran dari Gmail'),
+		hint: msg('Saat pemeriksaan Gmail menemukan pembayaran baru')
 	}
 };
 
@@ -139,8 +145,39 @@ interface BillGroupParams {
 	date: string;
 }
 
+/**
+ * FN-19b: one payment an hourly Gmail check captured, as stored on its draft (the cleaned title, never mail
+ * text; no sender, subject or Gmail id). `saved`: auto-save wrote `transactionId`; else it waits as `draftId`.
+ */
+interface GmailPaymentParams {
+	draftId: string;
+	transactionId: string | null;
+	/** Null (with `amountMinor`): a generic notice that names nothing (red team L1). */
+	merchant: string | null;
+	amountMinor: number | null;
+	currency: string;
+	direction: 'expense' | 'income';
+	categoryName: string | null;
+	saved: boolean;
+}
+
+/** FN-19b: the payments past GMAIL_PUSHES_PER_DAY, grouped per space and WIB day. Names nothing. */
+interface GmailGroupParams {
+	count: number;
+	/** WIB date `YYYY-MM-DD` of the day it was grouped. */
+	date: string;
+	gmail: true;
+}
+
 export type NotificationParams =
-	BudgetParams | GoalParams | BillParams | BillGroupParams | NudgeParams | WeeklyParams;
+	| BudgetParams
+	| GoalParams
+	| BillParams
+	| BillGroupParams
+	| NudgeParams
+	| WeeklyParams
+	| GmailPaymentParams
+	| GmailGroupParams;
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
 const isStr = (v: unknown, max = 64): v is string => typeof v === 'string' && v.length <= max;
@@ -206,6 +243,33 @@ export function parseParams(
 						chargeOn: v.chargeOn
 					}
 				: null;
+		case 'gmail_payment':
+			if (v.gmail === true)
+				return typeof v.count === 'number' &&
+					Number.isSafeInteger(v.count) &&
+					v.count > 0 &&
+					isStr(v.date, 10)
+					? { count: v.count, date: v.date, gmail: true }
+					: null;
+			return isStr(v.draftId) &&
+				(v.transactionId === null || isStr(v.transactionId)) &&
+				((isStr(v.merchant, 200) && isMinor(v.amountMinor)) ||
+					(v.merchant === null && v.amountMinor === null && v.categoryName === null)) &&
+				isStr(v.currency, 3) &&
+				(v.direction === 'expense' || v.direction === 'income') &&
+				(v.categoryName === null || isStr(v.categoryName, 200)) &&
+				typeof v.saved === 'boolean'
+				? {
+						draftId: v.draftId,
+						transactionId: v.transactionId,
+						merchant: v.merchant,
+						amountMinor: v.amountMinor,
+						currency: v.currency,
+						direction: v.direction,
+						categoryName: v.categoryName,
+						saved: v.saved
+					}
+				: null;
 		case 'daily_nudge':
 		case 'close_reminder':
 			return isStr(v.date) ? { date: v.date } : null;
@@ -238,6 +302,11 @@ export function notificationUrl(kind: NotificationKind, params: NotificationPara
 			return '/beruntun';
 		case 'weekly_summary':
 			return '/laporan';
+		case 'gmail_payment':
+			// A capture still waiting as a draft opens Kotak masuk; a saved one (or a group) the review screen.
+			return params && 'saved' in params && !params.saved
+				? '/kotak-masuk'
+				: '/pengaturan/aplikasi/gmail/transaksi';
 		default: {
 			const unhandled: never = kind;
 			throw new Error(`unknown kind ${String(unhandled)}`);
@@ -331,6 +400,31 @@ export function notificationText(
 				})
 			};
 		}
+		case 'gmail_payment': {
+			if (params && 'gmail' in params)
+				return {
+					title: t.trf('{n} pembayaran baru dari Gmail', { n: params.count }),
+					body: space
+				};
+			const p = params as GmailPaymentParams | null;
+			if (!p) return { title: t.tr('Pembayaran dari Gmail'), body: '' };
+			if (p.merchant === null || p.amountMinor === null)
+				return {
+					title: t.tr('Pembayaran baru dari Gmail'),
+					body: p.saved ? t.tr('Tersimpan otomatis') : t.tr('Perlu ditinjau')
+				};
+			const amount = formatMoney(p.amountMinor, p.currency);
+			const vars = { amount, merchant: p.merchant, category: p.categoryName ?? '' };
+			const title =
+				p.direction === 'income'
+					? p.categoryName
+						? t.trf('Uang masuk {amount} dari {merchant}, {category}', vars)
+						: t.trf('Uang masuk {amount} dari {merchant}', vars)
+					: p.categoryName
+						? t.trf('Pembayaran {amount} di {merchant}, {category}', vars)
+						: t.trf('Pembayaran {amount} di {merchant}', vars);
+			return { title, body: p.saved ? t.tr('Tersimpan otomatis') : t.tr('Perlu ditinjau') };
+		}
 		default: {
 			const unhandled: never = kind;
 			throw new Error(`unknown kind ${String(unhandled)}`);
@@ -381,6 +475,10 @@ export const nudgeDataKey = (date: string) => `nudge:${date}`;
 /** FN-34b: one evening "belum ditutup" reminder per user and WIB date, whatever hour it was sent at. */
 export const closeReminderDataKey = (date: string) => `close:${date}`;
 export const weeklyDataKey = (weekStart: string) => `weekly:${weekStart}`;
+/** FN-19b: one push per captured Gmail draft (a redelivered read never pushes twice). */
+export const gmailPaymentDataKey = (draftId: string) => `gmail:${draftId}`;
+/** FN-19b: one grouped Gmail notification per recipient, space and WIB day past GMAIL_PUSHES_PER_DAY. */
+export const gmailGroupDataKey = (spaceId: string, date: string) => `gmailgroup:${spaceId}:${date}`;
 
 // ---- WIB schedule ----
 

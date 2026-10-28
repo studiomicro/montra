@@ -4,12 +4,14 @@ import { isExcludedByLabel, parseGmailMessage } from '#lib/shared/gmail/message'
 import { PENDING_TEXT_MAX, SENDER_DOMAIN_MAX, SUBJECT_MAX } from '#lib/shared/inbound/address';
 import { addressDomain, looksLikePayment, maskMailLines } from '#lib/shared/inbound/mail';
 import { parsePaymentMail, parserFor } from '#lib/shared/inbound/parsers';
+import { gmailSenderAuthenticated } from '#lib/shared/inbound/auth-results';
+import { confirmedSender, type SenderDomain } from '#lib/shared/inbound/sender-domains';
 import { RetryLaterError } from '#lib/shared/jobs';
 import { cleanText, maskAccountNumbers } from '#lib/shared/text';
 import { isAiGatewayConfigured, type AiGatewayEnv } from '../ai-keys/anthropic';
 import type { AiKeysEnv } from '../ai-keys/crypto';
 import { resolveAnthropicKey } from '../ai-keys/lookup';
-import { gmailMail, gmailScans } from '../db/schema';
+import { categories, drafts, gmailMail, gmailScans } from '../db/schema';
 import { aiReadFailure, readMailText } from '../inbound/ai-read';
 import {
 	captureBatch,
@@ -18,6 +20,8 @@ import {
 	messageKeyOf,
 	type Capture
 } from '../inbound/draft';
+import { notifyGmailPayment } from '../notifications/triggers';
+import { autoSaveCapture } from './autosave';
 import type { GmailClientEnv } from './config';
 import { claimAiRead, claimQuota, jobConnection, liveMemberOf, pauseSpaceLost } from './repo';
 import { onGoogleFailure, quotaWait, type GmailJobDeps } from './scan';
@@ -31,6 +35,9 @@ import { accessTokenFor, forgetAccessToken } from './token';
  * → `not_payment` (id and date only, the AI is never called). A deterministic parser → a draft through the shared
  * `captureBatch`; else the AI read with the ROW OWNER's own key. No mail text is ever written to D1, a queue or a
  * log: it lives in this function's variables only. The ledger update and the scan counter are one `db.batch`.
+ * FN-19b: after a draft this delivery inserted from an `hourly` scan (never a look-back or a `reread`), the opt-in
+ * auto-save and the `gmail_payment` notification follow (`afterCapture`; neither can fail the read). A re-read is
+ * marked by `gmail_mail.reread_at`.
  */
 
 type GmailReadEnv = GmailClientEnv & AiKeysEnv & AiGatewayEnv;
@@ -39,6 +46,81 @@ export interface GmailReadDeps extends GmailJobDeps {
 	env: GmailReadEnv;
 	/** The fetch of the AI read (tests pass a fake; nothing reaches Anthropic in tests). */
 	aiFetch?: typeof fetch;
+	/**
+	 * FN-19b: the confirmed sender-domain registry (default: the shipped SENDER_DOMAINS, empty until the owner's
+	 * samples arrive). Tests pass their own to exercise auto-save; production never sets it.
+	 */
+	senderDomains?: readonly SenderDomain[];
+}
+
+/**
+ * FN-19b, after a capture this delivery inserted: auto-save (opt-in, hourly deterministic captures from a
+ * confirmed domain only) and then the `gmail_payment` notification, both for `hourly` scans only. Never throws:
+ * the draft and its ledger row are already stored; a failure only costs the auto-save or the push.
+ */
+async function afterCapture(
+	deps: GmailReadDeps,
+	ctx: {
+		connectionId: string;
+		spaceId: string;
+		userId: string;
+		draftId: string;
+		parser: Capture['parser'];
+		senderDomain: string | null;
+		senderAuthenticated: boolean;
+	}
+): Promise<void> {
+	const { db } = deps;
+	const draft = await db
+		.select({
+			title: drafts.title,
+			amountMinor: drafts.amountMinor,
+			currency: drafts.currency,
+			type: drafts.type,
+			categoryName: categories.name
+		})
+		.from(drafts)
+		.leftJoin(
+			categories,
+			and(eq(categories.id, drafts.categoryId), eq(categories.spaceId, drafts.spaceId))
+		)
+		.where(and(eq(drafts.id, ctx.draftId), eq(drafts.spaceId, ctx.spaceId)))
+		.get();
+	if (!draft || draft.amountMinor === null || draft.currency === null) return;
+	let transactionId: string | null = null;
+	try {
+		transactionId = await autoSaveCapture(
+			db,
+			{ ...ctx, scanKind: 'hourly' },
+			deps.now(),
+			deps.senderDomains
+		);
+	} catch (e) {
+		console.error('gmail read: auto-save failed', e instanceof Error ? e.name : 'unknown');
+	}
+	// Red team L1: only a deterministic reading of a confirmed sender names the merchant and amount on the lock
+	// screen; any other capture (an AI reading, an unconfirmed sender) gets the generic "Perlu ditinjau" text.
+	// Red team L4: and only when Gmail authenticated that sender (a forged registry From stays generic).
+	const detail =
+		ctx.parser !== 'ai' &&
+		ctx.senderAuthenticated &&
+		confirmedSender(ctx.senderDomain, deps.senderDomains) !== null;
+	await notifyGmailPayment(
+		db,
+		deps.enqueue,
+		{
+			spaceId: ctx.spaceId,
+			userId: ctx.userId,
+			draftId: ctx.draftId,
+			transactionId,
+			merchant: detail ? (draft.title ?? '') : null,
+			amountMinor: detail ? draft.amountMinor : null,
+			currency: draft.currency,
+			direction: draft.type === 'income' ? 'income' : 'expense',
+			categoryName: detail ? (draft.categoryName ?? null) : null
+		},
+		deps.now()
+	);
 }
 
 /** The scan counter update of the ledger write just before it in the same batch (only when that write happened). */
@@ -66,9 +148,12 @@ export async function processGmailRead(
 			userId: gmailMail.userId,
 			spaceId: gmailMail.spaceId,
 			gmailId: gmailMail.gmailId,
-			scanId: gmailMail.scanId
+			scanId: gmailMail.scanId,
+			scanKind: gmailScans.kind,
+			rereadAt: gmailMail.rereadAt
 		})
 		.from(gmailMail)
+		.leftJoin(gmailScans, eq(gmailScans.id, gmailMail.scanId))
 		.where(and(eq(gmailMail.id, mailId), eq(gmailMail.status, 'listed')))
 		.limit(1);
 	if (!row) return 'skipped';
@@ -133,7 +218,7 @@ export async function processGmailRead(
 
 	if (isExcludedByLabel(mail.labelIds)) return notPayment();
 	const senderDomain = addressDomain(mail.fromAddress);
-	const parser = parserFor(senderDomain);
+	const parser = parserFor(senderDomain, deps.senderDomains);
 	if (!looksLikePayment({ allowlisted: parser !== null, subject: mail.subject, text: mail.text }))
 		return notPayment();
 
@@ -159,8 +244,35 @@ export async function processGmailRead(
 			{ kind: 'gmail', mailId: row.id, connectionId: conn.id, receivedAt, fields, now },
 			merchant
 		);
-		if (row.scanId) await db.batch([...items, countRead(deps, row.scanId, row.id)]);
-		else await db.batch(items);
+		const results = row.scanId
+			? await db.batch([...items, countRead(deps, row.scanId, row.id)])
+			: await db.batch(items);
+		const [, inserted, ledgered] = results as unknown as [
+			unknown,
+			{ id: string }[],
+			{ id: string }[]
+		];
+		// FN-19b: only a draft THIS delivery inserted, from an hourly check, never a "Baca ulang" re-read (marked
+		// on the ledger row itself, so a re-read the sweep re-sends is still one; red team L2).
+		if (
+			inserted.length === 1 &&
+			ledgered.length === 1 &&
+			row.scanKind === 'hourly' &&
+			row.rereadAt === null
+		)
+			await afterCapture(deps, {
+				connectionId: conn.id,
+				spaceId: row.spaceId,
+				userId: row.userId,
+				draftId: inserted[0]!.id,
+				parser: c.parser,
+				senderDomain: fields.senderDomain,
+				senderAuthenticated: gmailSenderAuthenticated(
+					mail.headers,
+					mail.fromAddress,
+					fields.senderDomain
+				)
+			});
 		return 'read' as const;
 	};
 

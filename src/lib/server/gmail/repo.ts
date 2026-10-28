@@ -71,6 +71,9 @@ export interface ConnectionView {
 	spaceName: string | null;
 	spaceKind: string | null;
 	autoCheck: boolean;
+	/** FN-19b: auto-save on, and the wallet it saves to (null: none chosen, or that wallet is gone). */
+	autoSave: boolean;
+	autoSaveWalletId: string | null;
 	lastCheckedAt: number | null;
 	updatedAt: number;
 	/** Mail finished (read) and drafts made in the last 7 days. */
@@ -86,12 +89,20 @@ export async function getConnection(
 	userId: string,
 	now: number
 ): Promise<ConnectionView | null> {
-	const row = await db.get<Omit<ConnectionView, 'autoCheck' | 'lookback'> & { autoCheck: number }>(
+	const row = await db.get<
+		Omit<ConnectionView, 'autoCheck' | 'autoSave' | 'lookback'> & {
+			autoCheck: number;
+			autoSave: number;
+		}
+	>(
 		sql`select c.id, c.status, c.reconnect_reason as reconnectReason, c.paused_reason as pausedReason,
 			c.google_address as googleAddress, c.space_id as spaceId,
 			(select s.name from spaces s where s.id = c.space_id and ${liveMemberOf(sql`c.space_id`, sql`c.user_id`)}) as spaceName,
 			(select s.kind from spaces s where s.id = c.space_id and ${liveMemberOf(sql`c.space_id`, sql`c.user_id`)}) as spaceKind,
-			c.auto_check as autoCheck, c.last_checked_at as lastCheckedAt, c.updated_at as updatedAt,
+			c.auto_check as autoCheck, c.auto_save as autoSave,
+			(select w.id from wallets w where w.id = c.auto_save_wallet_id and w.space_id = c.space_id
+				and w.deleted_at is null) as autoSaveWalletId,
+			c.last_checked_at as lastCheckedAt, c.updated_at as updatedAt,
 			(select count(*) from gmail_mail m where m.connection_id = c.id and m.status <> 'listed'
 				and m.updated_at > ${now - 7 * DAY_MS}) as read7d,
 			(select count(*) from gmail_mail m where m.connection_id = c.id and m.status = 'draft_created'
@@ -122,7 +133,12 @@ export async function getConnection(
 		)
 		.orderBy(sql`${gmailScans.status} = 'running' desc`, desc(gmailScans.createdAt))
 		.limit(1);
-	return { ...row, autoCheck: row.autoCheck === 1, lookback: lookback ?? null };
+	return {
+		...row,
+		autoCheck: row.autoCheck === 1,
+		autoSave: row.autoSave === 1,
+		lookback: lookback ?? null
+	};
 }
 
 export type ConnectionWriteResult = 'ok' | 'stale' | 'missing';
@@ -185,6 +201,51 @@ export async function setAutoCheck(
 		.where(and(own(userId, ref), on ? sql`${gmailConnections.pausedReason} is null` : undefined))
 		.returning({ id: gmailConnections.id });
 	return done.length === 1 ? 'ok' : missedWrite(db, userId, ref.id);
+}
+
+export type AutoSaveWriteResult = ConnectionWriteResult | 'wallet' | 'space';
+
+/**
+ * FN-19b "Simpan otomatis": on with a wallet, or off. One guarded UPDATE: the user's own connection at the
+ * `updated_at` the page showed, the user still a live member of its target space, and (turning on) the wallet a
+ * live IDR wallet of that space (captures are IDR). Turning off keeps the chosen wallet for next time.
+ * `wallet`: no such live IDR wallet in the target space (another space's id reads the same); `space`: the user is
+ * no longer a member of the target space.
+ */
+export async function setAutoSave(
+	db: Db,
+	userId: string,
+	ref: ConnectionRef,
+	setting: { on: true; walletId: string } | { on: false },
+	now: number
+): Promise<AutoSaveWriteResult> {
+	const walletOk = setting.on
+		? sql`exists (select 1 from wallets w where w.id = ${setting.walletId}
+			and w.space_id = ${gmailConnections.spaceId} and w.deleted_at is null and w.currency = 'IDR')`
+		: sql`1`;
+	const done = await db
+		.update(gmailConnections)
+		.set({
+			autoSave: setting.on ? 1 : 0,
+			...(setting.on ? { autoSaveWalletId: setting.walletId } : {}),
+			updatedAt: now
+		})
+		.where(
+			and(
+				own(userId, ref),
+				liveMemberOf(sql`${gmailConnections.spaceId}`, sql`${userId}`),
+				walletOk
+			)
+		)
+		.returning({ id: gmailConnections.id });
+	if (done.length === 1) return 'ok';
+	const row = await db.get<{ updatedAt: number; member: number }>(
+		sql`select c.updated_at as updatedAt, ${liveMemberOf(sql`c.space_id`, sql`c.user_id`)} as member
+			from gmail_connections c where c.id = ${ref.id} and c.user_id = ${userId}`
+	);
+	if (!row) return 'missing';
+	if (row.updatedAt !== ref.updatedAt) return 'stale';
+	return row.member === 1 ? 'wallet' : 'space';
 }
 
 /** The sealed refresh token of the user's connection (for revoking it), or null. Server-only. */
@@ -294,12 +355,12 @@ export async function openScan(
 			: sql``;
 	try {
 		// Columns in table order: id, connection_id, user_id, kind, window, days, after_s, status, page_token,
-		// pages, listed, read, drafted, created_at, updated_at.
+		// pages, listed, read, drafted, created_at, updated_at, undone_at (FN-19b).
 		const rows = await db
 			.insert(gmailScans)
 			.select(
 				sql`select ${id}, c.id, c.user_id, ${input.kind}, ${input.window}, ${input.days}, ${after},
-					'running', null, 0, 0, 0, 0, ${now}, ${now}
+					'running', null, 0, 0, 0, 0, ${now}, ${now}, null
 				from gmail_connections c where c.id = ${input.connectionId} and c.user_id = ${input.userId}
 					and c.status = 'connected' ${underDailyCap}`
 			)
@@ -381,6 +442,7 @@ export async function requeueRereadable(db: Db, userId: string, now: number): Pr
 			parser: null,
 			senderDomain: null,
 			subject: null,
+			rereadAt: now,
 			updatedAt: now
 		})
 		.where(
