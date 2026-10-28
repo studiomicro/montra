@@ -214,15 +214,16 @@ at 320-360 px (`e2e/ios-responsive.spec.ts`).
 
 ## Mascot (FN-44)
 
-- **Koko**, a living coin: original pixel art drawn for Montra on a 24×24 grid (`src/lib/ui/kit/mascot/poses.ts`)
-  — never Clawd or any other brand's character. `<Mascot pose size alt>` draws each run of pixels as
-  an inline `<rect>` with `shape-rendering: crispEdges`.
-- v2 (2026-10-10, owner request "more cute"): a squat round coin with a lit top-left side and gleam, round dark eyes
-  with a glint, pink cheeks, a small smile.
-- Colours from tokens only: body `--accent` (grey in mono), outline `--ink`, coin edge and legs `--ink-2`; eyes and
-  mouth dark with a light glint (`light-dark()` of `--ink`/`--bg`; light eyes in mono light, whose body is dark);
-  lit side and cheeks are `color-mix()` of `--accent` / `--cat-hadiah` with that light. No new token or contrast
-  pair.
+- **Koko**, a Formosan black bear: original pixel art drawn for Montra on a 24×24 grid
+  (`src/lib/ui/kit/mascot/poses.ts`) — never Clawd or any other brand's or tourism mascot. `<Mascot pose size alt>`
+  draws each run of pixels as an inline `<rect>` with `shape-rendering: crispEdges`.
+- v3 (2026-10-28, owner request "make Koko a Formosan bear"): a round black bear, head and body in one, two round
+  ears with tan insides, a tan muzzle with a dark nose, the cream V on the chest, dark eyes with a glint, pink
+  cheeks. Replaces v2 (2026-10-10), the squat purple coin.
+- Colours from tokens only: fur `--koko-fur`, muzzle and inner ears `--koko-muzzle`, chest V `--koko-chest` (each
+  set per theme in `tokens.css`, greys in mono), outline `--ink`, legs `--ink-2`; eyes, nose and mouth darker than
+  the fur with a light glint (`light-dark()` of `--ink`/`--bg`); the fur's sheen and the cheeks are `color-mix()` of
+  `--koko-fur` / `--cat-hadiah` with that light. The crown (Pro) sits on the head between the ears.
 - Poses: `idle` (blinks twice), `wave` (sign-in/sign-up hero above 768 px, Beranda's first-wallet card), `hop`
   (a new transaction in Riwayat, the voice toast), `celebrate` (right after closing the day; a monthly budget save
   while safe-to-spend is left — never when spent or over), `sad` (error pages), `sleep` (`EmptyState` without an
@@ -232,7 +233,8 @@ at 320-360 px (`e2e/ios-responsive.spec.ts`).
 - `MascotLoading`: the one loop — Koko walks at the top of the app while a client-side navigation is in flight,
   and is not in the DOM otherwise. Under reduced motion it is the text "Memuat…" only.
 - The favicon and the PWA/apple-touch icons are Koko's idle frame in the light colours, written by
-  `node scripts/generate-mascot-icons.ts` (Playwright's Chromium; outputs committed, not part of the build).
+  `node scripts/generate-mascot-icons.ts` (Playwright's Chromium; outputs committed, not part of the build); the
+  iOS splash screens by `node scripts/generate-splash-screens.ts`.
 
 ## Components
 

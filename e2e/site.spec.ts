@@ -41,17 +41,22 @@ test('site home: every landing section, the start button and no request off the 
 	expect(res?.headers()['content-security-policy']).not.toContain('unsafe-inline');
 	expect(res?.headers()['x-content-type-options']).toBe('nosniff');
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'Catat uang tanpa repot' })
+		page.getByRole('heading', { level: 1, name: 'Semua urusan uangmu, satu aplikasi' })
 	).toBeVisible();
 	for (const name of [
-		'Cara kerjanya',
-		'Semua uangmu, satu tempat',
+		'Satu aplikasi, semua urusan uang',
 		'Datamu tetap milikmu',
 		'Harga',
 		'Pertanyaan umum'
 	])
 		await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
-	await expect(page.getByText('Contoh, bukan data sungguhan')).toBeVisible();
+	// The module tree: six modules, each with its art and its status; Tanya and Agen are not active yet.
+	for (const id of ['catat', 'lihat', 'atur', 'miliki', 'bagi', 'tanya'])
+		await expect(
+			page.getByTestId(`site-module-${id}`).getByRole('heading', { level: 3 })
+		).toBeVisible();
+	await expect(page.getByTestId('site-module-tanya').getByText('Segera')).toBeVisible();
+	await expect(page.getByTestId('site-module-catat').getByText('Tersedia')).toBeVisible();
 	// FN-30's catalogue: one card per plan, each price badged as a placeholder (AC3).
 	for (const plan of ['gratis', 'pro', 'agen'])
 		await expect(page.getByTestId(`site-plan-${plan}`).getByText('harga sementara')).toBeVisible();
@@ -71,7 +76,7 @@ test('the English site lives under /en, with a language switch both ways', async
 	await page.goto(`${SITE}/en`);
 	await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'Track money without the effort' })
+		page.getByRole('heading', { level: 1, name: 'All your money matters, one app' })
 	).toBeVisible();
 	await expect(
 		page.getByRole('heading', { level: 2, name: 'Your data stays yours' })
@@ -84,7 +89,7 @@ test('the English site lives under /en, with a language switch both ways', async
 	await expect(canonical).toHaveAttribute('href', 'http://site.localhost/');
 	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
 		'content',
-		'Montra — catat uang tanpa repot'
+		'Montra — super app keuangan untuk Indonesia'
 	);
 });
 

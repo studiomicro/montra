@@ -6,19 +6,30 @@ import EmptyState from '../../shell/EmptyState.svelte';
 import Mascot from '../Mascot.svelte';
 import type { Component } from 'svelte';
 import ProLookHarness from '../../../../../test/helpers/ProLookHarness.svelte';
-import { bounds, crown, GRID, MASCOT_POSES, POSES, runs, type MascotPose } from './poses';
+import {
+	bounds,
+	crown,
+	crownRest,
+	GRID,
+	headTop,
+	MASCOT_POSES,
+	POSES,
+	runs,
+	type MascotPose
+} from './poses';
 
 /** The colour classes Mascot.svelte styles, and the token each must resolve to. */
 const TOKEN: Record<string, string> = {
 	'k-ink': '--ink',
-	'k-body': '--accent',
-	'k-cut': '--k-light',
+	'k-body': '--koko-fur',
+	'k-chest': '--koko-chest',
+	'k-muzzle': '--koko-muzzle',
 	'k-shade': '--ink-2',
 	'k-eye': '--k-eye',
 	'k-glint': '--k-glint'
 };
 /** Classes mixed from tokens (color-mix of a theme token and Koko's light). */
-const MIXED: Record<string, string> = { 'k-lit': '--accent', 'k-cheek': '--cat-hadiah' };
+const MIXED: Record<string, string> = { 'k-lit': '--koko-fur', 'k-cheek': '--cat-hadiah' };
 
 const svgOf = (pose: MascotPose, alt?: string) =>
 	render(Mascot, { props: { pose, alt, size: 40 } }).body;
@@ -32,8 +43,8 @@ describe('Koko pixel data', () => {
 		expect(frames.length).toBeGreaterThanOrEqual(1);
 		for (const frame of frames) {
 			expect(frame).toHaveLength(GRID);
-			for (const row of frame) expect(row).toMatch(/^[.oblcsegp]{24}$/);
-			// A whole coin with an outline and a body: never an empty or a one-colour frame.
+			for (const row of frame) expect(row).toMatch(/^[.oblcmsegp]{24}$/);
+			// A whole bear with an outline and fur: never an empty or a one-colour frame.
 			const drawn = frame.join('');
 			expect(drawn).toContain('o');
 			expect(drawn).toContain('b');
@@ -41,7 +52,7 @@ describe('Koko pixel data', () => {
 	});
 
 	it.each(MASCOT_POSES)(
-		'%s: the resting frame (0) is the whole coin standing, eyes visible',
+		'%s: the resting frame (0) is the whole bear standing, eyes visible',
 		(pose) => {
 			const rest = POSES[pose][0]!;
 			const box = bounds(rest);
@@ -227,11 +238,12 @@ describe('the Pro crown (FN-46 Part 3)', () => {
 		}).body;
 
 	it.each(MASCOT_POSES)(
-		'%s: the crown sits on the head of every frame, right above the outline, centred',
+		'%s: the crown sits on the head of every frame, between the ears, right above what is drawn under it',
 		(pose) => {
 			for (const frame of POSES[pose]) {
 				const runs = crown(frame);
-				const top = frame.findIndex((row) => row.includes('o'));
+				const top = crownRest(frame);
+				expect(top).toBeGreaterThanOrEqual(headTop(frame) - 3);
 				expect(runs.length).toBeGreaterThan(0);
 				for (const r of runs) {
 					expect(r.y).toBeLessThan(top);

@@ -83,7 +83,8 @@ test.describe('Koko in the kit', () => {
 			for (const cls of [
 				'k-body',
 				'k-ink',
-				'k-cut',
+				'k-chest',
+				'k-muzzle',
 				'k-shade',
 				'k-lit',
 				'k-eye',
@@ -93,12 +94,14 @@ test.describe('Koko in the kit', () => {
 				const value = await fill(cls);
 				expect(value, `${key} ${cls}`).toMatch(/^(rgb|color)\(/);
 			}
-			// The face reads in every theme: eyes differ from the body, the glint from the eye, the cheeks and the
-			// lit side from the body.
+			// The face reads in every theme: eyes differ from the fur, the glint from the eye, the cheeks, the sheen,
+			// the muzzle and the chest's V from the fur.
 			expect(await fill('k-eye'), key).not.toBe(bodies[key]);
 			expect(await fill('k-glint'), key).not.toBe(await fill('k-eye'));
 			expect(await fill('k-cheek'), key).not.toBe(bodies[key]);
 			expect(await fill('k-lit'), key).not.toBe(bodies[key]);
+			expect(await fill('k-muzzle'), key).not.toBe(bodies[key]);
+			expect(await fill('k-chest'), key).not.toBe(bodies[key]);
 			if (theme === 'mono') {
 				const [r, g, b] = (bodies[key].match(/[\d.]+/g) ?? []).slice(-3).map(Number);
 				expect(r, `${key} ${bodies[key]}`).toBeCloseTo(g!, 0);

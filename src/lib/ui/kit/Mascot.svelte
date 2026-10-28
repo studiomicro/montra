@@ -25,7 +25,8 @@
 		o: 'k-ink',
 		b: 'k-body',
 		l: 'k-lit',
-		c: 'k-cut',
+		c: 'k-chest',
+		m: 'k-muzzle',
 		s: 'k-shade',
 		e: 'k-eye',
 		g: 'k-glint',
@@ -99,32 +100,31 @@
 		pointer-events: none;
 	}
 	/*
-	 * Light that reads on the body in every theme (the page in light themes, the ink in dark ones), and the eyes:
-	 * dark with a light glint, except in mono light, whose body is dark, so its eyes turn light.
+	 * Light that reads on the fur in every theme (the page in light themes, the ink in dark ones), and the eyes:
+	 * darker than the fur, with a light glint, in every theme (the fur is dark everywhere).
 	 */
 	.mascot {
 		--k-light: light-dark(var(--bg), var(--ink));
 		--k-eye: light-dark(var(--ink), var(--bg));
 		--k-glint: var(--k-light);
 	}
-	:global(:root[data-theme='mono']) .mascot {
-		--k-eye: var(--bg);
-		--k-glint: var(--ink);
-	}
 	.k-ink {
 		fill: var(--ink);
 	}
 	.k-body {
-		fill: var(--accent);
+		fill: var(--koko-fur);
 	}
-	.k-cut {
-		fill: var(--k-light);
+	.k-chest {
+		fill: var(--koko-chest);
+	}
+	.k-muzzle {
+		fill: var(--koko-muzzle);
 	}
 	.k-shade {
 		fill: var(--ink-2);
 	}
 	.k-lit {
-		fill: color-mix(in srgb, var(--accent) 55%, var(--k-light));
+		fill: color-mix(in srgb, var(--koko-fur) 72%, var(--k-light));
 	}
 	.k-eye {
 		fill: var(--k-eye);
@@ -199,7 +199,7 @@
 			transform: none;
 		}
 	}
-	/* A spin (front, squeezed, edge-on, squeezed, front), then the sparkles. */
+	/* A spin (front, squeezed, side-on, squeezed, front), then the sparkles. */
 	@keyframes celebrate {
 		0% {
 			transform: translateX(-24px);

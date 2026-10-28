@@ -5,87 +5,124 @@
 	import { appName } from '#lib/shared/sanity';
 	import { localizedSitePath } from '#lib/shared/site-locale';
 	import Icon from '#lib/ui/Icon.svelte';
-	import type { IconName } from '#lib/ui/icons';
 	import { useI18n } from '#lib/ui/i18n-context';
 	import Badge from '#lib/ui/kit/Badge.svelte';
+	import Illustration from '#lib/ui/kit/Illustration.svelte';
+	import type { IllustrationName } from '#lib/ui/kit/illustrations';
+	import Mascot from '#lib/ui/kit/Mascot.svelte';
 	import SiteHead from '#lib/ui/site/SiteHead.svelte';
 
 	const { tr, trf, locale } = useI18n();
 	const href = (path: string) => localizedSitePath(locale, path);
 
-	/** One card per capture path. `soon`: not active for accounts yet (its provider key is an owner item). */
-	const CAPTURE: { icon: IconName; title: string; text: string; soon: boolean }[] = [
+	/**
+	 * The module tree: every part of the app branches from one account. `soon`: not active for accounts yet (its
+	 * provider key is an owner item), on a whole module or on one of its items. `ask`: the item is the assistant.
+	 */
+	const MODULES: {
+		id: string;
+		branch: string;
+		title: string;
+		path: string;
+		scene: IllustrationName;
+		text: string;
+		items: { label: string; soon?: boolean; ask?: boolean }[];
+		soon: boolean;
+	}[] = [
 		{
-			icon: 'mail',
-			title: msg('Email bukti bayar'),
+			id: 'catat',
+			branch: msg('Mencatat'),
+			title: msg('Catat'),
+			path: '/kotak-masuk',
+			scene: 'inbox',
 			text: msg(
-				'Hubungkan Gmail dengan izin hanya baca. Bukti bayar QRIS, transfer dan tagihan menjadi transaksi sendiri.'
+				'Ucapkan, impor atau teruskan: setiap pembayaran masuk ke satu catatan yang kamu periksa.'
 			),
-			soon: true
-		},
-		{
-			icon: 'mic',
-			title: msg('Suara'),
-			text: msg('Ucapkan "kopi 25 ribu, parkir 5 ribu" dan beberapa transaksi tercatat sekaligus.'),
+			items: [
+				{ label: msg('Suara') },
+				{ label: msg('Mutasi bank') },
+				{ label: msg('Spreadsheet') },
+				{ label: msg('Email bukti bayar'), soon: true },
+				{ label: msg('Foto struk'), soon: true }
+			],
 			soon: false
 		},
 		{
-			icon: 'receipt',
-			title: msg('Foto struk'),
+			id: 'lihat',
+			branch: msg('Melihat'),
+			title: msg('Beranda dan Laporan'),
+			path: '/laporan',
+			scene: 'welcome',
+			text: msg('Satu angka besar lebih dulu, lalu ke mana uangnya pergi bulan ini, dalam rupiah.'),
+			items: [
+				{ label: msg('Pengeluaran bulan ini') },
+				{ label: msg('Sisa aman dibelanjakan per hari') },
+				{ label: msg('Laporan bulanan') },
+				{ label: msg('Alur uang') },
+				{ label: msg('Hari beruntun') }
+			],
+			soon: false
+		},
+		{
+			id: 'atur',
+			branch: msg('Mengatur'),
+			title: msg('Anggaran dan Langganan'),
+			path: '/anggaran',
+			scene: 'budget',
 			text: msg(
-				'Potret struknya; tokonya, tanggal dan totalnya terbaca. Kamu memeriksa sebelum menyimpan.'
+				'Batas per kategori, langganan yang berjalan dan pengingat sebelum tagihan jatuh tempo.'
 			),
-			soon: true
+			items: [
+				{ label: msg('Anggaran per kategori') },
+				{ label: msg('Langganan') },
+				{ label: msg('Transaksi berulang') },
+				{ label: msg('Kalender') }
+			],
+			soon: false
 		},
 		{
-			icon: 'file',
-			title: msg('Mutasi bank'),
+			id: 'miliki',
+			branch: msg('Memiliki'),
+			title: msg('Kekayaan'),
+			path: '/kekayaan',
+			scene: 'growth',
+			text: msg('Total aset dikurangi utang, termasuk barang dan koleksi yang kamu simpan.'),
+			items: [
+				{ label: msg('Dompet dan rekening') },
+				{ label: msg('Kekayaan bersih') },
+				{ label: msg('Utang') },
+				{ label: msg('Barang') },
+				{ label: msg('Koleksi') }
+			],
+			soon: false
+		},
+		{
+			id: 'bagi',
+			branch: msg('Berbagi'),
+			title: msg('Ruang dan Patungan'),
+			path: '/ruang',
+			scene: 'people',
 			text: msg(
-				'Impor file CSV dari bank atau dompet digital, periksa barisnya, lalu simpan sekaligus.'
+				'Ruang pribadi untukmu, ruang bersama sampai lima orang, dan patungan yang tercatat sampai lunas.'
 			),
+			items: [
+				{ label: msg('Ruang pribadi') },
+				{ label: msg('Ruang bersama') },
+				{ label: msg('Pemilik dan Anggota') },
+				{ label: msg('Patungan') }
+			],
 			soon: false
-		}
-	];
-
-	const FEATURES: { icon: IconName; title: string; text: string; soon: boolean }[] = [
+		},
 		{
-			icon: 'home',
-			title: msg('Satu angka di Beranda'),
+			id: 'tanya',
+			branch: msg('Bertanya'),
+			title: msg('Tanya dan Agen'),
+			path: '/tanya',
+			scene: 'ask',
 			text: msg(
-				'Pengeluaran bulan ini lebih dulu, lalu berapa yang masih aman dibelanjakan per hari.'
+				'Asisten yang menjawab dari catatanmu sendiri, dan agen yang menyusun laporan untukmu.'
 			),
-			soon: false
-		},
-		{
-			icon: 'chart',
-			title: msg('Anggaran dan laporan bulanan'),
-			text: msg('Batas per kategori, perbandingan dengan bulan lalu dalam rupiah, bukan persen.'),
-			soon: false
-		},
-		{
-			icon: 'wallet',
-			title: msg('Kekayaan bersih'),
-			text: msg('Dompet, rekening, aset dan utang dalam satu angka yang ikut bergerak.'),
-			soon: false
-		},
-		{
-			icon: 'people',
-			title: msg('Ruang bersama'),
-			text: msg(
-				'Catat keuangan rumah tangga bersama sampai lima orang, dengan peran Pemilik dan Anggota.'
-			),
-			soon: false
-		},
-		{
-			icon: 'repeat',
-			title: msg('Langganan dan tagihan'),
-			text: msg('Lihat langganan yang berjalan dan dapat pengingat sebelum tagihan jatuh tempo.'),
-			soon: false
-		},
-		{
-			icon: 'sparkle',
-			title: msg('Tanya catatanmu'),
-			text: msg('Asisten yang menjawab dari catatanmu sendiri, bukan dari tebakan.'),
+			items: [{ label: msg('Laporan agen') }, { label: msg('Tanya catatanmu'), ask: true }],
 			soon: true
 		}
 	];
@@ -104,6 +141,12 @@
 		PLAN_CATALOGUE[plan].billingPeriod === 'weekly' ? tr('/minggu') : tr('/bulan');
 
 	const FAQ = [
+		{
+			q: msg('Super app berarti bisa membayar dari sini?'),
+			a: msg(
+				'Tidak. Semua urusan mencatat uang ada dalam satu aplikasi: mencatat, anggaran, kekayaan, ruang bersama dan asisten. Pembayaran tetap kamu lakukan di bank atau dompet digitalmu; kami tidak pernah memindahkan uang.'
+			)
+		},
 		{
 			q: msg('Apakah ini bank atau dompet digital?'),
 			a: msg(
@@ -144,74 +187,71 @@
 </script>
 
 <SiteHead
-	title={trf('{app} — catat uang tanpa repot', { app: appName() })}
+	title={trf('{app} — super app keuangan untuk Indonesia', { app: appName() })}
 	description={tr(
-		'Pencatat keuangan untuk Indonesia yang mengisi dirinya sendiri dari email bukti bayar, suara, foto struk dan mutasi bank.'
+		'Catat, lihat, atur, miliki, bagi dan tanya: semua urusan uangmu dalam satu aplikasi. Bukan bank, tidak memindahkan uang.'
 	)}
 	path="/"
 />
 
 <section class="hero" aria-labelledby="hero-title">
-	<p class="eyebrow">{tr('Pencatat keuangan untuk Indonesia')}</p>
-	<h1 id="hero-title">{tr('Catat uang tanpa repot')}</h1>
+	<p class="eyebrow">{tr('Super app keuangan untuk Indonesia')}</p>
+	<h1 id="hero-title">{tr('Semua urusan uangmu, satu aplikasi')}</h1>
 	<p class="lead">
-		{tr('Pembayaranmu tercatat sendiri dari email, suara, struk dan mutasi bank.')}
+		{tr('Catat, lihat, atur, miliki, bagi dan tanya. Enam modul, satu akun, satu catatan.')}
 	</p>
 	<div class="actions">
 		<a class="btn primary" href={href('/mulai')}>{tr('Mulai gratis')}</a>
 		<a class="btn secondary" href={href('/pasang')}>{tr('Cara memasang')}</a>
 	</div>
+</section>
 
-	<figure class="mock" aria-label={tr('Contoh tampilan Beranda')}>
-		<div class="phone">
-			<p class="mock-label">{tr('Pengeluaran bulan ini')}</p>
-			<p class="mock-num num">{formatMoney(348_200_000)}</p>
-			<p class="mock-pill">{tr('Sisa aman dibelanjakan per hari')}</p>
-			<ul class="mock-rows">
-				<li>
-					<span>{tr('Kopi')}</span><span class="num">{formatMoney(-2_500_000)}</span>
-				</li>
-				<li>
-					<span>{tr('Transportasi')}</span><span class="num">{formatMoney(-1_800_000)}</span>
-				</li>
-				<li>
-					<span>{tr('Belanja Harian')}</span><span class="num">{formatMoney(-12_450_000)}</span>
-				</li>
-			</ul>
+<section class="eco" aria-labelledby="eco-title">
+	<div class="eco-inner">
+		<div class="eco-head">
+			<div class="eco-title">
+				<h2 id="eco-title">{tr('Satu aplikasi, semua urusan uang')}</h2>
+				<p>{trf('Modul di dalam {app}', { app: appName() })}</p>
+			</div>
+			<div class="hub">
+				<Mascot pose="wave" size={88} />
+				<p class="hub-text">
+					<strong>Koko</strong>
+					<span>{tr('menemanimu di setiap modul')}</span>
+				</p>
+			</div>
 		</div>
-		<figcaption><Badge>{tr('Contoh, bukan data sungguhan')}</Badge></figcaption>
-	</figure>
-</section>
 
-<section class="band" aria-labelledby="how-title">
-	<h2 id="how-title">{tr('Cara kerjanya')}</h2>
-	<p class="section-lead">
-		{tr('Empat jalan masuk, satu catatan. Pilih yang paling cepat untuk setiap pembayaran.')}
-	</p>
-	<ul class="cards">
-		{#each CAPTURE as card, i (i)}
-			<li class="card">
-				<span class="icon"><Icon name={card.icon} size={22} /></span>
-				<h3>{tr(card.title)}</h3>
-				<p>{tr(card.text)}</p>
-				{#if card.soon}<Badge>{tr('Segera hadir')}</Badge>{/if}
-			</li>
-		{/each}
-	</ul>
-</section>
-
-<section class="band" aria-labelledby="features-title">
-	<h2 id="features-title">{tr('Semua uangmu, satu tempat')}</h2>
-	<ul class="cards">
-		{#each FEATURES as card, i (i)}
-			<li class="card">
-				<span class="icon"><Icon name={card.icon} size={22} /></span>
-				<h3>{tr(card.title)}</h3>
-				<p>{tr(card.text)}</p>
-				{#if card.soon}<Badge>{tr('Segera hadir')}</Badge>{/if}
-			</li>
-		{/each}
-	</ul>
+		<ul class="tree">
+			{#each MODULES as mod (mod.id)}
+				<li class="branch" data-testid="site-module-{mod.id}">
+					<span class="branch-label">{tr(mod.branch)}</span>
+					<article class="module">
+						<div class="art"><Illustration name={mod.scene} size={176} /></div>
+						<h3>{tr(mod.title)}</h3>
+						<p class="meta">
+							<code>{mod.path}</code>
+							{#if mod.soon}
+								<span class="status soon">{tr('Segera')}</span>
+							{:else}
+								<span class="status live">{tr('Tersedia')}</span>
+							{/if}
+						</p>
+						<p class="text">{tr(mod.text)}</p>
+						<ul class="items">
+							{#each mod.items as item, i (i)}
+								<li class:ask={item.ask}>
+									{#if item.ask}<Icon name="sparkle" size={16} />{/if}
+									<span>{tr(item.label)}</span>
+									{#if item.soon}<span class="later">{tr('segera')}</span>{/if}
+								</li>
+							{/each}
+						</ul>
+					</article>
+				</li>
+			{/each}
+		</ul>
+	</div>
 </section>
 
 <section class="dark" aria-labelledby="security-title">
@@ -321,61 +361,6 @@
 		background: var(--panel);
 		color: var(--ink);
 	}
-	.mock {
-		margin: 56px auto 0;
-		max-width: 340px;
-	}
-	.phone {
-		padding: 28px 20px 20px;
-		border-radius: var(--r-xl);
-		background: var(--bg);
-		box-shadow: var(--shadow-card);
-		border: 1px solid var(--line);
-		text-align: center;
-	}
-	.mock-label {
-		margin: 0;
-		color: var(--muted);
-		font-size: 14px;
-	}
-	.mock-num {
-		margin: 4px 0 0;
-		font-size: 40px;
-		font-weight: 700;
-		letter-spacing: -0.045em;
-		line-height: 1.05;
-	}
-	.mock-pill {
-		display: inline-block;
-		margin: 12px 0 0;
-		padding: 6px 12px;
-		border-radius: var(--r-pill);
-		background: var(--panel);
-		color: var(--ink-2);
-		font-size: 13px;
-	}
-	.mock-rows {
-		margin: 20px 0 0;
-		padding: 4px 16px;
-		list-style: none;
-		border-radius: var(--r-group);
-		background: var(--panel);
-		text-align: left;
-	}
-	.mock-rows li {
-		display: flex;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 12px 0;
-		font-size: 15px;
-		font-weight: 600;
-	}
-	.mock-rows li + li {
-		border-top: 1px solid var(--line);
-	}
-	figcaption {
-		margin-top: 12px;
-	}
 	.band {
 		padding: clamp(56px, 9vw, 120px) 0 0;
 	}
@@ -386,50 +371,6 @@
 		font-weight: 600;
 		letter-spacing: -0.042em;
 		text-wrap: balance;
-	}
-	.section-lead {
-		max-width: 52ch;
-		margin: 16px 0 0;
-		color: var(--muted);
-		font-size: 18px;
-	}
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-		gap: 16px;
-		margin: 32px 0 0;
-		padding: 0;
-		list-style: none;
-	}
-	.card {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 8px;
-		padding: 24px;
-		border-radius: var(--r-l);
-		background: var(--panel);
-	}
-	.card h3 {
-		margin: 4px 0 0;
-		font-size: 19px;
-		font-weight: 600;
-		letter-spacing: -0.012em;
-	}
-	.card p {
-		margin: 0;
-		color: var(--ink-2);
-		font-size: 16px;
-	}
-	.icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 44px;
-		height: 44px;
-		border-radius: 50%;
-		background: var(--bg);
-		color: var(--ink);
 	}
 	.dark {
 		margin-top: clamp(56px, 9vw, 120px);
@@ -538,5 +479,232 @@
 	.closing {
 		padding: clamp(56px, 9vw, 120px) 0 0;
 		text-align: center;
+	}
+	/* The module tree (owner request 2026-10-28): one account at the top, every module branching from it. Wider
+	 * than the page column, centred on it. */
+	.eco {
+		/* Negative side margins widen it past the page column, up to 1440 px or the viewport less its gutters. */
+		margin: clamp(24px, 4vw, 48px) calc(50% - min(720px, 50vw - var(--gutter))) 0;
+		padding: clamp(6px, 1vw, 12px);
+		border-radius: var(--r-xl);
+		background: var(--panel);
+	}
+	.eco-inner {
+		padding: clamp(20px, 3.2vw, 44px);
+		border: 1px solid var(--line);
+		border-radius: calc(var(--r-xl) - 8px);
+		background: var(--bg-soft);
+	}
+	.eco-head {
+		display: grid;
+		gap: 24px;
+		justify-items: start;
+	}
+	.eco-title h2 {
+		font-size: clamp(30px, 4vw, 52px);
+	}
+	.eco-title p {
+		margin: 8px 0 0;
+		color: var(--muted);
+	}
+	.hub {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+	.hub-text {
+		display: flex;
+		flex-direction: column;
+		margin: 0;
+	}
+	.hub-text strong {
+		font-size: 24px;
+		font-weight: 600;
+		letter-spacing: -0.02em;
+	}
+	.hub-text span {
+		color: var(--muted);
+		font-size: 15px;
+	}
+	.tree {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+		gap: 16px;
+		margin: 32px 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.branch {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+	.branch-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--muted);
+		font-size: 14px;
+		font-weight: 500;
+	}
+	.branch-label::before {
+		content: '';
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--accent);
+	}
+	.module {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		padding: 20px;
+		border: 1px solid var(--line);
+		border-radius: var(--r-m);
+		background: var(--bg);
+	}
+	.art {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 140px;
+		margin-bottom: 12px;
+	}
+	.module h3 {
+		margin: 0;
+		font-size: 22px;
+		font-weight: 600;
+		letter-spacing: -0.02em;
+	}
+	.meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		margin: 6px 0 0;
+	}
+	.meta code {
+		color: color-mix(in srgb, var(--accent) 70%, var(--ink));
+		font-family: var(--font-mono);
+		font-size: 13px;
+	}
+	.status {
+		padding: 1px 8px;
+		border: 1px solid currentColor;
+		border-radius: var(--r-pill);
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.live {
+		color: var(--ok);
+	}
+	.soon {
+		color: var(--warn-text);
+	}
+	.module .text {
+		margin: 12px 0 0;
+		color: var(--ink-2);
+		font-size: 15px;
+		line-height: 1.5;
+	}
+	.items {
+		margin: 20px 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	.items li {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 40px;
+		border-top: 1px solid var(--line);
+		font-size: 15px;
+	}
+	.items li:last-child {
+		border-bottom: 1px solid var(--line);
+	}
+	.later {
+		margin-left: auto;
+		color: var(--muted);
+		font-size: 12px;
+	}
+	.items .ask {
+		color: color-mix(in srgb, var(--accent) 70%, var(--ink));
+		font-weight: 600;
+	}
+	/* Wide screens: the hub on top, a line down to a bar, and a line with an arrow down to every module. */
+	@media (min-width: 1280px) {
+		.eco-head {
+			grid-template-columns: 1fr auto 1fr;
+			align-items: end;
+		}
+		.hub {
+			position: relative;
+			grid-column: 2;
+		}
+		.hub-text {
+			position: absolute;
+			top: 12px;
+			left: calc(100% + 12px);
+			white-space: nowrap;
+		}
+		.hub::after {
+			content: '';
+			position: absolute;
+			top: 100%;
+			left: 50%;
+			height: 40px;
+			border-left: 1.5px solid var(--accent);
+		}
+		.tree {
+			position: relative;
+			grid-template-columns: repeat(6, minmax(0, 1fr));
+			margin-top: 40px;
+			padding-top: 64px;
+		}
+		.tree::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			right: calc((100% - 5 * 16px) / 12);
+			left: calc((100% - 5 * 16px) / 12);
+			border-top: 1.5px solid var(--accent);
+		}
+		.branch {
+			position: relative;
+		}
+		.branch::before {
+			content: '';
+			position: absolute;
+			top: -64px;
+			left: 50%;
+			height: 58px;
+			border-left: 1.5px solid var(--accent);
+		}
+		.branch::after {
+			content: '';
+			position: absolute;
+			top: -8px;
+			left: calc(50% - 4.25px);
+			border-top: 7px solid var(--accent);
+			border-right: 5px solid transparent;
+			border-left: 5px solid transparent;
+		}
+		.branch-label {
+			position: absolute;
+			top: -44px;
+			left: calc(50% + 10px);
+		}
+		.branch-label::before {
+			display: none;
+		}
+		.module {
+			padding: 18px;
+		}
+		.module h3 {
+			font-size: 20px;
+		}
 	}
 </style>

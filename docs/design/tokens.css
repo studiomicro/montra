@@ -79,6 +79,10 @@
 	--pro: #a2760a;
 	--pro-text: #7d5800;
 	--pro-soft: #fdf7e8;
+	/* FN-44 v3: Koko the Formosan black bear — fur, muzzle (and inner ears), the chest's V. */
+	--koko-fur: #3a332f;
+	--koko-muzzle: #d9a86c;
+	--koko-chest: #f6ecd9;
 
 	/* category tile hues (tile = 16 % of the hue on the surface) */
 	--cat-kopi: #b07a4f;
@@ -243,6 +247,9 @@
 		--pro: #d9ab3f;
 		--pro-text: #e9c66d;
 		--pro-soft: #2a2312;
+		--koko-fur: #3d3632;
+		--koko-muzzle: #d2a066;
+		--koko-chest: #efe3cb;
 		--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
 		--shadow-float: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
 		--glass-bg: rgba(28, 28, 30, 0.64);
@@ -302,6 +309,9 @@
 	--pro: #d9ab3f;
 	--pro-text: #e9c66d;
 	--pro-soft: #2a2312;
+	--koko-fur: #3d3632;
+	--koko-muzzle: #d2a066;
+	--koko-chest: #efe3cb;
 	--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
 	--shadow-float: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
 	--glass-bg: rgba(28, 28, 30, 0.64);
@@ -362,6 +372,9 @@
 	--pro: #777777;
 	--pro-text: #4a4a4a;
 	--pro-soft: #f6f6f6;
+	--koko-fur: #262626;
+	--koko-muzzle: #b8b8b8;
+	--koko-chest: #efefef;
 	--cat-kopi: #8c8c8c;
 	--cat-makan: #6f6f6f;
 	--cat-belanja-harian: #7d7d7d;
@@ -466,6 +479,9 @@
 		--pro: #a6a6a6;
 		--pro-text: #d0d0d0;
 		--pro-soft: #262626;
+		--koko-fur: #2e2e2e;
+		--koko-muzzle: #a8a8a8;
+		--koko-chest: #e0e0e0;
 		--glass-bg: rgba(29, 29, 29, 0.64);
 		--glass-solid: #1d1d1d;
 		--glass-border: rgba(255, 255, 255, 0.1);
