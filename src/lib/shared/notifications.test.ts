@@ -145,7 +145,8 @@ describe('preferences', () => {
 			bill_reminder: true,
 			daily_nudge: true,
 			close_reminder: true,
-			weekly_summary: true
+			weekly_summary: true,
+			gmail_payment: true
 		});
 		expect(
 			prefsFrom([

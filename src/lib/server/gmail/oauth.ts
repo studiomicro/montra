@@ -181,13 +181,15 @@ export async function completeGmailConnect(
 	);
 	// Columns in table order: id, user_id, space_id, status, reconnect_reason, paused_reason, google_address,
 	// encrypted_token, token_nonce, token_key_id, scope, auto_check, checked_through, check_after,
-	// quota_window_start, quota_units, last_checked_at, created_at, updated_at, ai_window_start, ai_reads.
+	// quota_window_start, quota_units, last_checked_at, created_at, updated_at, ai_window_start, ai_reads,
+	// auto_save, auto_save_wallet_id, auto_save_day, auto_saves (FN-19b: off on a new connection; a reconnect keeps
+	// the user's choice).
 	const upsert = db
 		.insert(gmailConnections)
 		.select(
 			sql`select ${id}, ${input.userId}, ${input.spaceId}, 'connected', null, null, ${address},
 				${sealed.ciphertext}, ${sealed.nonce}, ${sealed.keyId}, ${grant.scope.slice(0, 2000)}, 1,
-				${firstCheck}, 0, 0, 0, null, ${now}, ${now}, 0, 0
+				${firstCheck}, 0, 0, 0, null, ${now}, ${now}, 0, 0, 0, null, null, 0
 			where ${liveMemberOf(sql`${input.spaceId}`, sql`${input.userId}`)}`
 		)
 		.onConflictDoUpdate({

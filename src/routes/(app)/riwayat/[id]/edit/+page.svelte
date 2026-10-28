@@ -7,6 +7,7 @@
 	import { useI18n } from '#lib/ui/i18n-context';
 	import Button from '#lib/ui/kit/Button.svelte';
 	import ScreenTitle from '#lib/ui/shell/ScreenTitle.svelte';
+	import StatusTag from '#lib/ui/kit/StatusTag.svelte';
 	import AdjustmentForm from '#lib/ui/transactions/AdjustmentForm.svelte';
 	import TransactionForm from '#lib/ui/transactions/TransactionForm.svelte';
 	import { QUEUE_FULL } from '#lib/shared/offline-queue';
@@ -110,6 +111,9 @@
 	back={{ href: '/riwayat', label: tr('Kembali ke Riwayat') }}
 	title={tr('Ubah transaksi')}
 />
+{#if data.transaction.fromGmail}<p class="source-tag">
+		<StatusTag>{tr('Dari Gmail')}</StatusTag>
+	</p>{/if}
 
 <div class="page">
 	<FormBanner message={banner} />
@@ -283,5 +287,8 @@
 	.confirm p {
 		margin: 0;
 		font-size: 14px;
+	}
+	.source-tag {
+		margin: 4px 0 0;
 	}
 </style>

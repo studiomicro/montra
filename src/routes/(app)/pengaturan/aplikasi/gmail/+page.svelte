@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/env';
 	import { enhance, type SubmitFunction } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { formatDateTimeWib } from '#lib/shared/dates';
@@ -67,8 +68,16 @@
 		checking: msg('Pemeriksaan dimulai. Pembayaran yang ditemukan masuk ke Kotak masuk.'),
 		scanning: msg('Pemindaian dimulai. Kemajuannya tampil di bawah.'),
 		stopped: msg('Pemindaian dihentikan.'),
-		rereading: msg('E-mail yang tertunda dibaca ulang.')
+		rereading: msg('E-mail yang tertunda dibaca ulang.'),
+		autosave_on: msg('Simpan otomatis dinyalakan.'),
+		autosave_off: msg('Simpan otomatis dimatikan.'),
+		notify_on: msg('Pemberitahuan pembayaran dari Gmail dinyalakan.'),
+		notify_off: msg('Pemberitahuan pembayaran dari Gmail dimatikan.')
 	};
+	// FN-19b "Simpan ke dompet": the wallet picked on this page, else the one stored. Turning auto-save on needs one
+	// (the server refuses without it too, so the form works without JavaScript).
+	let walletPick = $state<string | null>(null);
+	const chosenWallet = $derived(walletPick ?? data.connection?.autoSaveWalletId ?? '');
 	const done = $derived(
 		form && 'done' in form && typeof form.done === 'string' && Object.hasOwn(doneText, form.done)
 			? tr(doneText[form.done] as string)
@@ -302,6 +311,84 @@
 				</Button>
 			</form>
 			<a class="link" href="/kotak-masuk">{tr('Buka Kotak masuk')}</a>
+			<a class="link" href="/pengaturan/aplikasi/gmail/transaksi">{tr('Transaksi dari Gmail')}</a>
+		</section>
+
+		<section class="group" aria-labelledby="autosave-title">
+			<h2 id="autosave-title">{tr('Simpan otomatis')}</h2>
+			<p class="meta">
+				{tr(
+					'Pembayaran keluar sampai Rp 5.000.000 dari pengirim yang sudah dikonfirmasi langsung disimpan ke dompet pilihanmu, paling banyak 20 per hari. Bacaan AI, uang masuk, duplikat dan yang belum berkategori tetap masuk Kotak masuk. Semua bisa diurungkan per pemindaian.'
+				)}
+			</p>
+			{#if data.confirmedSenders === 0}
+				<p class="meta bad">
+					{tr('Simpan otomatis aktif untuk pengirim yang sudah dikonfirmasi: belum ada')}
+				</p>
+			{/if}
+			<form method="POST" action="?/autoSave" class="stack" use:enhance={track('autoSave')}>
+				<input type="hidden" name="connectionId" value={c.id} />
+				<input type="hidden" name="updatedAt" value={c.updatedAt} />
+				<input type="hidden" name="on" value={c.autoSave ? '0' : '1'} />
+				<p class="meta">
+					{c.autoSave ? tr('Simpan otomatis: nyala') : tr('Simpan otomatis: mati')}
+				</p>
+				{#if !c.autoSave}
+					{#if data.wallets.length === 0}
+						<p class="meta">{tr('Tambahkan dompet rupiah di ruang tujuan dulu.')}</p>
+					{:else}
+						<label class="field">
+							<span>{tr('Simpan ke dompet')}</span>
+							<select
+								name="walletId"
+								value={chosenWallet}
+								onchange={(e) => (walletPick = e.currentTarget.value)}
+							>
+								<option value="">{tr('Pilih dompet')}</option>
+								{#each data.wallets as wallet (wallet.id)}
+									<option value={wallet.id}>{wallet.name}</option>
+								{/each}
+							</select>
+						</label>
+					{/if}
+				{/if}
+				<Button
+					type="submit"
+					variant="secondary"
+					full
+					disabled={busy !== '' ||
+						(!c.autoSave && (data.wallets.length === 0 || (browser && chosenWallet === '')))}
+				>
+					{busy === 'autoSave'
+						? tr('Menyimpan…')
+						: c.autoSave
+							? tr('Matikan simpan otomatis')
+							: tr('Nyalakan simpan otomatis')}
+				</Button>
+			</form>
+		</section>
+
+		<section class="group" aria-labelledby="notify-title">
+			<h2 id="notify-title">{tr('Pemberitahuan')}</h2>
+			<form method="POST" action="?/notify" class="stack" use:enhance={track('notify')}>
+				<input type="hidden" name="on" value={data.notify ? '0' : '1'} />
+				<input type="hidden" name="version" value={data.notifyVersion} />
+				<p class="meta">
+					{data.notify
+						? tr(
+								'Beri tahu di perangkat ini: nyala (paling banyak 5 per hari, lalu satu ringkasan)'
+							)
+						: tr('Beri tahu di perangkat ini: mati')}
+				</p>
+				<Button type="submit" variant="secondary" full disabled={busy !== ''}>
+					{busy === 'notify'
+						? tr('Menyimpan…')
+						: data.notify
+							? tr('Matikan pemberitahuan')
+							: tr('Nyalakan pemberitahuan')}
+				</Button>
+			</form>
+			<a class="link" href="/pengaturan/notifikasi">{tr('Atur pemberitahuan perangkat')}</a>
 		</section>
 
 		<section class="group" aria-labelledby="lookback-title">

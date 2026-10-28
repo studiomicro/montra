@@ -9,6 +9,8 @@ import {
 	budgetThreshold,
 	CLOSE_REMINDER_DEFAULT_HOUR,
 	closeReminderDataKey,
+	gmailGroupDataKey,
+	gmailPaymentDataKey,
 	goalDataKey,
 	goalThreshold,
 	isQuietHour,
@@ -20,6 +22,7 @@ import {
 	weeklyDataKey
 } from '#lib/shared/notifications';
 import type { PushPayload } from '#lib/shared/push';
+import { GMAIL_PUSHES_PER_DAY } from '#lib/shared/gmail/ledger';
 import { amountIn, outIn } from '../budgets/math';
 import { getActiveBudget } from '../budgets/repo';
 import type { Db } from '../db';
@@ -31,6 +34,8 @@ import { MAX_SPACE_MEMBERS } from '../spaces/access';
 import { periodTotals, type TransactionFilter } from '../transactions/aggregate';
 import { dueBillReminders } from '../subscriptions/reminders';
 import { listWallets } from '../wallets/repo';
+import { spaceNotifications } from '../db/schema';
+import { bumpSpaceSeq, currentSpaceSeq } from '../sync/seq';
 import {
 	claimDelivery,
 	createIfAbsent,
@@ -367,6 +372,16 @@ export async function deliverPush(
 			where user_id = ${target.userId} and closed_on = ${params.date} limit 1`);
 		if (closed) return 'closed';
 	}
+	// FN-19b: a Gmail payment discarded (or its transaction deleted, or the scan undone) before delivery is not
+	// announced any more.
+	if (target.kind === 'gmail_payment' && params && 'draftId' in params) {
+		const live = params.transactionId
+			? await db.get<{ one: number }>(sql`select 1 as one from transactions
+				where id = ${params.transactionId} and deleted_at is null limit 1`)
+			: await db.get<{ one: number }>(sql`select 1 as one from drafts
+				where id = ${params.draftId} and deleted_at is null limit 1`);
+		if (!live) return 'gone';
+	}
 	const spaceName = target.space
 		? target.space.kind === 'personal'
 			? t.tr('Pribadi')
@@ -426,5 +441,117 @@ export async function notifyGoalMilestone(
 		if (messages.length > 0) await queue.sendBatch(messages.map((body) => ({ body })));
 	} catch (e) {
 		console.error('notifications: goal milestone failed', e instanceof Error ? e.name : 'unknown');
+	}
+}
+
+/** FN-19b: the stored figures of one captured Gmail payment, for its notification (never mail text). */
+export interface GmailPaymentNotice {
+	spaceId: string;
+	/** The connection owner (the only recipient). */
+	userId: string;
+	draftId: string;
+	transactionId: string | null;
+	/**
+	 * The draft's cleaned title (FN-20) and amount, or null for a generic notice (red team L1: only a deterministic
+	 * reading of a confirmed sender is named on the lock screen).
+	 */
+	merchant: string | null;
+	amountMinor: number | null;
+	currency: string;
+	direction: 'expense' | 'income';
+	categoryName: string | null;
+}
+
+/**
+ * FN-19b `gmail_payment` for one capture of an hourly Gmail check: one notification per draft (`gmail:<draft>`,
+ * so a redelivered read never makes a second), at most GMAIL_PUSHES_PER_DAY single ones per recipient and WIB day
+ * (counted inside the insert over every single one created today, dismissed ones included). Past the cap, ONE
+ * grouped notification per space and day ("N pembayaran baru dari Gmail", names nothing); later captures only
+ * raise its count in place, without a new push. Preference, active account and live membership are checked by
+ * `createIfAbsent`. Returns the rows this call created (the caller pushes each once).
+ */
+export async function evaluateGmailPayment(
+	db: Db,
+	notice: GmailPaymentNotice,
+	now: number
+): Promise<CreateResult[]> {
+	const { spaceId, userId } = notice;
+	const today = wibDateString(now);
+	const dayStart = wibDayRangeUtcMs(today).startMs;
+	const createdToday = sql`(select count(*) from space_notifications x
+		where x.user_id = ${userId} and x.kind = 'gmail_payment' and x.created_at >= ${dayStart}
+			and substr(x.data_key, 1, 6) = 'gmail:')`;
+	const single = await createIfAbsent(
+		db,
+		{
+			userId,
+			kind: 'gmail_payment',
+			spaceId,
+			dataKey: gmailPaymentDataKey(notice.draftId),
+			params: {
+				draftId: notice.draftId,
+				transactionId: notice.transactionId,
+				merchant: notice.merchant,
+				amountMinor: notice.amountMinor,
+				currency: notice.currency,
+				direction: notice.direction,
+				categoryName: notice.categoryName,
+				saved: notice.transactionId !== null
+			},
+			guard: sql`${createdToday} < ${GMAIL_PUSHES_PER_DAY}`
+		},
+		now
+	);
+	if (single) return single.created ? [single] : [];
+	// Refused: past today's cap (grouped below), or not allowed at all (preference, membership).
+	const [row] = await db.all<{ n: number }>(sql`select ${createdToday} as n`);
+	if ((row?.n ?? 0) < GMAIL_PUSHES_PER_DAY) return [];
+	const group = await createIfAbsent(
+		db,
+		{
+			userId,
+			kind: 'gmail_payment',
+			spaceId,
+			dataKey: gmailGroupDataKey(spaceId, today),
+			params: { count: 1, date: today, gmail: true }
+		},
+		now
+	);
+	if (!group) return [];
+	if (group.created) return [group];
+	// The group exists: one more payment in it, counted in place (one statement), never pushed again.
+	await db.batch([
+		bumpSpaceSeq(db, spaceId),
+		db
+			.update(spaceNotifications)
+			.set({
+				params: sql`json_set(${spaceNotifications.params}, '$.count',
+					json_extract(${spaceNotifications.params}, '$.count') + 1)`,
+				updatedAt: now,
+				seq: currentSpaceSeq(spaceId)
+			})
+			.where(
+				sql`${spaceNotifications.id} = ${group.id} and ${spaceNotifications.deletedAt} is null`
+			)
+	]);
+	return [];
+}
+
+/**
+ * After a Gmail capture (the jobs Worker's read): creates its notification and enqueues one `send_push` per new
+ * row. Never throws: the capture is already stored; a failure here only costs the notification (logged by name).
+ */
+export async function notifyGmailPayment(
+	db: Db,
+	enqueue: (messages: JobMessage[]) => Promise<void>,
+	notice: GmailPaymentNotice,
+	now: number
+): Promise<void> {
+	try {
+		const fresh = await evaluateGmailPayment(db, notice, now);
+		const messages: JobMessage[] = fresh.map((m) => ({ type: 'send_push', notificationId: m.id }));
+		if (messages.length > 0) await enqueue(messages);
+	} catch (e) {
+		console.error('notifications: gmail payment failed', e instanceof Error ? e.name : 'unknown');
 	}
 }

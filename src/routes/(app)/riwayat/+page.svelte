@@ -401,7 +401,11 @@
 						category={rowTile(row)}
 						kind={row.type}
 						label={rowKindLabel(row, i18n)}
-						status={row.isDemo ? tr('Data demo') : undefined}
+						status={row.isDemo
+							? tr('Data demo')
+							: row.source === 'gmail'
+								? tr('Dari Gmail')
+								: undefined}
 						recurring={row.recurringSeriesId ? tr('Berulang') : undefined}
 						share={rowShare(row, i18n)}
 						href="/riwayat/{row.id}/edit"

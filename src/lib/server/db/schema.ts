@@ -1480,7 +1480,7 @@ export const spaceNotifications = sqliteTable(
 		index('space_notifications_created_idx').on(t.createdAt),
 		check(
 			'space_notifications_kind_check',
-			sql`${t.kind} in ('budget_80', 'budget_100', 'goal_milestone', 'bill_reminder')`
+			sql`${t.kind} in ('budget_80', 'budget_100', 'goal_milestone', 'bill_reminder', 'gmail_payment')`
 		),
 		check(
 			'space_notifications_content_check',
@@ -1549,7 +1549,7 @@ export const notificationPrefs = sqliteTable(
 		uniqueIndex('notification_prefs_user_kind_uq').on(t.userId, t.kind),
 		check(
 			'notification_prefs_kind_check',
-			sql`${t.kind} in ('budget_80', 'budget_100', 'goal_milestone', 'bill_reminder', 'daily_nudge', 'close_reminder', 'weekly_summary')`
+			sql`${t.kind} in ('budget_80', 'budget_100', 'goal_milestone', 'bill_reminder', 'daily_nudge', 'close_reminder', 'weekly_summary', 'gmail_payment')`
 		),
 		check(
 			'notification_prefs_hour_check',
@@ -2472,7 +2472,16 @@ export const gmailConnections = sqliteTable(
 		// Red team L6: AI reads of this connection in its current 24-hour window (GMAIL_AI_READS_PER_DAY). Last, as
 		// 0045 added them, so the insert-select in oauth.ts (columns in table order) matches.
 		aiWindowStart: integer('ai_window_start').notNull().default(0),
-		aiReads: integer('ai_reads').notNull().default(0)
+		aiReads: integer('ai_reads').notNull().default(0),
+		// FN-19b auto-save (migration 0050, appended last like 0045's): opt-in (0/1, app-validated), the wallet captures
+		// go to (ON DELETE SET NULL: a hard-deleted wallet stops it), and the per-WIB-day burst counter
+		// (GMAIL_AUTOSAVE_PER_DAY), claimed in one guarded UPDATE like `ai_reads`. Jobs never touch `updated_at`.
+		autoSave: integer('auto_save').notNull().default(0),
+		autoSaveWalletId: text('auto_save_wallet_id').references(() => wallets.id, {
+			onDelete: 'set null'
+		}),
+		autoSaveDay: text('auto_save_day'),
+		autoSaves: integer('auto_saves').notNull().default(0)
 	},
 	(t) => [
 		uniqueIndex('gmail_connections_user_uq').on(t.userId),
@@ -2527,7 +2536,9 @@ export const gmailScans = sqliteTable(
 		read: integer('read').notNull().default(0),
 		drafted: integer('drafted').notNull().default(0),
 		createdAt: integer('created_at').notNull(),
-		updatedAt: integer('updated_at').notNull()
+		updatedAt: integer('updated_at').notNull(),
+		/** FN-19b "Urungkan pemindaian": when the user undid this scan (null = not undone; counts are not stored). */
+		undoneAt: integer('undone_at')
 	},
 	(t) => [
 		uniqueIndex('gmail_scans_window_uq').on(t.connectionId, t.kind, t.window),
@@ -2581,7 +2592,12 @@ export const gmailMail = sqliteTable(
 		subject: text('subject'),
 		draftId: text('draft_id'),
 		scanId: text('scan_id'),
-		updatedAt: integer('updated_at').notNull()
+		updatedAt: integer('updated_at').notNull(),
+		/**
+		 * FN-19b (red team L2): when "Baca ulang yang tertunda" queued this row again. A re-read never notifies and
+		 * never auto-saves, however it is delivered (the sweep re-sends a lost one without any message flag).
+		 */
+		rereadAt: integer('reread_at')
 	},
 	(t) => [
 		uniqueIndex('gmail_mail_message_uq').on(t.connectionId, t.gmailId),

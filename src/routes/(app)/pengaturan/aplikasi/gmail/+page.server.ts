@@ -14,6 +14,9 @@ import { takeGmailResult } from '#lib/server/gmail/flash';
 import { googleClient } from '#lib/server/gmail/google';
 import {
 	GMAIL_ALREADY_CONNECTED,
+	GMAIL_AUTOSAVE_SPACE,
+	GMAIL_AUTOSAVE_WALLET,
+	GMAIL_NOTIFY_CHANGED,
 	GMAIL_CALLBACK_RESULTS,
 	GMAIL_CHANGED_MEANWHILE,
 	GMAIL_CHECK_RECENT,
@@ -43,15 +46,25 @@ import {
 	requeueRereadable,
 	sealedTokenOf,
 	setAutoCheck,
+	setAutoSave,
 	setConnectionSpace,
 	type ConnectionRef,
 	type ConnectionWriteResult
 } from '#lib/server/gmail/repo';
 import { listSpaces } from '#lib/server/spaces/spaces';
+import { listWallets } from '#lib/server/wallets/repo';
+import {
+	getNotificationPrefs,
+	notificationPrefVersion,
+	setNotificationPrefIfUnchanged
+} from '#lib/server/notifications/repo';
+import { SENDER_DOMAINS } from '#lib/shared/inbound/sender-domains';
 import { errorLabel } from '#lib/server/util';
 import { wibDateString, wibTimeString } from '#lib/shared/dates';
 import {
 	GMAIL_CHECK_NOW_MINUTES,
+	GMAIL_AUTOSAVE_SETTING_PER_WINDOW,
+	GMAIL_NOTIFY_SETTING_PER_WINDOW,
 	GMAIL_CONNECTS_PER_WINDOW,
 	GMAIL_SCAN_ACTIONS_PER_WINDOW
 } from '#lib/shared/gmail/ledger';
@@ -92,21 +105,45 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 	};
 	try {
 		const now = Date.now();
-		const [connection, spaces, plan] = await Promise.all([
+		const [connection, spaces, plan, prefs, notifyVersion] = await Promise.all([
 			getConnection(locals.db, user.id, now),
 			listSpaces(locals.db, user.id),
-			planOf(locals.db, user.id, now)
+			planOf(locals.db, user.id, now),
+			getNotificationPrefs(locals.db, user.id),
+			notificationPrefVersion(locals.db, user.id, 'gmail_payment')
 		]);
+		// FN-19b: the target space's live IDR wallets for "Simpan ke dompet" (only while the user is a member).
+		const wallets =
+			connection && connection.spaceName !== null
+				? (await listWallets(locals.db, connection.spaceId))
+						.filter((w) => w.currency === 'IDR')
+						.map((w) => ({ id: w.id, name: w.name }))
+				: [];
 		return {
 			...base,
 			connection,
 			spaces: spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
+			wallets,
+			confirmedSenders: SENDER_DOMAINS.length,
+			// FN-19b "Beri tahu di perangkat ini": the same preference as the /pengaturan/notifikasi row.
+			notify: prefs.gmail_payment,
+			notifyVersion,
 			lookbackMax: gmailLookbackMaxDays(plan),
 			loadError: null
 		};
 	} catch (e) {
 		console.error('pengaturan/aplikasi/gmail: load failed', errorLabel(e));
-		return { ...base, connection: null, spaces: [], lookbackMax: 0, loadError: GMAIL_LOAD_FAILED };
+		return {
+			...base,
+			connection: null,
+			spaces: [],
+			wallets: [],
+			confirmedSenders: SENDER_DOMAINS.length,
+			notify: true,
+			notifyVersion: 0,
+			lookbackMax: 0,
+			loadError: GMAIL_LOAD_FAILED
+		};
 	}
 };
 
@@ -123,14 +160,15 @@ function answer(result: ConnectionWriteResult, done: string) {
 	return { done };
 }
 
-const overLimit = (locals: App.Locals, userId: string, scope: 'gmail-connect' | 'gmail-scan') =>
-	overUserAttemptLimit(
-		locals.db,
-		userId,
-		Date.now(),
-		scope,
-		scope === 'gmail-connect' ? GMAIL_CONNECTS_PER_WINDOW : GMAIL_SCAN_ACTIONS_PER_WINDOW
-	);
+const LIMITS = {
+	'gmail-connect': GMAIL_CONNECTS_PER_WINDOW,
+	'gmail-scan': GMAIL_SCAN_ACTIONS_PER_WINDOW,
+	'gmail-autosave-setting': GMAIL_AUTOSAVE_SETTING_PER_WINDOW,
+	'gmail-notify-setting': GMAIL_NOTIFY_SETTING_PER_WINDOW
+} as const;
+
+const overLimit = (locals: App.Locals, userId: string, scope: keyof typeof LIMITS) =>
+	overUserAttemptLimit(locals.db, userId, Date.now(), scope, LIMITS[scope]);
 
 /** Sends job messages, at most 100 per Queues `sendBatch`. */
 async function enqueue(messages: JobMessage[]): Promise<void> {
@@ -241,6 +279,59 @@ export const actions: Actions = {
 			await setAutoCheck(locals.db, user.id, ref, on, Date.now()),
 			on ? 'auto_on' : 'auto_off'
 		);
+	},
+
+	/**
+	 * FN-19b "Simpan otomatis": on with a live IDR wallet of the target space, or off. Success only after the
+	 * guarded write; a stale page answers "changed meanwhile".
+	 */
+	autoSave: async ({ request, locals }) => {
+		const form = await readFormBody(request);
+		const user = signedIn(locals);
+		const ref = connectionRef(form);
+		if (!ref) return fail(404, { error: GMAIL_NOT_CONNECTED });
+		const on = textField(form, 'on') === '1';
+		const walletId = idField(form, 'walletId');
+		if (on && !walletId) return fail(400, { error: GMAIL_AUTOSAVE_WALLET });
+		if (await overLimit(locals, user.id, 'gmail-autosave-setting'))
+			return fail(429, { error: GMAIL_RATE_LIMITED });
+		const result = await setAutoSave(
+			locals.db,
+			user.id,
+			ref,
+			on ? { on: true, walletId } : { on: false },
+			Date.now()
+		);
+		if (result === 'wallet') return fail(400, { error: GMAIL_AUTOSAVE_WALLET });
+		if (result === 'space') return fail(403, { error: GMAIL_AUTOSAVE_SPACE });
+		return answer(result, on ? 'autosave_on' : 'autosave_off');
+	},
+
+	/**
+	 * FN-19b "Beri tahu di perangkat ini": the `gmail_payment` notification preference (one source of truth with
+	 * /pengaturan/notifikasi). Pushes still need this device's opt-in there.
+	 */
+	notify: async ({ request, locals }) => {
+		const form = await readFormBody(request);
+		const user = signedIn(locals);
+		const on = textField(form, 'on') === '1';
+		const version = textField(form, 'version');
+		const expected = /^\d{1,16}$/.test(version) ? Number(version) : -1;
+		if (await overLimit(locals, user.id, 'gmail-notify-setting'))
+			return fail(429, { error: GMAIL_RATE_LIMITED });
+		const result =
+			expected < 0
+				? 'stale'
+				: await setNotificationPrefIfUnchanged(
+						locals.db,
+						user.id,
+						'gmail_payment',
+						on,
+						expected,
+						Date.now()
+					);
+		if (result === 'stale') return fail(409, { error: GMAIL_NOTIFY_CHANGED });
+		return { done: on ? 'notify_on' : 'notify_off' };
 	},
 
 	/** "Periksa sekarang": one hourly-kind check now, at most one per 5-minute bucket. */

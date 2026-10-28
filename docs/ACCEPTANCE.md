@@ -12,7 +12,7 @@ provider replaced by a fake. **Not run** = not yet verified. Evidence: `docs/HIS
 | Sign up → guest records upload → second device sees them | Not run | |
 | Delete on device A → gone on device B | Not run | |
 | Connect Gmail → QRIS receipt → transaction within one check, no duplicate on a second mail | Not run | |
-| Gmail look-back 7 days → review → import → undo | Not run | |
+| Gmail look-back 7 days → review → import → undo | Browser (mocked Google) | FN-19b: `e2e/gmail-review.spec.ts` look-back save and undo journey; `test/integration/gmail-followups.test.ts` undo cases on local D1 (2026-10-28). Real Gmail not run. |
 | Receipt photo → split per item → total equals receipt | Not run | |
 | Statement PDF (password) → balance check → duplicates excluded → import → undo | Not run | |
 | Spreadsheet 3,000 rows → totals identical to the file | Automated | FN-17: `test/integration/impor-spreadsheet.test.ts` › "AC 17: 3,000 generated rows, totals identical to the file" (long table and tab per month; generated fictional workbook, real files not run) |

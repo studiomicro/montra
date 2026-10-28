@@ -119,7 +119,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			updatedAt: transaction.updatedAt,
 			occurredAt: transaction.occurredAt,
 			// FN-15: a kept receipt photo, served by /riwayat/<id>/foto.
-			hasPhoto: transaction.hasPhoto
+			hasPhoto: transaction.hasPhoto,
+			// FN-19b (QA F3): the "Dari Gmail" tag, as on the Riwayat row.
+			fromGmail: transaction.source === 'gmail'
 		},
 		values,
 		categoryReason,

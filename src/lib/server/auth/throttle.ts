@@ -53,6 +53,12 @@ export const THROTTLE_SCOPES = [
 	'gmail-connect',
 	// FN-19 Gmail: "Periksa sekarang", look-backs and re-reads, per user (GMAIL_SCAN_ACTIONS_PER_WINDOW).
 	'gmail-scan',
+	// FN-19b: "Urungkan pemindaian" (GMAIL_UNDO_PER_WINDOW) and auto-save setting changes
+	// (GMAIL_AUTOSAVE_SETTING_PER_WINDOW), per user.
+	'gmail-undo',
+	'gmail-autosave-setting',
+	// FN-19b QA F6: the "Beri tahu di perangkat ini" toggle, per user, in its own bucket.
+	'gmail-notify-setting',
 	// FN-17: spreadsheet uploads (read, review, AI suggestion, import), per user (/impor).
 	'spreadsheet-upload',
 	// FN-17: "Sarankan pemetaan dengan AI", per user, with its own small budget (SHEET_AI_PER_WINDOW).
@@ -188,6 +194,7 @@ export async function countAttempt(
  * - ai-key-test: each one is a real provider call billed to the user's own Anthropic account;
  * - receipt-read: each one is a vision call billed to the user's own Anthropic account;
  * - gmail-connect, gmail-scan: each one starts an OAuth flow or Gmail API work for the user;
+ * - gmail-undo, gmail-autosave-setting, gmail-notify-setting: each one is a guarded write (FN-19b);
  * - spreadsheet-upload: each one inflates and parses an untrusted ZIP/XML workbook;
  * - spreadsheet-ai: each one is a call billed to the user's own Anthropic account;
  * - merchant-ai: each one is a provider call billed to the user's own Anthropic account (the item then simply

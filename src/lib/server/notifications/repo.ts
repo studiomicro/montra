@@ -296,6 +296,53 @@ export async function setNotificationPref(
 		});
 }
 
+/** The `updated_at` of `userId`'s stored preference row for `kind`, 0 when none is stored (default on). */
+export async function notificationPrefVersion(
+	db: Db,
+	userId: string,
+	kind: NotificationKind
+): Promise<number> {
+	const row = await db
+		.select({ updatedAt: notificationPrefs.updatedAt })
+		.from(notificationPrefs)
+		.where(and(eq(notificationPrefs.userId, userId), eq(notificationPrefs.kind, kind)))
+		.get();
+	return row?.updatedAt ?? 0;
+}
+
+/**
+ * FN-19b (red team L3): one kind on or off only while its stored row is still the version the page showed
+ * (`expectedUpdatedAt`, 0 = no row yet), so a stale tab never overwrites a newer choice. One guarded statement.
+ */
+export async function setNotificationPrefIfUnchanged(
+	db: Db,
+	userId: string,
+	kind: NotificationKind,
+	enabled: boolean,
+	expectedUpdatedAt: number,
+	now: number
+): Promise<'ok' | 'stale'> {
+	const done =
+		expectedUpdatedAt === 0
+			? await db
+					.insert(notificationPrefs)
+					.values({ id: newId(), userId, kind, enabled, createdAt: now, updatedAt: now })
+					.onConflictDoNothing()
+					.returning({ id: notificationPrefs.id })
+			: await db
+					.update(notificationPrefs)
+					.set({ enabled, updatedAt: Math.max(now, expectedUpdatedAt + 1) })
+					.where(
+						and(
+							eq(notificationPrefs.userId, userId),
+							eq(notificationPrefs.kind, kind),
+							eq(notificationPrefs.updatedAt, expectedUpdatedAt)
+						)
+					)
+					.returning({ id: notificationPrefs.id });
+	return done.length === 1 ? 'ok' : 'stale';
+}
+
 /** FN-34b: the WIB hour of `userId`'s evening "belum ditutup" reminder (CLOSE_REMINDER_DEFAULT_HOUR unset). */
 export async function getCloseReminderHour(db: Db, userId: string): Promise<number> {
 	const row = await db

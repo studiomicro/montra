@@ -48,6 +48,8 @@ verification work that can run in a session.
 - [ ] **You** — Before public launch: Google OAuth app verification (restricted scope `gmail.readonly`) and the CASA
       security assessment; `/privasi` Google API Services User Data Policy / Limited Use text with legal review.
 - [ ] **You** — Redacted sample e-mails and statements from your own banks and e-wallets (golden set, Phase 2).
+      FN-19b sender registry needs the e-mails first, with full headers (owner order 2026-10-28: BCA; GoPay/Gojek;
+      OVO, DANA, ShopeePay; Mandiri, BRI, BNI).
 - [ ] **You** — FN-19 forwarding domain: choose the domain, enable Cloudflare Email Routing, route the catch-all to
       the inbound Worker, set `INBOUND_EMAIL_DOMAIN` (app + inbound Workers), then find the authserv-id on the Worker
       route and set `INBOUND_AUTHSERV_ID` only if Cloudflare's header comes first (`docs/RUNBOOK.md` › E-mail
@@ -107,8 +109,18 @@ verification work that can run in a session.
 - [x] **Claude** — Resolved 2026-10-13 (`docs/features/fix-lows-services/`): FN-19 Gmail low findings (`docs/features/fn-19-gmail/SECURITY_REPORT.md`): L5 topmost
       `Authentication-Results` trust; L6 no daily AI-read cap per connection; L7 no re-seal on key rotation
       (unopenable token cannot be revoked).
-- [ ] **Claude** — FN-19 Gmail follow-ups: push per captured payment (new FN-24 notification kind, table rebuild),
-      auto-save, "Transaksi dari Gmail" review with undo-by-scan, `history.list` incremental sync, real sender domains.
+- [x] **Claude** — FN-19b Gmail follow-ups (2026-10-28, migration 0050): push per captured payment, opt-in auto-save,
+      "Transaksi dari Gmail" review with undo per scan, empty sender-domain registry. See HISTORY and
+      `docs/features/fn-19b-gmail-followups/SUMMARY.md`.
+- [ ] **Claude** — FN-19c Gmail `history.list` incremental sync (split from FN-19b; hourly checks keep the `after:` search).
+- [ ] **Claude** — FN-19b leftovers (low): F4 several hourly scans on one day show as separate groups with the same
+      label (undo is per scan); I1 before the first registry domain goes in, confirm from the real samples that Gmail
+      always writes its own `dmarc=` result (`docs/features/fn-19b-gmail-followups/SECURITY_REPORT.md` "Cycle 3").
+- [ ] **Claude** — FN-19b sender registry: add real sender domains to `src/lib/shared/inbound/sender-domains.ts` only
+      from the owner's redacted samples (owner order 2026-10-28: BCA; GoPay/Gojek; OVO, DANA, ShopeePay; Mandiri,
+      BRI, BNI). Until then auto-save never fires and every Gmail push is generic.
+- [ ] **You** — FN-19b real check after the Google setup: one real bank mail from a registered domain auto-saves with
+      auto-save on, its push shows merchant and amount on a phone, a forwarded copy stays a draft, undo per scan works.
 - [x] **Claude** — FN-20 Merchant recognition (2026-10-10, branch `feat/fn-20-merchants`, migration 0034 after renumbering at merge; not merged,
       not deployed). Evidence in `docs/HISTORY.md` and `docs/features/fn-20-merchants/`.
 - [x] **Claude** — Resolved 2026-10-13 (`docs/features/fix-lows-services/`): FN-20 low findings (`docs/features/fn-20-merchants/SECURITY_REPORT.md`): L2 AI-picked merchant name

@@ -194,8 +194,11 @@ export function gmailMessage(input: {
 	labelIds?: string[];
 	internalDate?: number;
 	attachments?: { filename: string; text: string }[];
+	/** `Authentication-Results` values, topmost first (prepended above the other headers). */
+	authResults?: string[];
 }): Record<string, unknown> {
 	const headers = [
+		...(input.authResults ?? []).map((value) => ({ name: 'Authentication-Results', value })),
 		{ name: 'From', value: input.from },
 		{ name: 'Subject', value: input.subject },
 		{ name: 'Date', value: new Date(input.internalDate ?? Date.now()).toUTCString() }

@@ -35,3 +35,26 @@ export const GMAIL_CALLBACK_RESULTS = {
 	failed: msg('Sambungan tidak bisa diselesaikan. Mulai lagi.')
 } as const;
 export type GmailCallbackResult = keyof typeof GMAIL_CALLBACK_RESULTS;
+
+// ---- FN-19b follow-ups -----------------------------------------------------------------------------------------
+export const GMAIL_AUTOSAVE_WALLET = msg('Pilih dompet rupiah dari ruang tujuan.');
+export const GMAIL_AUTOSAVE_SPACE = msg(
+	'Kamu bukan anggota ruang tujuan lagi. Pilih ruang lain dulu.'
+);
+export const GMAIL_SCAN_NOT_FOUND = msg('Pemindaian itu tidak ditemukan. Muat ulang halaman.');
+export const GMAIL_UNDO_ALREADY = msg('Sudah diurungkan');
+export const GMAIL_REVIEW_LOAD_FAILED = msg(
+	'Transaksi dari Gmail tidak bisa dimuat. Periksa koneksi lalu coba lagi.'
+);
+export const GMAIL_SAVE_STALE = msg(
+	'Ada draf yang berubah di tab lain. Muat ulang lalu coba lagi.'
+);
+export const GMAIL_SAVE_LIMIT = msg('Batas jumlah transaksi ruang ini sudah tercapai.');
+export const GMAIL_SAVE_DUPLICATE = msg(
+	'Sebagian sudah pernah disimpan. Muat ulang lalu coba lagi.'
+);
+export const GMAIL_NOTIFY_CHANGED = msg(
+	'Pengaturan pemberitahuan berubah di tab lain. Muat ulang halaman lalu coba lagi.'
+);
+export const GMAIL_SAVE_CATEGORY = msg('Pilih kategori pengeluaran dari daftar.');
+export const GMAIL_SAVE_NONE = msg('Tidak ada draf yang menunggu dari pemindaian ini.');
